@@ -32,8 +32,8 @@ config/*.yml
 config/*.yaml
 
 # Editor/IDE
-# .idea/
-# .vscode/
+.idea/
+.vscode/
 
 # Mac OS saves
 .DS_Store
