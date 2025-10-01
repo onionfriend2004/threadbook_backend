@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/onionfriend2004/threadbook_backend/db"
 	"github.com/onionfriend2004/threadbook_backend/internal/auth/adapter"
 	deliveryHTTP "github.com/onionfriend2004/threadbook_backend/internal/auth/delivery/http"
 	"github.com/onionfriend2004/threadbook_backend/internal/auth/service"
@@ -12,7 +13,7 @@ import (
 
 func Run() error {
 	// Подключаемся к базе данных
-	db, err := GetPostgres()
+	db, err := db.GetPostgres()
 	if err != nil {
 		return err
 	}

@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	"github.com/onionfriend2004/threadbook_backend/app"
+	"github.com/onionfriend2004/threadbook_backend/internal/app"
 )
 
 func main() {
