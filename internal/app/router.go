@@ -1,10 +1,12 @@
 package app
 
 import (
-	"net/http"
-
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+
+	"net/http"
+
+	"github.com/onionfriend2004/threadbook_backend/config"
 	"github.com/onionfriend2004/threadbook_backend/db"
 	"github.com/onionfriend2004/threadbook_backend/internal/auth/adapter"
 	deliveryHTTP "github.com/onionfriend2004/threadbook_backend/internal/auth/delivery/http"
@@ -14,12 +16,14 @@ import (
 )
 
 // Run starts the HTTP server with graceful shutdown.
-func Run(logger *zap.Logger) error {
+func Run(config *config.Config, logger *zap.Logger) error {
+	// ===================== PostgreConn =====================
 	dbConn, err := db.GetPostgres()
 	if err != nil {
 		logger.Error("failed to connect to database", zap.Error(err))
 		return err
 	}
+	// ===================== OtherConn =====================
 
 	r := chi.NewRouter()
 
@@ -31,7 +35,7 @@ func Run(logger *zap.Logger) error {
 	r.Mount("/api", apiRouter(dbConn, logger))
 
 	httpServer := &http.Server{
-		Addr:    ":8080",
+		Addr:    ":8080", // TODO: Port in Config
 		Handler: r,
 	}
 
@@ -41,10 +45,6 @@ func Run(logger *zap.Logger) error {
 			logger.Error("HTTP server failed", zap.Error(err))
 		}
 	}()
-
-	// Ожидаем отмены контекста (graceful shutdown будет в main, но можно и здесь)
-	// В данном случае graceful shutdown лучше обрабатывать в main.go — так и оставим.
-	// Эта функция просто запускает сервер и возвращает управление.
 
 	return nil
 }
@@ -61,7 +61,7 @@ func apiRouter(db *gorm.DB, logger *zap.Logger) chi.Router {
 	r.Post("/register", authHandler.Register)
 	r.Post("/login", authHandler.Login)
 
-	// ===================== Example =====================
+	// ===================== Other Modules =====================
 
 	return r
 }

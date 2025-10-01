@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	goLog "log"
 	"os"
 
 	"github.com/onionfriend2004/threadbook_backend/config"
@@ -14,7 +14,7 @@ func main() {
 	// Загрузка конфигурации
 	cfg, err := config.LoadConfig("./config")
 	if err != nil {
-		log.Fatalf("failed to load config: %v", err)
+		goLog.Fatalf("failed to load config: %v", err)
 	}
 
 	// Создание Логера
@@ -24,7 +24,7 @@ func main() {
 	log.Info("Hello world!")
 
 	// Запуск приложения
-	if err := app.Run(log); err != nil {
+	if err := app.Run(cfg, log); err != nil {
 		log.Error("application failed", zap.Error(err))
 		os.Exit(1)
 	}
