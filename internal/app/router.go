@@ -61,7 +61,11 @@ func apiRouter(db *gorm.DB, logger *zap.Logger) chi.Router {
 	r.Post("/register", authHandler.Register)
 	r.Post("/login", authHandler.Login)
 
-	// ===================== Other Modules =====================
+	// ===================== Spool =====================
+
+	// ===================== Thread =====================
+
+	// ===================== Other =====================
 
 	return r
 }
