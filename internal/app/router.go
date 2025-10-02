@@ -7,10 +7,7 @@ import (
 	"net/http"
 
 	"github.com/onionfriend2004/threadbook_backend/config"
-	"github.com/onionfriend2004/threadbook_backend/db"
-	"github.com/onionfriend2004/threadbook_backend/internal/auth/adapter"
-	deliveryHTTP "github.com/onionfriend2004/threadbook_backend/internal/auth/delivery/http"
-	"github.com/onionfriend2004/threadbook_backend/internal/auth/service"
+	"github.com/onionfriend2004/threadbook_backend/infra"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -18,7 +15,7 @@ import (
 // Run starts the HTTP server with graceful shutdown.
 func Run(config *config.Config, logger *zap.Logger) error {
 	// ===================== PostgreConn =====================
-	dbConn, err := db.GetPostgres()
+	dbConn, err := infra.PostgresConnect(config)
 	if err != nil {
 		logger.Error("failed to connect to database", zap.Error(err))
 		return err
@@ -35,7 +32,7 @@ func Run(config *config.Config, logger *zap.Logger) error {
 	r.Mount("/api", apiRouter(dbConn, logger))
 
 	httpServer := &http.Server{
-		Addr:    ":8080", // TODO: Port in Config
+		Addr:    config.App.Port,
 		Handler: r,
 	}
 
@@ -54,12 +51,11 @@ func apiRouter(db *gorm.DB, logger *zap.Logger) chi.Router {
 
 	// ===================== Auth =====================
 
-	userRepo := adapter.NewGORMUserRepository(db)
-	authService := service.NewAuthService(userRepo)
-	authHandler := deliveryHTTP.NewHandler(authService /*, logger.With(zap.String("component", "auth"))*/)
+	// init other...
+	// authHandler := deliveryHTTP.NewHandler( /*, logger.With(zap.String("component", "auth"))*/ )
 
-	r.Post("/register", authHandler.Register)
-	r.Post("/login", authHandler.Login)
+	// r.Post("/register", authHandler.Register)
+	// r.Post("/login", authHandler.Login)
 
 	// ===================== Spool =====================
 
