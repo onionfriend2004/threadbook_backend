@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/onionfriend2004/threadbook_backend/config"
+	"github.com/onionfriend2004/threadbook_backend/internal/auth/domain"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -26,8 +27,12 @@ func PostgresConnect(cfg *config.Config) (*gorm.DB, error) {
 	}
 
 	// Миграции
-	db.AutoMigrate()
+	err = db.AutoMigrate(&domain.User{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to run migrations: %w", err)
+	}
 
 	// db.Exec(``) Кастомные запросы DDL
 
+	return db, nil
 }

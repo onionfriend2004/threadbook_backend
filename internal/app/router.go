@@ -15,7 +15,7 @@ import (
 // Run starts the HTTP server with graceful shutdown.
 func Run(config *config.Config, logger *zap.Logger) error {
 	// ===================== PostgreConn =====================
-	dbConn, err := infra.Connect(config)
+	dbConn, err := infra.PostgresConnect(config)
 	if err != nil {
 		logger.Error("failed to connect to database", zap.Error(err))
 		return err
@@ -32,7 +32,7 @@ func Run(config *config.Config, logger *zap.Logger) error {
 	r.Mount("/api", apiRouter(dbConn, logger))
 
 	httpServer := &http.Server{
-		Addr:    ":8080", // TODO: Port in Config
+		Addr:    config.App.Port,
 		Handler: r,
 	}
 

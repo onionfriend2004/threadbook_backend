@@ -6,6 +6,10 @@ import (
 
 // Config содержит конфигурацию приложения.
 type Config struct {
+	App struct {
+		Port string `mapstructure:"port"`
+	} `mapstructure:"app"`
+
 	Postgres struct {
 		Host     string `mapstructure:"host"`
 		Port     int    `mapstructure:"port"`
