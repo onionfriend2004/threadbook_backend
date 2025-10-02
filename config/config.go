@@ -6,6 +6,22 @@ import (
 
 // Config содержит конфигурацию приложения.
 type Config struct {
+	Postgres struct {
+		Host     string `mapstructure:"host"`
+		Port     int    `mapstructure:"port"`
+		User     string `mapstructure:"user"`
+		Password string `mapstructure:"password"`
+		Name     string `mapstructure:"name"`
+		SSLMode  string `mapstructure:"sslmode"`
+	} `mapstructure:"database"`
+
+	Redis struct {
+		Host     string `mapstructure:"host"`
+		Port     int    `mapstructure:"port"`
+		Password string `mapstructure:"password"`
+		DB       int    `mapstructure:"db"` // номер базы (по умолчанию 0)
+	} `mapstructure:"redis"`
+
 	Log struct {
 		Level string `mapstructure:"level"` // e.g. "debug", "info"
 	} `mapstructure:"log"`
