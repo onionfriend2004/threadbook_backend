@@ -21,10 +21,10 @@ func (h *AuthHandler) WhoIAm(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie(h.cookieConfig.Name)
 	if err != nil {
 		if err == http.ErrNoCookie {
-			http.Error(w, "not authenticated", lib.StatusUnauthorized)
+			lib.WriteError(w, "not authenticated", lib.StatusUnauthorized)
 			return
 		}
-		http.Error(w, "bad request", lib.StatusBadRequest)
+		lib.WriteError(w, "bad request", lib.StatusBadRequest)
 		return
 	}
 
@@ -32,10 +32,10 @@ func (h *AuthHandler) WhoIAm(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case err == usecase.ErrSessionNotFound, err == usecase.ErrUserNotFound:
-			http.Error(w, "not authenticated", lib.StatusUnauthorized)
+			lib.WriteError(w, "not authenticated", lib.StatusUnauthorized)
 		default:
 			h.logger.Error("failed to authenticate user", zap.Error(err))
-			http.Error(w, "internal server error", lib.StatusInternalServerError)
+			lib.WriteError(w, "internal server error", lib.StatusInternalServerError)
 		}
 		return
 	}

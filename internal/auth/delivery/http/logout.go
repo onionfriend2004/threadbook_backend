@@ -12,20 +12,20 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie(h.cookieConfig.Name)
 	if err != nil {
 		if err == http.ErrNoCookie {
-			http.Error(w, "not authenticated", lib.StatusUnauthorized)
+			lib.WriteError(w, "not authenticated", lib.StatusUnauthorized)
 			return
 		}
-		http.Error(w, "bad request", lib.StatusBadRequest)
+		lib.WriteError(w, "bad request", lib.StatusBadRequest)
 		return
 	}
 
 	if err := h.usecase.SignOutUser(r.Context(), cookie.Value); err != nil {
 		switch {
 		case err == usecase.ErrInvalidInput:
-			http.Error(w, "invalid session", lib.StatusBadRequest)
+			lib.WriteError(w, "invalid session", lib.StatusBadRequest)
 		default:
 			h.logger.Error("failed to sign out user", zap.Error(err))
-			http.Error(w, "internal server error", lib.StatusInternalServerError)
+			lib.WriteError(w, "internal server error", lib.StatusInternalServerError)
 		}
 		return
 	}

@@ -13,7 +13,7 @@ import (
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req dto.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid JSON", lib.StatusBadRequest)
+		lib.WriteError(w, "invalid JSON", lib.StatusBadRequest)
 		return
 	}
 
@@ -24,12 +24,12 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case err == usecase.ErrInvalidCredentials:
-			http.Error(w, "invalid credentials", lib.StatusUnauthorized)
+			lib.WriteError(w, "invalid credentials", lib.StatusUnauthorized)
 		case err == usecase.ErrInvalidInput:
-			http.Error(w, "invalid input", lib.StatusBadRequest)
+			lib.WriteError(w, "invalid input", lib.StatusBadRequest)
 		default:
 			h.logger.Error("failed to sign in user", zap.Error(err))
-			http.Error(w, "internal server error", lib.StatusInternalServerError)
+			lib.WriteError(w, "internal server error", lib.StatusInternalServerError)
 		}
 		return
 	}
@@ -37,7 +37,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	session, err := h.usecase.CreateSessionForUser(r.Context(), user)
 	if err != nil {
 		h.logger.Error("failed to create session", zap.Error(err))
-		http.Error(w, "internal server error", lib.StatusInternalServerError)
+		lib.WriteError(w, "internal server error", lib.StatusInternalServerError)
 		return
 	}
 

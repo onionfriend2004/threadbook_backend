@@ -13,7 +13,7 @@ import (
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req dto.RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid JSON", lib.StatusBadRequest)
+		lib.WriteError(w, "invalid JSON", lib.StatusBadRequest)
 		return
 	}
 
@@ -25,12 +25,12 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case err == usecase.ErrUserAlreadyExists:
-			http.Error(w, "user already exists", lib.StatusConflict)
+			lib.WriteError(w, "user already exists", lib.StatusConflict)
 		case err == usecase.ErrInvalidInput:
-			http.Error(w, "invalid input", lib.StatusBadRequest)
+			lib.WriteError(w, "invalid input", lib.StatusBadRequest)
 		default:
 			h.logger.Error("failed to register user", zap.Error(err))
-			http.Error(w, "internal server error", lib.StatusInternalServerError)
+			lib.WriteError(w, "internal server error", lib.StatusInternalServerError)
 		}
 		return
 	}
@@ -38,7 +38,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	session, err := h.usecase.CreateSessionForUser(r.Context(), user)
 	if err != nil {
 		h.logger.Error("failed to create session", zap.Error(err))
-		http.Error(w, "internal server error", lib.StatusInternalServerError)
+		lib.WriteError(w, "internal server error", lib.StatusInternalServerError)
 		return
 	}
 
