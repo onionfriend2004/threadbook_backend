@@ -13,11 +13,11 @@ var (
 	ErrInvalidParams = errors.New("invalid argon2 parameters")
 )
 
-type Argon2Hasher struct {
+type argon2Hasher struct {
 	params *argon2id.Params
 }
 
-func NewArgon2HasherFromConfig(cfg config.Config) (*Argon2Hasher, error) {
+func NewArgon2HasherFromConfig(cfg config.Config) (*argon2Hasher, error) {
 	if cfg.Argon2.Memory == 0 || cfg.Argon2.Iterations == 0 || cfg.Argon2.Parallelism == 0 {
 		return nil, ErrInvalidParams
 	}
@@ -37,17 +37,17 @@ func NewArgon2HasherFromConfig(cfg config.Config) (*Argon2Hasher, error) {
 		params.KeyLength = 32
 	}
 
-	return &Argon2Hasher{params: params}, nil
+	return &argon2Hasher{params: params}, nil
 }
 
-func (h *Argon2Hasher) Hash(password string) (string, error) {
+func (h *argon2Hasher) Hash(password string) (string, error) {
 	if password == "" {
 		return "", ErrEmptyPassword
 	}
 	return argon2id.CreateHash(password, h.params)
 }
 
-func (h *Argon2Hasher) Verify(password, hash string) (bool, error) {
+func (h *argon2Hasher) Verify(password, hash string) (bool, error) {
 	if password == "" {
 		return false, ErrEmptyPassword
 	}
@@ -57,4 +57,4 @@ func (h *Argon2Hasher) Verify(password, hash string) (bool, error) {
 	return argon2id.ComparePasswordAndHash(password, hash)
 }
 
-var _ HasherInterface = (*Argon2Hasher)(nil)
+var _ HasherInterface = (*argon2Hasher)(nil)

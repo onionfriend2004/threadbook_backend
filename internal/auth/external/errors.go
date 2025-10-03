@@ -8,9 +8,10 @@ import (
 
 // USER_REPO ERRORS
 var (
-	ErrInvalidUser = domain.ErrInvalidUser
-	ErrUserExists  = errors.New("user already exists")
-	ErrNotFound    = domain.ErrNotFound
+	ErrInvalidUser  = domain.ErrInvalidUser
+	ErrUserExists   = errors.New("user already exists")
+	ErrUserNotFound = domain.ErrNotFound
+	ErrNotFound     = domain.ErrNotFound
 )
 
 // SESSION_REPO ERRORS

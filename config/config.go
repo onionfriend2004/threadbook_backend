@@ -36,9 +36,20 @@ type Config struct {
 		KeyLength   uint32 `mapstructure:"key_length"`  // длина хэша в байтах (обычно 32)
 	} `mapstructure:"argon2"`
 
-	User_session struct {
+	UserSession struct {
 		TTL uint32 `mapstructure:"ttl"` // TTL Жизни сессии пользователя
 	} `mapstructure:"user_session"`
+
+	Cookie struct {
+		SessionCookieName string `mapstructure:"session_cookie_name"` // Рекомендуется использовать нейтральное имя (например, "sid"), чтобы не раскрывать детали реализации.
+		SessionCookiePath string `mapstructure:"session_cookie_path"` // Путь, для которого устанавливается кука.  Обычно "/" — чтобы кука была доступна всем эндпоинтам API.
+		SessionDomain     string `mapstructure:"session_domain"`      //Домен, для которого действует кука. Оставьте пустым если нет поддоменов
+		SessionSecure     bool   `mapstructure:"session_secure"`      // HTTPS. Обязательно true в production! В development (HTTP) должно быть false.
+		SessionSameSite   string `mapstructure:"session_samesite"`    // От CSFR Защита
+		// - "Strict": кука не отправляется при переходе с внешних сайтов (макс. безопасность).		<- в production Strict + https
+		// - "Lax": разрешает отправку при безопасных GET-запросах (например, клик по ссылке).		<- в dev можно Lax + http
+		// - "None": отключает защиту (требует SessionSecure=true).									<- не надо дядя
+	} `mapstructure:"cookie"`
 
 	Log struct {
 		Level string `mapstructure:"level"` // e.g. "debug", "info"
@@ -49,10 +60,10 @@ type Config struct {
 func LoadConfig(path string) (*Config, error) {
 	viper.AddConfigPath(path)
 	viper.SetConfigName("config")
-	viper.SetConfigType("yaml")
+	viper.SetConfigType("yaml") // or "env"
 
 	// If allow env vars like LOG_LEVEL, DB_HOST, etc.
-	// viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	// viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_")) это говно понадопится если env юзать
 	viper.AutomaticEnv()
 
 	// Установка разумных значений (дефолтов) по умолчанию

@@ -9,7 +9,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// ConnectRedis устанавливает соединение с Redis.
+// Подключение к Redis
 func RedisConnect(cfg *config.Config) (*redis.Client, error) {
 	addr := fmt.Sprintf("%s:%d", cfg.Redis.Host, cfg.Redis.Port)
 
@@ -23,7 +23,7 @@ func RedisConnect(cfg *config.Config) (*redis.Client, error) {
 		PoolSize:     10,
 	})
 
-	// Проверяем соединение
+	// Ping Pong
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
