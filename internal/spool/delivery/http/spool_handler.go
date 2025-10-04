@@ -22,7 +22,7 @@ func (h *SpoolHandler) Routes(r chi.Router) {
 	r.Route("/spools", func(r chi.Router) {
 		r.Post("/", h.CreateSpool)
 		r.Post("/leave", h.LeaveFromSpool)
-		r.Get("/user/{userID}", h.GetUserSpoolList)
+		r.Get("/user", h.GetUserSpoolList)
 		r.Post("/invite", h.InviteMemberInSpool)
 		r.Put("/", h.UpdateSpool)
 		r.Get("/{spoolID}", h.GetSpoolInfoById)

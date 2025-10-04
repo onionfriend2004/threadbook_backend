@@ -2,9 +2,7 @@ package deliveryHTTP
 
 import (
 	"net/http"
-	"strconv"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/goccy/go-json"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib"
 	"github.com/onionfriend2004/threadbook_backend/internal/spool/delivery/dto"
@@ -13,12 +11,7 @@ import (
 )
 
 func (h *SpoolHandler) GetUserSpoolList(w http.ResponseWriter, r *http.Request) {
-	userIDStr := chi.URLParam(r, "userID")
-	userID, err := strconv.Atoi(userIDStr)
-	if err != nil {
-		lib.WriteError(w, "invalid user id", lib.StatusBadRequest)
-		return
-	}
+	userID := 1
 
 	spools, err := h.usecase.GetUserSpoolList(r.Context(), usecase.GetUserSpoolListInput{UserID: userID})
 	if err != nil {

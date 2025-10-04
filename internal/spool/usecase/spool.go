@@ -35,9 +35,10 @@ func NewSpoolUsecase(
 
 // ---------- Create ----------
 func (u *spoolUsecase) CreateSpool(ctx context.Context, input CreateSpoolInput) (*gdomain.Spool, error) {
-	if input.Name == "" || input.OwnerID == 0 {
-		return nil, ErrInvalidInput
-	}
+	// if input.Name == "" || input.OwnerID == 0 {
+	// 	return nil, ErrInvalidInput
+	// }
+	input.OwnerID = 1
 
 	newSpool, err := gdomain.NewSpool(input.Name, input.BannerLink)
 	if err != nil {
