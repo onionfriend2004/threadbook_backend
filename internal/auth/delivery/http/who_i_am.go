@@ -31,7 +31,7 @@ func (h *AuthHandler) WhoIAm(w http.ResponseWriter, r *http.Request) {
 	user, err := h.usecase.AuthenticateUser(r.Context(), cookie.Value)
 	if err != nil {
 		switch {
-		case err == usecase.ErrSessionNotFound, err == usecase.ErrUserNotFound:
+		case err == usecase.ErrSessionNotFound, err == usecase.ErrUserNotFound, err == usecase.ErrInvalidInput:
 			lib.WriteError(w, "not authenticated", lib.StatusUnauthorized)
 		default:
 			h.logger.Error("failed to authenticate user", zap.Error(err))

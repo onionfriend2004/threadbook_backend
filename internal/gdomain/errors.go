@@ -7,4 +7,5 @@ var (
 	ErrUserExists   = errors.New("user already exists")
 	ErrNotFound     = errors.New("user not found")
 	ErrUnauthorized = errors.New("invalid credentials")
+	ErrEmptyName    = errors.New("spool name cannot be empty")
 )

@@ -21,9 +21,9 @@ import (
 	authExternal "github.com/onionfriend2004/threadbook_backend/internal/auth/external"
 	"github.com/onionfriend2004/threadbook_backend/internal/auth/hasher"
 	authUsecase "github.com/onionfriend2004/threadbook_backend/internal/auth/usecase"
-	emailDeliveryNATS "github.com/onionfriend2004/threadbook_backend/internal/email/delivery/nats"
-	emailExternal "github.com/onionfriend2004/threadbook_backend/internal/email/external"
-	emailUsecase "github.com/onionfriend2004/threadbook_backend/internal/email/usecase"
+	spoolDeliveryHTTP "github.com/onionfriend2004/threadbook_backend/internal/spool/delivery/http"
+	spoolExternal "github.com/onionfriend2004/threadbook_backend/internal/spool/external"
+	spoolUsecase "github.com/onionfriend2004/threadbook_backend/internal/spool/usecase"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -50,13 +50,13 @@ func Run(config *config.Config, logger *zap.Logger) error {
 	}
 
 	// ===================== Email Consumer =====================
-	emailConsumer := initEmailConsumer(config, natsConn, logger)
+	// emailConsumer := initEmailConsumer(config, natsConn, logger)
 
 	// Создаём общий контекст для всего приложения
-	ctx, cancel := context.WithCancel(context.Background())
+	_, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go startEmailConsumer(ctx, emailConsumer, logger)
+	// go startEmailConsumer(ctx, emailConsumer, logger)
 
 	// ===================== HTTP Server =====================
 	r := chi.NewRouter()
@@ -130,32 +130,19 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 
 	// ===================== Spool =====================
 
+	// external
+	spoolRepo := spoolExternal.NewSpoolRepo(db)
+
+	// usecase
+	spoolUsecase := spoolUsecase.NewSpoolUsecase(spoolRepo, logger)
+
+	// handler
+	spoolHandler := spoolDeliveryHTTP.NewSpoolHandler(spoolUsecase, logger)
+	spoolHandler.Routes(r)
+
 	// ===================== Thread =====================
 
 	// ===================== Other =====================
 
 	return r, nil
-}
-
-func initEmailConsumer(cfg *config.Config, nc *nats.Conn, logger *zap.Logger) emailDeliveryNATS.EmailConsumerInterface {
-	emailRepo := emailExternal.NewMailRepository(
-		cfg.Smtp.Server,
-		cfg.Smtp.Port,
-		cfg.Smtp.Username,
-		cfg.Smtp.Password,
-		cfg.Smtp.Sender,
-	)
-	emailUsecase := emailUsecase.NewEmailUsecase(emailRepo, logger.With(zap.String("service", "email")))
-	return emailDeliveryNATS.NewEmailConsumer(
-		nc,
-		cfg.Nats.VerifyCodeSubject,
-		emailUsecase,
-		logger.With(zap.String("component", "email_consumer")),
-	)
-}
-
-func startEmailConsumer(ctx context.Context, consumer emailDeliveryNATS.EmailConsumerInterface, logger *zap.Logger) {
-	if err := consumer.Start(ctx); err != nil {
-		logger.Error("email consumer failed", zap.Error(err))
-	}
 }
