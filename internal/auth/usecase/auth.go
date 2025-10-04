@@ -17,6 +17,8 @@ type AuthUsecaseInterface interface {
 	SignOutUser(ctx context.Context, sessionID string) error
 	AuthenticateUser(ctx context.Context, sessionID string) (*gdomain.User, error)
 	CreateSessionForUser(ctx context.Context, user *gdomain.User) (*domain.Session, error)
+
+	VerifyUserEmail(ctx context.Context, userID int, code int) error
 }
 
 type authUsecase struct {
@@ -182,6 +184,33 @@ func (u *authUsecase) CreateSessionForUser(ctx context.Context, user *gdomain.Us
 		return nil, ErrInvalidInput
 	}
 	return u.sessionRepo.AddSessionForUser(ctx, user)
+}
+
+func (u *authUsecase) VerifyUserEmail(ctx context.Context, userID int, code int) error {
+	if userID <= 0 || (99999 < code && code <= 999999) {
+		return ErrInvalidInput
+	}
+	valid, err := u.verifyCodeRepo.VerifyCode(ctx, uint(userID), code)
+	if err != nil {
+		u.logger.Error("failed to verify code",
+			zap.Int("user_id", userID),
+			zap.Int("code", code),
+			zap.Error(err))
+		return err
+	}
+	if !valid {
+		return ErrCodeIncorrect
+	}
+
+	if err := u.userRepo.VerifyUserEmail(ctx, uint(userID)); err != nil {
+		u.logger.Error("failed to verify user email in DB",
+			zap.Int("user_id", userID),
+			zap.Error(err))
+		return err
+	}
+
+	u.logger.Info("user email verified successfully", zap.Int("user_id", userID))
+	return nil
 }
 
 var _ AuthUsecaseInterface = (*authUsecase)(nil)

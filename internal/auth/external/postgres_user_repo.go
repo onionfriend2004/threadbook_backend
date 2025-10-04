@@ -27,6 +27,7 @@ func (r *userRepo) CreateUser(ctx context.Context, user gdomain.User) (*gdomain.
 	if user.Email == "" || user.Username == "" || user.PasswordHash == "" {
 		return &gdomain.User{}, ErrInvalidUser
 	}
+	user.EmailVerify = false
 	err := r.db.WithContext(ctx).Create(&user).Error
 	if err != nil {
 		if isUniqueViolation(err) {
@@ -78,6 +79,23 @@ func (r *userRepo) ExistsByUsername(ctx context.Context, username string) (bool,
 	var count int64
 	err := r.db.WithContext(ctx).Model(&gdomain.User{}).Where("username = ?", normalized).Count(&count).Error
 	return count > 0, err
+}
+
+func (r *userRepo) VerifyUserEmail(ctx context.Context, userID uint) error {
+	result := r.db.WithContext(ctx).
+		Model(&gdomain.User{}).
+		Where("id = ?", userID).
+		Update("email_verify", true)
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return ErrNotFound
+	}
+
+	return nil
 }
 
 var _ UserRepoInterface = (*userRepo)(nil)

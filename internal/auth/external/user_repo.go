@@ -16,5 +16,6 @@ type UserRepoInterface interface {
 	ExistsByEmail(ctx context.Context, email string) (bool, error)
 	ExistsByUsername(ctx context.Context, username string) (bool, error)
 
+	VerifyUserEmail(ctx context.Context, userID uint) error
 	// TODO: ExistsUsername Yes/No
 }
