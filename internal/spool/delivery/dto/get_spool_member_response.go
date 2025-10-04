@@ -5,7 +5,7 @@ type GetSpoolMembersResponse struct {
 }
 
 type MemberShortInfo struct {
-	ID       int    `json:"id"`
+	ID       uint   `json:"id"`
 	Username string `json:"username"`
 	Nickname string `json:"nickname,omitempty"`
 	Avatar   string `json:"avatar_link,omitempty"`

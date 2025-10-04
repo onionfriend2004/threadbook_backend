@@ -1,9 +1,11 @@
 package deliveryHTTP
 
 import (
-	"encoding/json"
 	"net/http"
 
+	"github.com/goccy/go-json"
+
+	"github.com/onionfriend2004/threadbook_backend/internal/lib"
 	"github.com/onionfriend2004/threadbook_backend/internal/spool/delivery/dto"
 	"github.com/onionfriend2004/threadbook_backend/internal/spool/usecase"
 	"go.uber.org/zap"
@@ -17,7 +19,7 @@ func (h *SpoolHandler) UpdateSpool(w http.ResponseWriter, r *http.Request) {
 	}
 
 	spool, err := h.usecase.UpdateSpool(r.Context(), usecase.UpdateSpoolInput{
-		ID:         req.ID,
+		SpoolID:    req.ID,
 		Name:       req.Name,
 		BannerLink: req.BannerLink,
 	})
@@ -33,5 +35,7 @@ func (h *SpoolHandler) UpdateSpool(w http.ResponseWriter, r *http.Request) {
 		BannerLink: spool.BannerLink,
 	}
 
-	lib.WriteJSON(w, resp, lib.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(resp)
 }

@@ -1,9 +1,10 @@
 package deliveryHTTP
 
 import (
-	"encoding/json"
 	"net/http"
 
+	"github.com/goccy/go-json"
+	"github.com/onionfriend2004/threadbook_backend/internal/lib"
 	"github.com/onionfriend2004/threadbook_backend/internal/spool/delivery/dto"
 	"github.com/onionfriend2004/threadbook_backend/internal/spool/usecase"
 	"go.uber.org/zap"
@@ -32,5 +33,10 @@ func (h *SpoolHandler) CreateSpool(w http.ResponseWriter, r *http.Request) {
 		BannerLink: spool.BannerLink,
 	}
 
-	lib.WriteJSON(w, resp, lib.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(lib.StatusOK)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		h.logger.Warn("failed to encode response", zap.Error(err))
+		return
+	}
 }

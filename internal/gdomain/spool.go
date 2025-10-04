@@ -1,4 +1,4 @@
-package domain
+package gdomain
 
 import (
 	"strings"
@@ -11,8 +11,8 @@ type Spool struct {
 	BannerLink string `gorm:"type:text" json:"banner_link,omitempty"`
 
 	// связи
-	Threads []Thread `gorm:"many2many:spool_thread;constraint:OnDelete:CASCADE;" json:"threads,omitempty"`
-	Members []User   `gorm:"many2many:user_spool;constraint:OnDelete:CASCADE;" json:"members,omitempty"`
+	// Threads []Thread `gorm:"many2many:spool_thread;constraint:OnDelete:CASCADE;" json:"threads,omitempty"`
+	Members []User `gorm:"many2many:user_spool;constraint:OnDelete:CASCADE;" json:"members,omitempty"`
 
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`

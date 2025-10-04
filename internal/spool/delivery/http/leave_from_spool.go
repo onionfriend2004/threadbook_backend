@@ -12,7 +12,7 @@ import (
 func (h *SpoolHandler) LeaveFromSpool(w http.ResponseWriter, r *http.Request) {
 	var req dto.LeaveFromSpoolRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		lib.WriteError(w, "invalid JSON", lib.StatusBadRequest)
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}
 
@@ -22,9 +22,11 @@ func (h *SpoolHandler) LeaveFromSpool(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		h.logger.Error("failed to leave spool", zap.Error(err))
-		lib.WriteError(w, "failed to leave spool", lib.StatusInternalServerError)
+		http.Error(w, "failed to leave spool", http.StatusInternalServerError)
 		return
 	}
 
-	lib.WriteJSON(w, dto.LeaveFromSpoolResponse{Success: true}, lib.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(dto.LeaveFromSpoolResponse{Success: true})
 }

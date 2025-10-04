@@ -3,19 +3,19 @@ package usecase
 import (
 	"context"
 
-	"github.com/onionfriend2004/threadbook_backend/internal/spool/domain"
+	"github.com/onionfriend2004/threadbook_backend/internal/gdomain"
 	"github.com/onionfriend2004/threadbook_backend/internal/spool/external"
 	"go.uber.org/zap"
 )
 
 type SpoolUsecaseInterface interface {
-	CreateSpool(ctx context.Context, input CreateSpoolInput) (*domain.Spool, error)
+	CreateSpool(ctx context.Context, input CreateSpoolInput) (*gdomain.Spool, error)
 	LeaveFromSpool(ctx context.Context, input LeaveFromSpoolInput) error
-	GetUserSpoolList(ctx context.Context, input GetUserSpoolListInput) ([]domain.Spool, error)
+	GetUserSpoolList(ctx context.Context, input GetUserSpoolListInput) ([]gdomain.Spool, error)
 	InviteMemberInSpool(ctx context.Context, input InviteMemberInSpoolInput) error
-	UpdateSpool(ctx context.Context, input UpdateSpoolInput) (*domain.Spool, error)
-	GetSpoolInfoById(ctx context.Context, input GetSpoolInfoByIdInput) (*domain.Spool, error)
-	GetSpoolMembers(ctx context.Context, input GetSpoolMembersInput) ([]domain.User, error)
+	UpdateSpool(ctx context.Context, input UpdateSpoolInput) (*gdomain.Spool, error)
+	GetSpoolInfoById(ctx context.Context, input GetSpoolInfoByIdInput) (*gdomain.Spool, error)
+	GetSpoolMembers(ctx context.Context, input GetSpoolMembersInput) ([]gdomain.User, error)
 }
 
 type spoolUsecase struct {
@@ -34,12 +34,12 @@ func NewSpoolUsecase(
 }
 
 // ---------- Create ----------
-func (u *spoolUsecase) CreateSpool(ctx context.Context, input CreateSpoolInput) (*domain.Spool, error) {
+func (u *spoolUsecase) CreateSpool(ctx context.Context, input CreateSpoolInput) (*gdomain.Spool, error) {
 	if input.Name == "" || input.OwnerID == 0 {
 		return nil, ErrInvalidInput
 	}
 
-	newSpool, err := domain.NewSpool(input.Name, input.BannerLink)
+	newSpool, err := gdomain.NewSpool(input.Name, input.BannerLink)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +62,7 @@ func (u *spoolUsecase) LeaveFromSpool(ctx context.Context, input LeaveFromSpoolI
 }
 
 // ---------- List by user ----------
-func (u *spoolUsecase) GetUserSpoolList(ctx context.Context, input GetUserSpoolListInput) ([]domain.Spool, error) {
+func (u *spoolUsecase) GetUserSpoolList(ctx context.Context, input GetUserSpoolListInput) ([]gdomain.Spool, error) {
 	if input.UserID == 0 {
 		return nil, ErrInvalidInput
 	}
@@ -78,7 +78,7 @@ func (u *spoolUsecase) InviteMemberInSpool(ctx context.Context, input InviteMemb
 }
 
 // ---------- Update ----------
-func (u *spoolUsecase) UpdateSpool(ctx context.Context, input UpdateSpoolInput) (*domain.Spool, error) {
+func (u *spoolUsecase) UpdateSpool(ctx context.Context, input UpdateSpoolInput) (*gdomain.Spool, error) {
 	if input.SpoolID == 0 {
 		return nil, ErrInvalidInput
 	}
@@ -92,7 +92,7 @@ func (u *spoolUsecase) UpdateSpool(ctx context.Context, input UpdateSpoolInput) 
 }
 
 // ---------- Get members ----------
-func (u *spoolUsecase) GetSpoolMembers(ctx context.Context, input GetSpoolMembersInput) ([]domain.User, error) {
+func (u *spoolUsecase) GetSpoolMembers(ctx context.Context, input GetSpoolMembersInput) ([]gdomain.User, error) {
 	if input.SpoolID == 0 {
 		return nil, ErrInvalidInput
 	}
@@ -100,7 +100,7 @@ func (u *spoolUsecase) GetSpoolMembers(ctx context.Context, input GetSpoolMember
 }
 
 // ---------- Get info ----------
-func (u *spoolUsecase) GetSpoolInfoById(ctx context.Context, input GetSpoolInfoByIdInput) (*domain.Spool, error) {
+func (u *spoolUsecase) GetSpoolInfoById(ctx context.Context, input GetSpoolInfoByIdInput) (*gdomain.Spool, error) {
 	if input.SpoolID == 0 {
 		return nil, ErrInvalidInput
 	}

@@ -2,14 +2,19 @@ package deliveryHTTP
 
 import (
 	"net/http"
+	"strconv"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/goccy/go-json"
+	"github.com/onionfriend2004/threadbook_backend/internal/lib"
 	"github.com/onionfriend2004/threadbook_backend/internal/spool/delivery/dto"
 	"github.com/onionfriend2004/threadbook_backend/internal/spool/usecase"
 	"go.uber.org/zap"
 )
 
 func (h *SpoolHandler) GetUserSpoolList(w http.ResponseWriter, r *http.Request) {
-	userID, err := lib.ParseIntParam(r, "userID")
+	userIDStr := chi.URLParam(r, "userID")
+	userID, err := strconv.Atoi(userIDStr)
 	if err != nil {
 		lib.WriteError(w, "invalid user id", lib.StatusBadRequest)
 		return
@@ -31,5 +36,10 @@ func (h *SpoolHandler) GetUserSpoolList(w http.ResponseWriter, r *http.Request) 
 		})
 	}
 
-	lib.WriteJSON(w, resp, lib.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(lib.StatusOK)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		h.logger.Warn("failed to encode response", zap.Error(err))
+		return
+	}
 }
