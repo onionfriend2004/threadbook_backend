@@ -19,21 +19,14 @@ func (h *SpoolHandler) InviteMemberInSpool(w http.ResponseWriter, r *http.Reques
 	}
 
 	err := h.usecase.InviteMemberInSpool(r.Context(), usecase.InviteMemberInSpoolInput{
-		SpoolID:  req.SpoolID,
-		MemberID: req.MemberID,
+		SpoolID:         req.SpoolID,
+		MemberUsernames: req.MemberUsernames,
 	})
 	if err != nil {
-		h.logger.Error("failed to invite member", zap.Error(err))
-		lib.WriteError(w, "failed to invite member", lib.StatusInternalServerError)
+		h.logger.Error("failed to invite members", zap.Error(err))
+		lib.WriteError(w, "failed to invite members", lib.StatusInternalServerError)
 		return
 	}
 
-	resp := dto.InviteMemberInSpoolResponse{Success: true}
-
-	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(lib.StatusOK)
-	if err := json.NewEncoder(w).Encode(resp); err != nil {
-		h.logger.Warn("failed to encode response", zap.Error(err))
-		return
-	}
 }

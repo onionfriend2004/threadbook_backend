@@ -2,7 +2,7 @@ package usecase
 
 // ---------- CreateSpool ----------
 type CreateSpoolInput struct {
-	OwnerID    int    `json:"owner_id" binding:"required"`
+	OwnerID    uint   `json:"owner_id" binding:"required"`
 	Name       string `json:"name" binding:"required"`
 	BannerLink string `json:"banner_link,omitempty"`
 }
@@ -20,8 +20,8 @@ type GetUserSpoolListInput struct {
 
 // ---------- InviteMemberInSpool ----------
 type InviteMemberInSpoolInput struct {
-	SpoolID  int `json:"spool_id" binding:"required"`
-	MemberID int `json:"member_id" binding:"required"`
+	SpoolID         int      `json:"spool_id" binding:"required"`
+	MemberUsernames []string `json:"member_usernames" binding:"required"`
 }
 
 // ---------- UpdateSpool ----------

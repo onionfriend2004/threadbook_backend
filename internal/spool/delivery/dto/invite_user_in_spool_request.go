@@ -1,6 +1,6 @@
 package dto
 
 type InviteMemberInSpoolRequest struct {
-	SpoolID  int `json:"spool_id" binding:"required"`
-	MemberID int `json:"member_id" binding:"required"`
+	SpoolID         int      `json:"spool_id" binding:"required"`
+	MemberUsernames []string `json:"member_usernames" binding:"required"`
 }

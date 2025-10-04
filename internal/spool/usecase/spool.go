@@ -72,10 +72,20 @@ func (u *spoolUsecase) GetUserSpoolList(ctx context.Context, input GetUserSpoolL
 
 // ---------- Invite ----------
 func (u *spoolUsecase) InviteMemberInSpool(ctx context.Context, input InviteMemberInSpoolInput) error {
-	if input.MemberID == 0 || input.SpoolID == 0 {
+	if len(input.MemberUsernames) == 0 || input.SpoolID == 0 {
 		return ErrInvalidInput
 	}
-	return u.spoolRepo.AddUserToSpool(ctx, input.MemberID, input.SpoolID)
+
+	for _, username := range input.MemberUsernames {
+		if username == "" {
+			continue
+		}
+		if err := u.spoolRepo.AddUserToSpoolByUsername(ctx, username, input.SpoolID); err != nil {
+			u.logger.Error("failed to add user to spool", zap.String("username", username), zap.Error(err))
+			return err
+		}
+	}
+	return nil
 }
 
 // ---------- Update ----------

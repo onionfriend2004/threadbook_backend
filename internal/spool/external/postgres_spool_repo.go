@@ -23,7 +23,7 @@ func isUniqueViolation(err error) bool {
 	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
 
-func (r *spoolRepo) CreateSpool(ctx context.Context, spool *gdomain.Spool, ownerID int) (*gdomain.Spool, error) {
+func (r *spoolRepo) CreateSpool(ctx context.Context, spool *gdomain.Spool, ownerID uint) (*gdomain.Spool, error) {
 	if spool.Name == "" {
 		return nil, ErrInvalidSpool
 	}
@@ -85,12 +85,28 @@ func (r *spoolRepo) DeleteSpool(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Delete(&gdomain.Spool{}, id).Error
 }
 
-func (r *spoolRepo) AddUserToSpool(ctx context.Context, userID, spoolID int) error {
-	us := gdomain.UserSpool{
-		UserID:  userID,
+func (r *spoolRepo) AddUserToSpoolByUsername(ctx context.Context, username string, spoolID int) error {
+	var user gdomain.User
+	if err := r.db.WithContext(ctx).Where("username = ?", username).First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrUserNotFound
+		}
+		return err
+	}
+
+	userSpool := gdomain.UserSpool{
+		UserID:  user.ID,
 		SpoolID: spoolID,
 	}
-	return r.db.WithContext(ctx).Create(&us).Error
+
+	if err := r.db.WithContext(ctx).Create(&userSpool).Error; err != nil {
+		if isUniqueViolation(err) {
+			return ErrUserAlreadyInSpool
+		}
+		return err
+	}
+
+	return nil
 }
 
 func (r *spoolRepo) RemoveUserFromSpool(ctx context.Context, userID, spoolID int) error {

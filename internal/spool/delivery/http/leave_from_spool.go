@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/onionfriend2004/threadbook_backend/internal/lib"
 	"github.com/onionfriend2004/threadbook_backend/internal/spool/delivery/dto"
 	"github.com/onionfriend2004/threadbook_backend/internal/spool/usecase"
 	"go.uber.org/zap"
@@ -17,7 +18,7 @@ func (h *SpoolHandler) LeaveFromSpool(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err := h.usecase.LeaveFromSpool(r.Context(), usecase.LeaveFromSpoolInput{
-		UserID:  req.UserID,
+		UserID:  1,
 		SpoolID: req.SpoolID,
 	})
 	if err != nil {
@@ -26,7 +27,5 @@ func (h *SpoolHandler) LeaveFromSpool(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(dto.LeaveFromSpoolResponse{Success: true})
+	w.WriteHeader(lib.StatusOK)
 }

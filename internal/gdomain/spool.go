@@ -20,7 +20,7 @@ type Spool struct {
 
 // UserSpool — join таблица пользователь <-> спул
 type UserSpool struct {
-	UserID    int  `gorm:"primaryKey"`
+	UserID    uint `gorm:"primaryKey"`
 	SpoolID   int  `gorm:"primaryKey"`
 	IsDeleted bool `gorm:"default:false"`
 }
