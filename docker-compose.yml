@@ -84,7 +84,7 @@ services:
       - "${NATS_CLIENT_PORT}:4222" # клиентские подключения
       - "${NATS_MONITORING_PORT}:8222" # веб-мониторинг
       # - "${NATS_CLUSTER_PORT}:6222"  # раскомментировать, если нужен кластер
-    command: sh -c "exec nats-server $${NATS_SERVER_ARGS}"
+    command: ["${NATS_SERVER_ARGS}"]
     networks:
       - vibecode_network
     volumes:
