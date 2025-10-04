@@ -60,11 +60,11 @@ services:
 
   pgadmin:
     image: dpage/pgadmin4
-    container_name: VibeSlon
+    container_name: VibePgAdmin
     restart: unless-stopped
     environment:
-      PGADMIN_DEFAULT_EMAIL: sh1sh4@vk.com
-      PGADMIN_DEFAULT_PASSWORD: z0sc2P6z
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASS}
       # Указываем, чтобы pgAdmin сразу подключился к Postgres
       PGADMIN_CONFIG_SERVER_MODE: 'False'
     ports:
@@ -75,3 +75,33 @@ services:
       - vibecode_network
     depends_on:
       - postgresdb
+
+  nats:
+    image: nats:latest
+    container_name: VibeNats
+    restart: unless-stopped
+    ports:
+      - "${NATS_CLIENT_PORT}:4222" # клиентские подключения
+      - "${NATS_MONITORING_PORT}:8222" # веб-мониторинг
+      # - "${NATS_CLUSTER_PORT}:6222"  # раскомментировать, если нужен кластер
+    command: sh -c "exec nats-server $${NATS_SERVER_ARGS}"
+    networks:
+      - vibecode_network
+    volumes:
+      - nats_data:/data
+    healthcheck:
+      test: [ "CMD", "nats-server", "--test" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  redis_data:
+  pg_data:
+  pgadmin_data:
+  nats_data:
+
+
+networks:
+  vibecode_network:
+    driver: bridge
