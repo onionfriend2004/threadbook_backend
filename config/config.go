@@ -28,6 +28,16 @@ type Config struct {
 		DB       int    `mapstructure:"db"` // номер базы (по умолчанию 0)
 	} `mapstructure:"redis"`
 
+	Nats struct {
+		Host              string `mapstructure:"host"`
+		Port              int    `mapstructure:"port"`
+		Name              string `mapstructure:"name"`                // имя подключения для мониторинга и логов
+		Timeout           int    `mapstructure:"timeout"`             // таймаут подключения в секундах
+		MaxReconnects     int    `mapstructure:"max_reconnects"`      // -1 = бесконечно
+		ReconnectWait     int    `mapstructure:"reconnect_wait_ms"`   // задержка между попытками в миллисекундах
+		VerifyCodeSubject string `mapstructure:"verify_code_subject"` // топик для отправки событий верификации кода (куда срать)
+	} `mapstructure:"nats"`
+
 	Argon2 struct {
 		Memory      uint32 `mapstructure:"memory"`      // память в КБ (например, 64*1024 = 64 МБ)
 		Iterations  uint32 `mapstructure:"iterations"`  // количество итераций (2 Dev, 3 Prod)
@@ -40,6 +50,10 @@ type Config struct {
 		TTL uint32 `mapstructure:"ttl"` // TTL Жизни сессии пользователя
 	} `mapstructure:"user_session"`
 
+	VerifyCode struct {
+		TTL uint32 `mapstructure:"ttl"` // TTL Жизни кода для подтверждения почты
+	} `mapstructure:"verify_code"`
+
 	Cookie struct {
 		SessionCookieName string `mapstructure:"session_cookie_name"` // Рекомендуется использовать нейтральное имя (например, "sid"), чтобы не раскрывать детали реализации.
 		SessionCookiePath string `mapstructure:"session_cookie_path"` // Путь, для которого устанавливается кука.  Обычно "/" — чтобы кука была доступна всем эндпоинтам API.
@@ -50,6 +64,14 @@ type Config struct {
 		// - "Lax": разрешает отправку при безопасных GET-запросах (например, клик по ссылке).		<- в dev можно Lax + http
 		// - "None": отключает защиту (требует SessionSecure=true).									<- не надо дядя
 	} `mapstructure:"cookie"`
+
+	Smtp struct {
+		Server   string `mapstructure:"server"`
+		Port     string `mapstructure:"port"`
+		Username string `mapstructure:"username"`
+		Password string `mapstructure:"password"`
+		Sender   string `mapstructure:"sender"`
+	} `mapstructure:"smtp"`
 
 	Log struct {
 		Level string `mapstructure:"level"` // e.g. "debug", "info"

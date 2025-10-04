@@ -1,4 +1,4 @@
-package domain
+package gdomain
 
 import "errors"
 

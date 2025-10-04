@@ -8,6 +8,7 @@ import (
 	"github.com/goccy/go-json"
 	"github.com/google/uuid"
 	"github.com/onionfriend2004/threadbook_backend/internal/auth/domain"
+	"github.com/onionfriend2004/threadbook_backend/internal/gdomain"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -16,7 +17,7 @@ type sessionRepo struct {
 	sessionTTL  time.Duration
 }
 
-func NewSessionRepo(redisClient *redis.Client, sessionTTL time.Duration) *sessionRepo {
+func NewSessionRepo(redisClient *redis.Client, sessionTTL time.Duration) SessionRepoInterface {
 	return &sessionRepo{
 		redisClient: redisClient,
 		sessionTTL:  sessionTTL,
@@ -45,7 +46,7 @@ func (r *sessionRepo) GetSessionByID(ctx context.Context, sessionID string) (*do
 	return &session, nil
 }
 
-func (r *sessionRepo) AddSessionForUser(ctx context.Context, user *domain.User) (*domain.Session, error) {
+func (r *sessionRepo) AddSessionForUser(ctx context.Context, user *gdomain.User) (*domain.Session, error) {
 	sessionID := uuid.NewString()
 	now := time.Now()
 	expiresAt := now.Add(r.sessionTTL)
