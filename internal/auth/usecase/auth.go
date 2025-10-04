@@ -187,7 +187,7 @@ func (u *authUsecase) CreateSessionForUser(ctx context.Context, user *gdomain.Us
 }
 
 func (u *authUsecase) VerifyUserEmail(ctx context.Context, userID int, code int) error {
-	if userID <= 0 || (99999 < code && code <= 999999) {
+	if userID <= 0 || code < 100000 || code > 999999 {
 		return ErrInvalidInput
 	}
 	valid, err := u.verifyCodeRepo.VerifyCode(ctx, uint(userID), code)

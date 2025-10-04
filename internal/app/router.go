@@ -50,13 +50,13 @@ func Run(config *config.Config, logger *zap.Logger) error {
 	}
 
 	// ===================== Email Consumer =====================
-	// emailConsumer := initEmailConsumer(config, natsConn, logger)
+	emailConsumer := initEmailConsumer(config, natsConn, logger)
 
 	// Создаём общий контекст для всего приложения
-	_, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// go startEmailConsumer(ctx, emailConsumer, logger)
+	go startEmailConsumer(ctx, emailConsumer, logger)
 
 	// ===================== HTTP Server =====================
 	r := chi.NewRouter()
