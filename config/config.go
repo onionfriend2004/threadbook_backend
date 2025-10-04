@@ -65,6 +65,14 @@ type Config struct {
 		// - "None": отключает защиту (требует SessionSecure=true).									<- не надо дядя
 	} `mapstructure:"cookie"`
 
+	Smtp struct {
+		Server   string `mapstructure:"server"`
+		Port     string `mapstructure:"port"`
+		Username string `mapstructure:"username"`
+		Password string `mapstructure:"password"`
+		Sender   string `mapstructure:"sender"`
+	} `mapstructure:"smtp"`
+
 	Log struct {
 		Level string `mapstructure:"level"` // e.g. "debug", "info"
 	} `mapstructure:"log"`
