@@ -24,6 +24,9 @@ import (
 	spoolDeliveryHTTP "github.com/onionfriend2004/threadbook_backend/internal/spool/delivery/http"
 	spoolExternal "github.com/onionfriend2004/threadbook_backend/internal/spool/external"
 	spoolUsecase "github.com/onionfriend2004/threadbook_backend/internal/spool/usecase"
+	threadDeliveryHTTP "github.com/onionfriend2004/threadbook_backend/internal/thread/delivery/http"
+	threadExternal "github.com/onionfriend2004/threadbook_backend/internal/thread/external"
+	threadUsecase "github.com/onionfriend2004/threadbook_backend/internal/thread/usecase"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -34,6 +37,7 @@ func Run(config *config.Config, logger *zap.Logger) error {
 	postgreConn, err := infra.PostgresConnect(config)
 	if err != nil {
 		logger.Error("failed to connect to postgres", zap.Error(err))
+		fmt.Print(config.Postgres)
 		return err
 	}
 	// ===================== RedisConn =====================
@@ -142,6 +146,15 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 
 	// ===================== Thread =====================
 
+	// external
+	threadRepo := threadExternal.NewThreadRepository(db, logger)
+
+	// usecase
+	threadUsecase := threadUsecase.NewThreadUsecase(threadRepo, logger)
+
+	// handler
+	threadHandler := threadDeliveryHTTP.NewThreadHandler(threadUsecase, logger)
+	threadHandler.Routes(r)
 	// ===================== Other =====================
 
 	return r, nil

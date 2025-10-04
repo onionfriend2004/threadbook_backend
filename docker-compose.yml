@@ -48,7 +48,7 @@ services:
       - pg_data:/var/lib/postgresql/data
       - ~/db_configs/db.sql:/docker-entrypoint-initdb.d/db.sql
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${PSQL_USER}}" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${PSQL_USER}" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -105,42 +105,3 @@ volumes:
 networks:
   vibecode_network:
     driver: bridge
-
-  nats:
-    image: nats:latest
-    container_name: VibeNats
-    restart: unless-stopped
-    ports:
-      - "${NATS_CLIENT_PORT}:4222" # клиентские подключения
-      - "${NATS_MONITORING_PORT}:8222" # веб-мониторинг
-      # - "${NATS_CLUSTER_PORT}:6222"  # раскомментировать, если нужен кластер
-    command: ["${NATS_SERVER_ARGS}"]
-    networks:
-      - vibecode_network
-    volumes:
-      - nats_data:/data
-    healthcheck:
-      test: [ "CMD", "nats-server", "--test" ]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-
-volumes:
-  redis_data:
-  pg_data:
-  pgadmin_data:
-  nats_data:
-
-
-networks:
-  vibecode_network:
-    driver: bridge
-
-networks:
-  vibecode_network:
-    driver: bridge     
-
-volumes:
-  redis_data:
-  pg_data:
-  pgadmin_data:

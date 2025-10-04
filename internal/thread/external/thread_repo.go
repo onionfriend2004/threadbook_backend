@@ -2,72 +2,51 @@ package repo
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/onionfriend2004/threadbook_backend/internal/thread/domain"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
 type ThreadRepositoryInterface interface {
 	Create(ctx context.Context, title string, spool_id int, typeThread string) (*domain.Thread, error)
+	GetBySpoolID(ctx context.Context, spoolID int) ([]*domain.Thread, error)
 }
 
 type ThreadRepository struct {
-	Db     *sql.DB
-	logger *zap.SugaredLogger
+	Db     *gorm.DB
+	logger *zap.Logger
 }
 
-func NewThreadRepository(endPoint string, logger *zap.SugaredLogger) *ThreadRepository {
-	threadRepo := &ThreadRepository{}
-	db, _ := sql.Open("postgres", endPoint)
-	// Обработать ошибку
-	threadRepo.Db = db
-	threadRepo.logger = logger
-	return threadRepo
+func NewThreadRepository(db *gorm.DB, logger *zap.Logger) *ThreadRepository {
+	return &ThreadRepository{
+		Db:     db,
+		logger: logger,
+	}
 }
 
-func (r *ThreadRepository) Create(ctx context.Context, title string, spoolID string, threadType string) (*domain.Thread, error) {
+func (r *ThreadRepository) Create(ctx context.Context, title string, spoolID int, threadType string) (*domain.Thread, error) {
 	const op = "ThreadRepository.Create"
 
-	query := `
-		INSERT INTO thread (title, spool_id, type)
-		VALUES ($1, $2, $3)
-        RETURNING id, spool_id, title, type, is_closed, created_at, updated_at
-	`
+	newThread := &domain.Thread{
+		Title:   title,
+		SpoolID: spoolID,
+		Type:    threadType,
+	}
 
-	newThread := &domain.Thread{}
-
-	r.logger.Debugw("Выполнение запроса на создание thread",
-		"op", op,
-		"title", title,
-		"spool_id", spoolID,
-		"type", threadType,
-	)
-
-	err := r.Db.QueryRow(
-		query,
-		title,
-		spoolID,
-		threadType,
-	).Scan(
-		&newThread.ID,
-		&newThread.SpoolID,
-		&newThread.Title,
-		&newThread.Type,
-		&newThread.IsClosed,
-		&newThread.CreatedAt,
-		&newThread.UpdatedAt,
-	)
-	if err != nil {
-		r.logger.Errorw("Ошибка при создании нового thread",
-			"op", op,
-			"error", err,
-			"title", title,
-			"spool_id", spoolID,
-		)
+	// Используем GORM для создания записи
+	if err := r.Db.Create(newThread).Error; err != nil {
 		return nil, err
 	}
 
-	r.logger.Infow("Новый thread успешно создан", "op", op, "title", title, "spool_id", spoolID)
 	return newThread, nil
+}
+
+func (r *ThreadRepository) GetBySpoolID(ctx context.Context, spoolID int) ([]*domain.Thread, error) {
+	var threads []*domain.Thread
+	const op = "ThreadRepository.GetBySpoolID"
+	if err := r.Db.Where("spool_id = ?", spoolID).Find(&threads).Error; err != nil {
+		return nil, err
+	}
+	return threads, nil
 }
