@@ -21,6 +21,9 @@ import (
 	authExternal "github.com/onionfriend2004/threadbook_backend/internal/auth/external"
 	"github.com/onionfriend2004/threadbook_backend/internal/auth/hasher"
 	authUsecase "github.com/onionfriend2004/threadbook_backend/internal/auth/usecase"
+	spoolDeliveryHTTP "github.com/onionfriend2004/threadbook_backend/internal/spool/delivery/http"
+	spoolExternal "github.com/onionfriend2004/threadbook_backend/internal/spool/external"
+	spoolUsecase "github.com/onionfriend2004/threadbook_backend/internal/spool/usecase"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -126,6 +129,16 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 	authHandler.Routes(r)
 
 	// ===================== Spool =====================
+
+	// external
+	spoolRepo := spoolExternal.NewSpoolRepo(db)
+
+	// usecase
+	spoolUsecase := spoolUsecase.NewSpoolUsecase(spoolRepo, logger)
+
+	// handler
+	spoolHandler := spoolDeliveryHTTP.NewSpoolHandler(spoolUsecase, logger)
+	spoolHandler.Routes(r)
 
 	// ===================== Thread =====================
 

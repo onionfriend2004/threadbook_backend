@@ -102,7 +102,7 @@ func (r *spoolRepo) RemoveUserFromSpool(ctx context.Context, userID, spoolID int
 func (r *spoolRepo) GetSpoolsByUser(ctx context.Context, userID int) ([]gdomain.Spool, error) {
 	var spools []gdomain.Spool
 	err := r.db.WithContext(ctx).
-		Joins("JOIN user_spools us ON us.spool_id = spools.id").
+		Joins("JOIN user_spool us ON us.spool_id = spools.id").
 		Where("us.user_id = ?", userID).
 		Find(&spools).Error
 	return spools, err
@@ -111,7 +111,7 @@ func (r *spoolRepo) GetSpoolsByUser(ctx context.Context, userID int) ([]gdomain.
 func (r *spoolRepo) GetMembersBySpoolID(ctx context.Context, spoolID int) ([]gdomain.User, error) {
 	var users []gdomain.User
 	err := r.db.WithContext(ctx).
-		Joins("JOIN user_spools us ON us.user_id = users.id").
+		Joins("JOIN user_spool us ON us.user_id = users.id").
 		Where("us.spool_id = ?", spoolID).
 		Find(&users).Error
 	return users, err

@@ -27,7 +27,13 @@ func PostgresConnect(cfg *config.Config) (*gorm.DB, error) {
 	}
 
 	// Миграции
-	err = db.AutoMigrate(&gdomain.User{})
+	err = db.AutoMigrate(
+		&gdomain.User{},
+		&gdomain.Spool{},
+		&gdomain.UserSpool{},
+		&gdomain.SpoolThread{},
+	)
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
