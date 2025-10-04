@@ -24,6 +24,7 @@ func NewThreadHandler(
 func (h *ThreadHandler) Routes(r chi.Router) {
 	r.Route("/thread", func(r chi.Router) {
 		r.Post("/create", h.Create)
+		r.Get("/close", h.Close)
 		r.Get("/", h.GetBySpoolID)
 	})
 }

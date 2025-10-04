@@ -11,6 +11,7 @@ import (
 type ThreadRepositoryInterface interface {
 	Create(ctx context.Context, title string, spool_id int, typeThread string) (*domain.Thread, error)
 	GetBySpoolID(ctx context.Context, spoolID int) ([]*domain.Thread, error)
+	CloseThread(id int) (*domain.Thread, error)
 }
 
 type ThreadRepository struct {
@@ -49,4 +50,18 @@ func (r *ThreadRepository) GetBySpoolID(ctx context.Context, spoolID int) ([]*do
 		return nil, err
 	}
 	return threads, nil
+}
+
+const op = "ThreadRepository.CloseThread"
+
+func (r *ThreadRepository) CloseThread(id int) (*domain.Thread, error) {
+	var thread domain.Thread
+	if err := r.Db.First(&thread, id).Error; err != nil {
+		return nil, err
+	}
+	thread.IsClosed = true
+	if err := r.Db.Save(&thread).Error; err != nil {
+		return nil, err
+	}
+	return &thread, nil
 }

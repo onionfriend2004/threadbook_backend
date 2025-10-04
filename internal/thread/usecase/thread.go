@@ -12,6 +12,7 @@ import (
 type ThreadUsecaseInterface interface {
 	CreateThread(ctx context.Context, title string, spool_id int, typeThread string) (*domain.Thread, error)
 	GetBySpoolID(ctx context.Context, spool_id int) ([]*domain.Thread, error)
+	CloseThread(ctx context.Context, id int) (*domain.Thread, error)
 }
 
 type ThreadUsecase struct {
@@ -43,4 +44,8 @@ func (u *ThreadUsecase) GetBySpoolID(ctx context.Context, spool_id int) ([]*doma
 		return nil, err
 	}
 	return newThread, nil
+}
+
+func (u *ThreadUsecase) CloseThread(ctx context.Context, id int) (*domain.Thread, error) {
+	return u.threadRepo.CloseThread(id)
 }
