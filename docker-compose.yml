@@ -4,7 +4,7 @@ services:
     container_name: VibeRedis
     restart: always
     ports:
-      - "0.0.0.0:6379:6379"
+      - "${REDIS_HOST}:${REDIS_PORT}:6379"
     environment:
       - REDIS_DATABASE=0
       - REDIS_PASSWORD=${REDIS_PASSWORD}

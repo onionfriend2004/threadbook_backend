@@ -21,9 +21,6 @@ import (
 	authExternal "github.com/onionfriend2004/threadbook_backend/internal/auth/external"
 	"github.com/onionfriend2004/threadbook_backend/internal/auth/hasher"
 	authUsecase "github.com/onionfriend2004/threadbook_backend/internal/auth/usecase"
-	emailDeliveryNATS "github.com/onionfriend2004/threadbook_backend/internal/email/delivery/nats"
-	emailExternal "github.com/onionfriend2004/threadbook_backend/internal/email/external"
-	emailUsecase "github.com/onionfriend2004/threadbook_backend/internal/email/usecase"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -135,27 +132,4 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 	// ===================== Other =====================
 
 	return r, nil
-}
-
-func initEmailConsumer(cfg *config.Config, nc *nats.Conn, logger *zap.Logger) emailDeliveryNATS.EmailConsumerInterface {
-	emailRepo := emailExternal.NewMailRepository(
-		cfg.Smtp.Server,
-		cfg.Smtp.Port,
-		cfg.Smtp.Username,
-		cfg.Smtp.Password,
-		cfg.Smtp.Sender,
-	)
-	emailUsecase := emailUsecase.NewEmailUsecase(emailRepo, logger.With(zap.String("service", "email")))
-	return emailDeliveryNATS.NewEmailConsumer(
-		nc,
-		cfg.Nats.VerifyCodeSubject,
-		emailUsecase,
-		logger.With(zap.String("component", "email_consumer")),
-	)
-}
-
-func startEmailConsumer(ctx context.Context, consumer emailDeliveryNATS.EmailConsumerInterface, logger *zap.Logger) {
-	if err := consumer.Start(ctx); err != nil {
-		logger.Error("email consumer failed", zap.Error(err))
-	}
 }
