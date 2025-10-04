@@ -2,6 +2,7 @@ package usecase
 
 // ---------- CreateSpool ----------
 type CreateSpoolInput struct {
+	OwnerID    int    `json:"owner_id" binding:"required"`
 	Name       string `json:"name" binding:"required"`
 	BannerLink string `json:"banner_link,omitempty"`
 }
@@ -25,7 +26,7 @@ type InviteMemberInSpoolInput struct {
 
 // ---------- UpdateSpool ----------
 type UpdateSpoolInput struct {
-	ID         int    `json:"id" binding:"required"`
+	SpoolID    int    `json:"spool_id" binding:"required"`
 	Name       string `json:"name,omitempty"`
 	BannerLink string `json:"banner_link,omitempty"`
 }

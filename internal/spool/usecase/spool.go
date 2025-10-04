@@ -5,40 +5,37 @@ import (
 
 	"github.com/onionfriend2004/threadbook_backend/internal/spool/domain"
 	"github.com/onionfriend2004/threadbook_backend/internal/spool/external"
-
 	"go.uber.org/zap"
 )
 
 type SpoolUsecaseInterface interface {
 	CreateSpool(ctx context.Context, input CreateSpoolInput) (*domain.Spool, error)
 	LeaveFromSpool(ctx context.Context, input LeaveFromSpoolInput) error
-	GetUserSpoolList(ctx context.Context, userID int) ([]domain.Spool, error)
+	GetUserSpoolList(ctx context.Context, input GetUserSpoolListInput) ([]domain.Spool, error)
 	InviteMemberInSpool(ctx context.Context, input InviteMemberInSpoolInput) error
 	UpdateSpool(ctx context.Context, input UpdateSpoolInput) (*domain.Spool, error)
-	GetSpoolInfoById(ctx context.Context, spoolID int) (*domain.Spool, error)
-	GetSpoolMembers(ctx context.Context, spoolID int) ([]domain.User, error)
+	GetSpoolInfoById(ctx context.Context, input GetSpoolInfoByIdInput) (*domain.Spool, error)
+	GetSpoolMembers(ctx context.Context, input GetSpoolMembersInput) ([]domain.User, error)
 }
 
 type spoolUsecase struct {
 	spoolRepo external.SpoolRepoInterface
-	userRepo  external.UserRepoInterface
 	logger    *zap.Logger
 }
 
 func NewSpoolUsecase(
 	spoolRepo external.SpoolRepoInterface,
-	userRepo external.UserRepoInterface,
 	logger *zap.Logger,
 ) SpoolUsecaseInterface {
 	return &spoolUsecase{
 		spoolRepo: spoolRepo,
-		userRepo:  userRepo,
 		logger:    logger,
 	}
 }
 
+// ---------- Create ----------
 func (u *spoolUsecase) CreateSpool(ctx context.Context, input CreateSpoolInput) (*domain.Spool, error) {
-	if input.Name == "" {
+	if input.Name == "" || input.OwnerID == 0 {
 		return nil, ErrInvalidInput
 	}
 
@@ -56,6 +53,7 @@ func (u *spoolUsecase) CreateSpool(ctx context.Context, input CreateSpoolInput) 
 	return created, nil
 }
 
+// ---------- Leave ----------
 func (u *spoolUsecase) LeaveFromSpool(ctx context.Context, input LeaveFromSpoolInput) error {
 	if input.UserID == 0 || input.SpoolID == 0 {
 		return ErrInvalidInput
@@ -63,20 +61,23 @@ func (u *spoolUsecase) LeaveFromSpool(ctx context.Context, input LeaveFromSpoolI
 	return u.spoolRepo.RemoveUserFromSpool(ctx, input.UserID, input.SpoolID)
 }
 
-func (u *spoolUsecase) GetUserSpoolList(ctx context.Context, userID int) ([]domain.Spool, error) {
-	if userID == 0 {
+// ---------- List by user ----------
+func (u *spoolUsecase) GetUserSpoolList(ctx context.Context, input GetUserSpoolListInput) ([]domain.Spool, error) {
+	if input.UserID == 0 {
 		return nil, ErrInvalidInput
 	}
-	return u.spoolRepo.GetSpoolsByUser(ctx, userID)
+	return u.spoolRepo.GetSpoolsByUser(ctx, input.UserID)
 }
 
-func (u *spoolUsecase) InviteMemberInSpool(ctx context.Context, input InviteMemberInput) error {
-	if input.UserID == 0 || input.SpoolID == 0 {
+// ---------- Invite ----------
+func (u *spoolUsecase) InviteMemberInSpool(ctx context.Context, input InviteMemberInSpoolInput) error {
+	if input.MemberID == 0 || input.SpoolID == 0 {
 		return ErrInvalidInput
 	}
-	return u.spoolRepo.AddUserToSpool(ctx, input.UserID, input.SpoolID)
+	return u.spoolRepo.AddUserToSpool(ctx, input.MemberID, input.SpoolID)
 }
 
+// ---------- Update ----------
 func (u *spoolUsecase) UpdateSpool(ctx context.Context, input UpdateSpoolInput) (*domain.Spool, error) {
 	if input.SpoolID == 0 {
 		return nil, ErrInvalidInput
@@ -90,21 +91,23 @@ func (u *spoolUsecase) UpdateSpool(ctx context.Context, input UpdateSpoolInput) 
 	return updated, nil
 }
 
-func (u *spoolUsecase) GetSpoolMembers(ctx context.Context, spoolID int) ([]domain.User, error) {
-	if spoolID == 0 {
+// ---------- Get members ----------
+func (u *spoolUsecase) GetSpoolMembers(ctx context.Context, input GetSpoolMembersInput) ([]domain.User, error) {
+	if input.SpoolID == 0 {
 		return nil, ErrInvalidInput
 	}
-	return u.spoolRepo.GetMembersBySpoolID(ctx, spoolID)
+	return u.spoolRepo.GetMembersBySpoolID(ctx, input.SpoolID)
 }
 
-func (u *spoolUsecase) GetSpoolInfoById(ctx context.Context, spoolID int) (*domain.Spool, error) {
-	if spoolID == 0 {
+// ---------- Get info ----------
+func (u *spoolUsecase) GetSpoolInfoById(ctx context.Context, input GetSpoolInfoByIdInput) (*domain.Spool, error) {
+	if input.SpoolID == 0 {
 		return nil, ErrInvalidInput
 	}
 
-	spool, err := u.spoolRepo.GetSpoolByID(ctx, uint(spoolID))
+	spool, err := u.spoolRepo.GetSpoolByID(ctx, uint(input.SpoolID))
 	if err != nil {
-		u.logger.Error("failed to get spool info", zap.Error(err), zap.Int("spool_id", spoolID))
+		u.logger.Error("failed to get spool info", zap.Error(err), zap.Int("spool_id", input.SpoolID))
 		return nil, err
 	}
 
