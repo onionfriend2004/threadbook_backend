@@ -37,3 +37,5 @@ config/*.yaml
 
 # Mac OS saves
 .DS_Store
+
+.vscode

@@ -1,7 +1,7 @@
 package dto
 
 type ThreadCreateRequest struct {
-	title    string `json:"title"`
-	spoolID string `json:"spool_id"`
-	typeThread string `json:"type"`
+	Title      string `json:"title"`
+	SpoolID    string `json:"spool_id"`
+	TypeThread string `json:"type"`
 }

@@ -2,9 +2,10 @@ package usecase
 
 import (
 	"context"
-	"errors"
+	// "errors"
 
-	"github.com/onionfriend2004/threadbook_backend/internal/auth/domain"
+	"github.com/onionfriend2004/threadbook_backend/internal/thread/domain"
+	repo "github.com/onionfriend2004/threadbook_backend/internal/thread/external"
 	"go.uber.org/zap"
 )
 
@@ -12,23 +13,24 @@ type ThreadUsecaseInterface interface {
 	CreateThread(ctx context.Context, title string, spool_id int, typeThread string) (*domain.Thread, error)
 }
 
-type threadUsecase struct {
-	threadRepo       external.ThreadRepoInterface
-	logger         *zap.Logger
+type ThreadUsecase struct {
+	threadRepo repo.ThreadRepositoryInterface
+	logger     *zap.Logger
 }
 
 func NewThreadUsecase(
-	threadRepo external.ThreadRepoInterface,
+	threadRepo repo.ThreadRepositoryInterface,
 	logger *zap.Logger,
-) AuthUsecaseInterface {
-	return &authUsecase{
-		threadRepo:       threadRepo,
-		logger:         logger,
+) ThreadUsecaseInterface {
+	return &ThreadUsecase{
+		threadRepo: threadRepo,
+		logger:     logger,
 	}
 }
 
-func (*u ThreadUsecaseInterface) CreateThread(ctx context.Context, title string, spool_id int, typeThread string) {
-	if newThread, err := u.threadRepo.Create(ctx context.Context, title string, spool_id int, typeThread string); err != nil {
+func (u *ThreadUsecase) CreateThread(ctx context.Context, title string, spool_id int, typeThread string) (*domain.Thread, error) {
+	newThread, err := u.threadRepo.Create(ctx, title, spool_id, typeThread)
+	if err != nil {
 		return nil, err
 	}
 	return newThread, nil
