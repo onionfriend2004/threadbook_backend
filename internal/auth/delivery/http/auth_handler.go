@@ -31,6 +31,7 @@ func (h *AuthHandler) Routes(r chi.Router) {
 		r.Post("/user/login", h.Login)
 		r.Post("/user/logout", h.Logout)
 		r.Get("/user", h.WhoIAm)
+
 		r.Post("/email/verify", h.VerifyEmail)
 	})
 }
