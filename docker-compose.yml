@@ -75,3 +75,12 @@ services:
       - vibecode_network
     depends_on:
       - postgresdb
+
+networks:
+  vibecode_network:
+    driver: bridge     
+
+volumes:
+  redis_data:
+  pg_data:
+  pgadmin_data:
