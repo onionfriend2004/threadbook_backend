@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/onionfriend2004/threadbook_backend/config"
-	"github.com/onionfriend2004/threadbook_backend/internal/auth/domain"
+	"github.com/onionfriend2004/threadbook_backend/internal/gdomain"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -27,7 +27,7 @@ func PostgresConnect(cfg *config.Config) (*gorm.DB, error) {
 	}
 
 	// Миграции
-	err = db.AutoMigrate(&domain.User{})
+	err = db.AutoMigrate(&gdomain.User{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}

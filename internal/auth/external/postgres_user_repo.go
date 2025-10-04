@@ -7,13 +7,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/onionfriend2004/threadbook_backend/internal/auth/domain"
-)
-
-var (
-	ErrInvalidUser = domain.ErrInvalidUser
-	ErrUserExists  = errors.New("user already exists")
-	ErrNotFound    = domain.ErrNotFound
+	"github.com/onionfriend2004/threadbook_backend/internal/gdomain"
 )
 
 type userRepo struct {
@@ -29,61 +23,79 @@ func isUniqueViolation(err error) bool {
 	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
 
-func (r *userRepo) CreateUser(ctx context.Context, user domain.User) (domain.User, error) {
+func (r *userRepo) CreateUser(ctx context.Context, user gdomain.User) (*gdomain.User, error) {
 	if user.Email == "" || user.Username == "" || user.PasswordHash == "" {
-		return domain.User{}, ErrInvalidUser
+		return &gdomain.User{}, ErrInvalidUser
 	}
+	user.EmailVerify = false
 	err := r.db.WithContext(ctx).Create(&user).Error
 	if err != nil {
 		if isUniqueViolation(err) {
-			return domain.User{}, ErrUserExists
+			return &gdomain.User{}, ErrUserExists
 		}
-		return domain.User{}, err
+		return &gdomain.User{}, err
 	}
-	return user, nil
+	return &user, nil
 }
 
-func (r *userRepo) GetUserByID(ctx context.Context, id uint) (domain.User, error) {
-	var user domain.User
+func (r *userRepo) GetUserByID(ctx context.Context, id uint) (*gdomain.User, error) {
+	var user gdomain.User
 	err := r.db.WithContext(ctx).Where("id = ?", id).First(&user).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return domain.User{}, ErrNotFound
+		return &gdomain.User{}, ErrNotFound
 	}
-	return user, err
+	return &user, err
 }
 
-func (r *userRepo) GetUserByEmail(ctx context.Context, email string) (domain.User, error) {
-	normalized := domain.NormalizeEmail(email)
-	var user domain.User
+func (r *userRepo) GetUserByEmail(ctx context.Context, email string) (*gdomain.User, error) {
+	normalized := gdomain.NormalizeEmail(email)
+	var user gdomain.User
 	err := r.db.WithContext(ctx).Where("email = ?", normalized).First(&user).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return domain.User{}, ErrNotFound
+		return &gdomain.User{}, ErrNotFound
 	}
-	return user, err
+	return &user, err
 }
 
-func (r *userRepo) GetUserByUsername(ctx context.Context, username string) (domain.User, error) {
-	normalized := domain.NormalizeUsername(username)
-	var user domain.User
+func (r *userRepo) GetUserByUsername(ctx context.Context, username string) (*gdomain.User, error) {
+	normalized := gdomain.NormalizeUsername(username)
+	var user gdomain.User
 	err := r.db.WithContext(ctx).Where("username = ?", normalized).First(&user).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return domain.User{}, ErrNotFound
+		return &gdomain.User{}, ErrNotFound
 	}
-	return user, err
+	return &user, err
 }
 
 func (r *userRepo) ExistsByEmail(ctx context.Context, email string) (bool, error) {
-	normalized := domain.NormalizeEmail(email)
+	normalized := gdomain.NormalizeEmail(email)
 	var count int64
-	err := r.db.WithContext(ctx).Model(&domain.User{}).Where("email = ?", normalized).Count(&count).Error
+	err := r.db.WithContext(ctx).Model(&gdomain.User{}).Where("email = ?", normalized).Count(&count).Error
 	return count > 0, err
 }
 
 func (r *userRepo) ExistsByUsername(ctx context.Context, username string) (bool, error) {
-	normalized := domain.NormalizeUsername(username)
+	normalized := gdomain.NormalizeUsername(username)
 	var count int64
-	err := r.db.WithContext(ctx).Model(&domain.User{}).Where("username = ?", normalized).Count(&count).Error
+	err := r.db.WithContext(ctx).Model(&gdomain.User{}).Where("username = ?", normalized).Count(&count).Error
 	return count > 0, err
+}
+
+func (r *userRepo) VerifyUserEmail(ctx context.Context, userID uint) error {
+	result := r.db.WithContext(ctx).
+		Model(&gdomain.User{}).
+		Where("id = ?", userID).
+		Update("email_verify", true)
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return ErrNotFound
+	}
+
+	return nil
 }
 
 var _ UserRepoInterface = (*userRepo)(nil)
