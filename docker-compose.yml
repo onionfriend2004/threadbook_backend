@@ -1,0 +1,77 @@
+services:
+  redis:
+    image: redis:alpine
+    container_name: VibeRedis
+    restart: always
+    ports:
+      - "0.0.0.0:6379:6379"
+    environment:
+      - REDIS_DATABASE=0
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    networks:
+      - vibecode_network
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "--no-auth-warning", "-a", "$$REDIS_PASSWORD", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  postgresdb:
+    image: postgres:17
+    container_name: VibePostgres
+    environment:
+      POSTGRES_USER: ${PSQL_USER}
+      POSTGRES_PASSWORD: ${PSQL_PASSWORD}
+      POSTGRES_DB: ${PSQL_DB_NAME}
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=scram-sha-256
+    ports:
+      - "${PSQL_PORT}:5432"
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=200"
+      - "-c"
+      - "shared_buffers=512MB"
+      - "-c"
+      - "work_mem=64MB"
+      - "-c"
+      - "maintenance_work_mem=256MB"
+      - "-c"
+      - "checkpoint_timeout=30min"
+      - "-c"
+      - "log_statement=all"
+    networks:
+      - vibecode_network
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ~/db_configs/db.sql:/docker-entrypoint-initdb.d/db.sql
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${PSQL_USER}}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: VibeSlon
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: sh1sh4@vk.com
+      PGADMIN_DEFAULT_PASSWORD: z0sc2P6z
+      # Указываем, чтобы pgAdmin сразу подключился к Postgres
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80" # Внешний порт 5050 для доступа к админке
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - vibecode_network
+    depends_on:
+      - postgresdb
