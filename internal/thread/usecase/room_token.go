@@ -31,7 +31,7 @@ func (u *ThreadUsecase) GetVoiceToken(ctx context.Context, userID int, threadID 
 		return "", ErrFaildToEnsureRoom
 	}
 
-	token := liveKitAuth.NewAccessToken(u.apiKey, u.apiSecret)
+	accessToken := liveKitAuth.NewAccessToken(u.apiKey, u.apiSecret)
 
 	grant := &liveKitAuth.VideoGrant{
 		RoomJoin:          true,
@@ -42,7 +42,11 @@ func (u *ThreadUsecase) GetVoiceToken(ctx context.Context, userID int, threadID 
 		CanPublishSources: []string{"camera", "microphone", "screen"}, // Всё можно ж =)
 	}
 	// TODO: подумать над длительностью токена, захардкожу 15 минут
-	token.SetVideoGrant(grant).SetIdentity(strconv.Itoa(userID)).SetValidFor(15 * time.Minute)
+	accessToken.SetVideoGrant(grant).SetIdentity(strconv.Itoa(userID)).SetValidFor(15 * time.Minute)
 
-	return token.ToJWT()
+	token, err := accessToken.ToJWT()
+	if err != nil {
+		return "", fmt.Errorf("failed to generate token: %w", err)
+	}
+	return token, nil
 }
