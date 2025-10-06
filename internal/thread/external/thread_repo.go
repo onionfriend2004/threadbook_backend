@@ -1,7 +1,8 @@
-package repo
+package external
 
 import (
 	"context"
+	"errors"
 
 	"github.com/onionfriend2004/threadbook_backend/internal/thread/domain"
 	"go.uber.org/zap"
@@ -12,6 +13,8 @@ type ThreadRepositoryInterface interface {
 	Create(ctx context.Context, title string, spool_id int, typeThread string) (*domain.Thread, error)
 	GetBySpoolID(ctx context.Context, spoolID int) ([]*domain.Thread, error)
 	CloseThread(id int) (*domain.Thread, error)
+
+	GetThreadByID(ctx context.Context, threadID int) (*domain.Thread, error)
 }
 
 type ThreadRepository struct {
@@ -65,3 +68,17 @@ func (r *ThreadRepository) CloseThread(id int) (*domain.Thread, error) {
 	}
 	return &thread, nil
 }
+
+// DONT CHANGE THIS METHOD!!!
+func (r *ThreadRepository) GetThreadByID(ctx context.Context, threadID int) (*domain.Thread, error) {
+	var thread domain.Thread
+	if err := r.Db.WithContext(ctx).First(&thread, threadID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrThreadNotFound
+		}
+		return nil, err
+	}
+	return &thread, nil
+}
+
+// DONT CHANGE THIS METHOD!!!

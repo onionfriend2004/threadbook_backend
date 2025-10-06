@@ -84,13 +84,31 @@ services:
       - "${NATS_CLIENT_PORT}:4222" # клиентские подключения
       - "${NATS_MONITORING_PORT}:8222" # веб-мониторинг
       # - "${NATS_CLUSTER_PORT}:6222"  # раскомментировать, если нужен кластер
-    command: ["${NATS_SERVER_ARGS}"]
+    command: [ "${NATS_SERVER_ARGS}" ]
     networks:
       - vibecode_network
     volumes:
       - nats_data:/data
     healthcheck:
       test: [ "CMD", "nats-server", "--test" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: VibeLiveKit
+    restart: unless-stopped
+    ports:
+      - "${LIVEKIT_WS_PORT}:7880" # WebSocket for Clients
+      - "${LIVEKIT_API_PORT}:7881" # LiveKit HTTP API
+    environment:
+      LIVEKIT_KEYS: "${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}"
+    command: --config /dev/null --dev # --dev отключает TLS и упрощает dev
+    networks:
+      - vibecode_network
+    healthcheck:
+      test: [ "CMD", "wget", "--quiet", "--tries=1", "http://localhost:7880" ]
       interval: 10s
       timeout: 5s
       retries: 3

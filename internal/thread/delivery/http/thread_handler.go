@@ -26,5 +26,7 @@ func (h *ThreadHandler) Routes(r chi.Router) {
 		r.Post("/create", h.Create)
 		r.Get("/close", h.Close)
 		r.Get("/", h.GetBySpoolID)
+
+		r.Post("/sfu/token", h.GetVoiceToken)
 	})
 }

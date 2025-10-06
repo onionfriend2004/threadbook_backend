@@ -73,6 +73,17 @@ type Config struct {
 		Sender   string `mapstructure:"sender"`
 	} `mapstructure:"smtp"`
 
+	LiveKit struct {
+		URL       string `mapstructure:"url"`
+		APIKey    string `mapstructure:"api_key"`
+		APISecret string `mapstructure:"api_secret"`
+	} `mapstructure:"livekit"`
+
+	Room struct {
+		EmptyTTL        uint32 `mapstructure:"empty_ttl"`        // В секундах
+		MaxParticipants uint32 `mapstructure:"max_participants"` // в штуках)
+	} `mapstructure:"room"`
+
 	Log struct {
 		Level string `mapstructure:"level"` // e.g. "debug", "info"
 	} `mapstructure:"log"`
