@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	livekit "github.com/livekit/server-sdk-go/v2"
 	"github.com/nats-io/nats.go"
 	"github.com/redis/go-redis/v9"
 
@@ -52,6 +53,8 @@ func Run(config *config.Config, logger *zap.Logger) error {
 		logger.Error("failed to connect to NATS", zap.Error(err))
 		return err
 	}
+	// ===================== LiveKitConn =====================
+	liveKitConn := infra.LiveKitConnect(config)
 
 	// ===================== Email Consumer =====================
 	emailConsumer := initEmailConsumer(config, natsConn, logger)
@@ -70,7 +73,7 @@ func Run(config *config.Config, logger *zap.Logger) error {
 	r.Use(middleware.RealIP)    // - RealIP: извлекает реальный IP клиента из заголовков (X-Forwarded-For и др.).
 	r.Use(middleware.Recoverer) // - Recoverer: перехватывает паники в обработчиках и предотвращает падение сервера.
 
-	apiRouter, err := apiRouter(config, postgreConn, redisConn, natsConn, logger)
+	apiRouter, err := apiRouter(config, postgreConn, redisConn, natsConn, liveKitConn, logger)
 	if err != nil {
 		return err
 	}
@@ -107,7 +110,7 @@ func Run(config *config.Config, logger *zap.Logger) error {
 	return nil
 }
 
-func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.Conn, logger *zap.Logger) (chi.Router, error) {
+func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.Conn, livekit *livekit.RoomServiceClient, logger *zap.Logger) (chi.Router, error) {
 	r := chi.NewRouter()
 
 	// ===================== Auth =====================
@@ -148,9 +151,10 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 
 	// external
 	threadRepo := threadExternal.NewThreadRepository(db, logger)
+	liveKitRepo := threadExternal.NewLiveKitRepo(livekit, cfg.Room.EmptyTTL, cfg.Room.MaxParticipants)
 
 	// usecase
-	threadUsecase := threadUsecase.NewThreadUsecase(threadRepo, logger)
+	threadUsecase := threadUsecase.NewThreadUsecase(threadRepo, liveKitRepo, cfg.LiveKit.URL, cfg.LiveKit.APIKey, cfg.LiveKit.APISecret, logger)
 
 	// handler
 	threadHandler := threadDeliveryHTTP.NewThreadHandler(threadUsecase, logger)
