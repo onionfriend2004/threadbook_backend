@@ -1,5 +1,5 @@
 // helpers.go
-package deliveryHTTP
+package auth
 
 import (
 	"context"

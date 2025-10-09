@@ -73,7 +73,7 @@ func (r *sessionRepo) AddSessionForUser(ctx context.Context, user *gdomain.User)
 }
 
 func (r *sessionRepo) DelSessionByID(ctx context.Context, sessionID string) error {
-	key := fmt.Sprintf("session_id:%d", sessionID)
+	key := fmt.Sprintf("session_id:%s", sessionID)
 	return r.redisClient.Del(ctx, key).Err()
 }
 
