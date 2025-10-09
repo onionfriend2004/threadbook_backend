@@ -22,6 +22,7 @@ import (
 	authExternal "github.com/onionfriend2004/threadbook_backend/internal/auth/external"
 	"github.com/onionfriend2004/threadbook_backend/internal/auth/hasher"
 	authUsecase "github.com/onionfriend2004/threadbook_backend/internal/auth/usecase"
+	"github.com/onionfriend2004/threadbook_backend/internal/lib/middleware/auth"
 	spoolDeliveryHTTP "github.com/onionfriend2004/threadbook_backend/internal/spool/delivery/http"
 	spoolExternal "github.com/onionfriend2004/threadbook_backend/internal/spool/external"
 	spoolUsecase "github.com/onionfriend2004/threadbook_backend/internal/spool/usecase"
@@ -115,6 +116,8 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 
 	// ===================== Auth =====================
 
+	authenticator := auth.NewAuthenticator(redis)
+
 	// external
 	userRepo := authExternal.NewUserRepo(db)
 	sessionRepo := authExternal.NewSessionRepo(redis, time.Duration(cfg.UserSession.TTL)*time.Minute)
@@ -145,7 +148,7 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 
 	// handler
 	spoolHandler := spoolDeliveryHTTP.NewSpoolHandler(spoolUsecase, logger)
-	spoolHandler.Routes(r)
+	spoolHandler.Routes(r, authenticator)
 
 	// ===================== Thread =====================
 
