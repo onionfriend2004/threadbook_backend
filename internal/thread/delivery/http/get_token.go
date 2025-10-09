@@ -10,6 +10,13 @@ import (
 	"go.uber.org/zap"
 )
 
+var user_id = 0
+
+func getUserID() int {
+	user_id += 1
+	return user_id
+}
+
 // GetVoiceToken выдаёт токен для подключения к голосовой комнате треда
 func (h *ThreadHandler) GetVoiceToken(w http.ResponseWriter, r *http.Request) {
 	var req dto.GetVoiceTokenRequest
@@ -19,7 +26,7 @@ func (h *ThreadHandler) GetVoiceToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := 1 // TODO: AUTH MIDDLEWARE
+	userID := getUserID() // TODO: AUTH MIDDLEWARE
 	/*
 		Чёт тип такого или внутри мидлвары возвращать что юзер не авторизован
 		userID, ok := r.Context().Value("user_id").(int)

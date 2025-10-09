@@ -13,7 +13,7 @@ services:
     volumes:
       - redis_data:/data
     healthcheck:
-      test: [ "CMD", "redis-cli", "--no-auth-warning", "-a", "$$REDIS_PASSWORD", "ping" ]
+      test: [ "CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD}", "ping" ]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -68,7 +68,7 @@ services:
       # Указываем, чтобы pgAdmin сразу подключился к Postgres
       PGADMIN_CONFIG_SERVER_MODE: 'False'
     ports:
-      - "5050:80" # Внешний порт 5050 для доступа к админке
+      - "${PGADMIN_PORT}:80" # Внешний порт для доступа к админке
     volumes:
       - pgadmin_data:/var/lib/pgadmin
     networks:
@@ -100,18 +100,38 @@ services:
     container_name: VibeLiveKit
     restart: unless-stopped
     ports:
-      - "${LIVEKIT_WS_PORT}:7880" # WebSocket for Clients
-      - "${LIVEKIT_API_PORT}:7881" # LiveKit HTTP API
+      - "${LIVEKIT_WS_PORT}:7880"
+      - "${LIVEKIT_API_PORT}:7882" # LiveKit HTTP API
+      - "${LIVEKIT_WEBRTC_START_PORT}-${LIVEKIT_WEBRTC_END_PORT}:${LIVEKIT_WEBRTC_START_PORT}-${LIVEKIT_WEBRTC_END_PORT}/udp" # for Web-RTC Connections
     environment:
       LIVEKIT_KEYS: "${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}"
-    command: --config /dev/null --dev # --dev отключает TLS и упрощает dev
+    volumes:
+      - ./config/livekit.yaml:/etc/livekit.yaml
+    command: --config /etc/livekit.yaml
+    # command: --config /dev/null --dev # --dev отключает TLS и упрощает dev
     networks:
       - vibecode_network
     healthcheck:
-      test: [ "CMD", "wget", "--quiet", "--tries=1", "http://localhost:7880" ]
+      test: [ "CMD", "wget", "--quiet", "--tries=1", "http://127.0.0.1:${LIVEKIT_WS_PORT}" ]
       interval: 10s
       timeout: 5s
       retries: 3
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${API_PORT}:8080"
+    volumes:
+      - .:/app
+      - ./config:/app/config
+    environment:
+      - GOPROXY=direct
+      - GOSUMDB=off
+    networks:
+      - vibecode_network
+    restart: unless-stopped
 
 volumes:
   redis_data:
