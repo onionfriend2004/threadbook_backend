@@ -154,6 +154,22 @@ services:
       - vibecode_network
     restart: unless-stopped
 
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${API_PORT}:8080"
+    volumes:
+      - .:/app
+      - ./config:/app/config
+    environment:
+      - GOPROXY=direct
+      - GOSUMDB=off
+    networks:
+      - vibecode_network
+    restart: unless-stopped
+
 volumes:
   redis_data:
   pg_data:
