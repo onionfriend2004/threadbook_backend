@@ -9,11 +9,12 @@ import (
 )
 
 type SessionData struct {
-	UserID int `json:"user_id"`
+	UserID   int    `json:"user_id"`
+	Username string `json:"username"`
 }
 
 type AuthenticatorInterface interface {
-	Authenticate(cookie string) (userID int, err error)
+	Authenticate(cookie string) (userID int, username string, err error)
 }
 
 type Authenticator struct {
@@ -24,21 +25,21 @@ func NewAuthenticator(redisClient *redis.Client) *Authenticator {
 	return &Authenticator{redisClient: redisClient}
 }
 
-func (a *Authenticator) Authenticate(cookie string) (int, error) {
+func (a *Authenticator) Authenticate(cookie string) (int, string, error) {
 	ctx := context.Background()
 
 	val, err := a.redisClient.Get(ctx, cookie).Result()
 	if err != nil {
 		if err == redis.Nil {
-			return 0, ErrSessionNotFound
+			return 0, "", ErrSessionNotFound
 		}
-		return 0, fmt.Errorf("%w: %v", ErrRedisRead, err)
+		return 0, "", fmt.Errorf("%w: %v", ErrRedisRead, err)
 	}
 
 	var session SessionData
 	if err := json.Unmarshal([]byte(val), &session); err != nil {
-		return 0, fmt.Errorf("%w: %v", ErrJSONDecode, err)
+		return 0, "", fmt.Errorf("%w: %v", ErrJSONDecode, err)
 	}
 
-	return session.UserID, nil
+	return session.UserID, session.Username, nil
 }

@@ -1,4 +1,3 @@
-// helpers.go
 package auth
 
 import (
@@ -8,13 +7,15 @@ import (
 )
 
 var (
-	ErrNoUserIDInContext = errors.New("no user ID in context")
+	ErrNoUserIDInContext   = errors.New("no user ID in context")
+	ErrNoUsernameInContext = errors.New("no username in context")
 )
 
 type contextKey string
 
 const (
-	UserIDKey contextKey = "user_id"
+	UserIDKey   contextKey = "user_id"
+	UsernameKey contextKey = "username"
 )
 
 func GetUserIDFromContext(ctx context.Context) (int, error) {
@@ -32,5 +33,19 @@ func GetUserIDFromContext(ctx context.Context) (int, error) {
 		return int(v), nil
 	default:
 		return 0, errors.New("invalid user ID type in context")
+	}
+}
+
+func GetUsernameFromContext(ctx context.Context) (string, error) {
+	value := ctx.Value(UsernameKey)
+	if value == nil {
+		return "", ErrNoUsernameInContext
+	}
+
+	switch v := value.(type) {
+	case string:
+		return v, nil
+	default:
+		return "", errors.New("invalid username type in context")
 	}
 }

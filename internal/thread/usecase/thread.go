@@ -15,7 +15,7 @@ type ThreadUsecaseInterface interface {
 	GetBySpoolID(ctx context.Context, spool_id int) ([]*domain.Thread, error)
 	CloseThread(ctx context.Context, id int) (*domain.Thread, error)
 
-	GetVoiceToken(ctx context.Context, userID int, threadID int) (string, error)
+	GetVoiceToken(ctx context.Context, username string, threadID int) (string, error)
 }
 
 type ThreadUsecase struct {

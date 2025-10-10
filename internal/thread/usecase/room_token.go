@@ -3,7 +3,6 @@ package usecase
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"time"
 
 	liveKitAuth "github.com/livekit/protocol/auth"
@@ -15,8 +14,8 @@ var (
 	CanPublishData = true
 )
 
-func (u *ThreadUsecase) GetVoiceToken(ctx context.Context, userID int, threadID int) (string, error) {
-	if userID <= 0 || threadID <= 0 {
+func (u *ThreadUsecase) GetVoiceToken(ctx context.Context, username string, threadID int) (string, error) {
+	if username == "" || threadID <= 0 {
 		return "", ErrInvalidInput
 	}
 
@@ -42,7 +41,7 @@ func (u *ThreadUsecase) GetVoiceToken(ctx context.Context, userID int, threadID 
 		CanPublishSources: []string{"camera", "microphone", "screen"}, // Всё можно ж =)
 	}
 	// TODO: подумать над длительностью токена, захардкожу 15 минут
-	token.SetVideoGrant(grant).SetIdentity(strconv.Itoa(userID)).SetValidFor(15 * time.Minute)
+	token.SetVideoGrant(grant).SetIdentity(username).SetValidFor(15 * time.Minute)
 
 	return token.ToJWT()
 }
