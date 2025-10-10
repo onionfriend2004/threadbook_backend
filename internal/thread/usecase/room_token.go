@@ -15,8 +15,8 @@ var (
 	CanPublishData = true
 )
 
-func (u *ThreadUsecase) GetVoiceToken(ctx context.Context, userID int, threadID int) (string, error) {
-	if userID <= 0 || threadID <= 0 {
+func (u *ThreadUsecase) GetVoiceToken(ctx context.Context, username string, threadID int) (string, error) {
+	if username == "" || threadID <= 0 {
 		return "", ErrInvalidInput
 	}
 
