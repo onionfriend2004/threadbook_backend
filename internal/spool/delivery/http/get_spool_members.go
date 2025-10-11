@@ -14,11 +14,12 @@ import (
 
 func (h *SpoolHandler) GetSpoolMembers(w http.ResponseWriter, r *http.Request) {
 	spoolIDStr := chi.URLParam(r, "spoolID")
-	spoolID, err := strconv.Atoi(spoolIDStr)
-	if err != nil {
-		lib.WriteError(w, "invalid spool id", lib.StatusBadRequest)
+	spoolIDInt, err := strconv.Atoi(spoolIDStr)
+	if err != nil || spoolIDInt < 0 {
+		lib.WriteError(w, "invalid spool_id", http.StatusBadRequest)
 		return
 	}
+	spoolID := uint(spoolIDInt)
 
 	users, err := h.usecase.GetSpoolMembers(r.Context(), usecase.GetSpoolMembersInput{SpoolID: spoolID})
 	if err != nil {
@@ -30,9 +31,7 @@ func (h *SpoolHandler) GetSpoolMembers(w http.ResponseWriter, r *http.Request) {
 	resp := dto.GetSpoolMembersResponse{}
 	for _, u := range users {
 		resp.Members = append(resp.Members, dto.MemberShortInfo{
-			ID:       u.ID,
 			Username: u.Username,
-			// Nickname: u.Nickname,
 			// Avatar:   u.AvatarLink,
 		})
 	}

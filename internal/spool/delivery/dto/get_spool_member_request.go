@@ -1,5 +1,5 @@
 package dto
 
 type GetSpoolMembersRequest struct {
-	SpoolID int `json:"spool_id" binding:"required"`
+	SpoolID uint `json:"spool_id" binding:"required"`
 }

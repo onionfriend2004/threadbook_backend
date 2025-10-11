@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// нужен ли?
 func (h *SpoolHandler) UpdateSpool(w http.ResponseWriter, r *http.Request) {
 	var req dto.UpdateSpoolRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -19,7 +20,7 @@ func (h *SpoolHandler) UpdateSpool(w http.ResponseWriter, r *http.Request) {
 	}
 
 	spool, err := h.usecase.UpdateSpool(r.Context(), usecase.UpdateSpoolInput{
-		SpoolID:    req.ID,
+		SpoolID:    req.SpoolID,
 		Name:       req.Name,
 		BannerLink: req.BannerLink,
 	})
@@ -30,7 +31,7 @@ func (h *SpoolHandler) UpdateSpool(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := dto.UpdateSpoolResponse{
-		ID:         spool.ID,
+		SpoolID:    spool.ID,
 		Name:       spool.Name,
 		BannerLink: spool.BannerLink,
 	}

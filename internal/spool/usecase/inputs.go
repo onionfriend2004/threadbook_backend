@@ -2,41 +2,41 @@ package usecase
 
 // ---------- CreateSpool ----------
 type CreateSpoolInput struct {
-	OwnerID    uint   `json:"owner_id" binding:"required"`
-	Name       string `json:"name" binding:"required"`
-	BannerLink string `json:"banner_link,omitempty"`
+	OwnerID    uint
+	Name       string
+	BannerLink string
 }
 
 // ---------- LeaveFromSpool ----------
 type LeaveFromSpoolInput struct {
-	UserID  int `json:"user_id" binding:"required"`
-	SpoolID int `json:"spool_id" binding:"required"`
+	UserID  uint
+	SpoolID uint
 }
 
 // ---------- GetUserSpoolList ----------
 type GetUserSpoolListInput struct {
-	UserID int `json:"user_id" binding:"required"`
+	UserID uint
 }
 
 // ---------- InviteMemberInSpool ----------
 type InviteMemberInSpoolInput struct {
-	SpoolID         int      `json:"spool_id" binding:"required"`
-	MemberUsernames []string `json:"member_usernames" binding:"required"`
+	SpoolID         uint
+	MemberUsernames []string
 }
 
 // ---------- UpdateSpool ----------
 type UpdateSpoolInput struct {
-	SpoolID    int    `json:"spool_id" binding:"required"`
-	Name       string `json:"name,omitempty"`
-	BannerLink string `json:"banner_link,omitempty"`
+	SpoolID    uint
+	Name       string
+	BannerLink string
 }
 
 // ---------- GetSpoolInfoById ----------
 type GetSpoolInfoByIdInput struct {
-	SpoolID int `json:"spool_id" binding:"required"`
+	SpoolID uint
 }
 
 // ---------- GetSpoolMembers ----------
 type GetSpoolMembersInput struct {
-	SpoolID int `json:"spool_id" binding:"required"`
+	SpoolID uint
 }
