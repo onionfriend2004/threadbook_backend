@@ -1,7 +1,7 @@
 package dto
 
 type UpdateSpoolResponse struct {
-	ID         int    `json:"id"`
+	SpoolID    uint   `json:"spool_id"`
 	Name       string `json:"name"`
 	BannerLink string `json:"banner_link,omitempty"`
 }

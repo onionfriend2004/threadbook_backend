@@ -5,6 +5,7 @@ import (
 
 	"github.com/goccy/go-json"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib"
+	"github.com/onionfriend2004/threadbook_backend/internal/lib/middleware/auth"
 	"github.com/onionfriend2004/threadbook_backend/internal/spool/delivery/dto"
 	"github.com/onionfriend2004/threadbook_backend/internal/spool/usecase"
 	"go.uber.org/zap"
@@ -17,7 +18,14 @@ func (h *SpoolHandler) CreateSpool(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userID, err := auth.GetUserIDFromContext(r.Context())
+	if err != nil {
+		lib.WriteError(w, "unauthorized", lib.StatusUnauthorized)
+		return
+	}
+
 	spool, err := h.usecase.CreateSpool(r.Context(), usecase.CreateSpoolInput{
+		OwnerID:    userID,
 		Name:       req.Name,
 		BannerLink: req.BannerLink,
 	})
@@ -28,7 +36,7 @@ func (h *SpoolHandler) CreateSpool(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := dto.CreateSpoolResponse{
-		ID:         spool.ID,
+		SpoolID:    spool.ID,
 		Name:       spool.Name,
 		BannerLink: spool.BannerLink,
 	}

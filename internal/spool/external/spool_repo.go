@@ -8,13 +8,12 @@ import (
 
 type SpoolRepoInterface interface {
 	CreateSpool(ctx context.Context, spool *gdomain.Spool, ownerID uint) (*gdomain.Spool, error)
-	GetSpoolByID(ctx context.Context, id uint) (*gdomain.Spool, error)
-	UpdateSpool(ctx context.Context, spoolID int, name, bannerLink string) (*gdomain.Spool, error)
-	DeleteSpool(ctx context.Context, id uint) error
+	GetSpoolByID(ctx context.Context, spoolID uint) (*gdomain.Spool, error)
+	UpdateSpool(ctx context.Context, spoolID uint, name, bannerLink string) (*gdomain.Spool, error)
+	DeleteSpool(ctx context.Context, spoolID uint) error
 
-	// join-таблицы spool <-> user
-	AddUserToSpoolByUsername(ctx context.Context, username string, spoolID int) error
-	RemoveUserFromSpool(ctx context.Context, userID, spoolID int) error
-	GetSpoolsByUser(ctx context.Context, userID int) ([]gdomain.Spool, error)
-	GetMembersBySpoolID(ctx context.Context, spoolID int) ([]gdomain.User, error)
+	AddUserToSpoolByUsername(ctx context.Context, username string, spoolID uint) error
+	RemoveUserFromSpool(ctx context.Context, userID, spoolID uint) error
+	GetSpoolsByUser(ctx context.Context, userID uint) ([]gdomain.Spool, error)
+	GetMembersBySpoolID(ctx context.Context, spoolID uint) ([]gdomain.User, error)
 }

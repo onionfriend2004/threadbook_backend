@@ -46,6 +46,15 @@ type Config struct {
 		KeyLength   uint32 `mapstructure:"key_length"`  // длина хэша в байтах (обычно 32)
 	} `mapstructure:"argon2"`
 
+	Minio struct {
+		Host      string `mapstructure:"host"`
+		Port      int    `mapstructure:"port"`
+		AccessKey string `mapstructure:"access_key"`
+		SecretKey string `mapstructure:"secret_key"`
+		UseSSL    bool   `mapstructure:"use_ssl"`
+		Bucket    string `mapstructure:"bucket"` // можно для основного бакета
+	} `mapstructure:"minio"`
+
 	UserSession struct {
 		TTL uint32 `mapstructure:"ttl"` // TTL Жизни сессии пользователя
 	} `mapstructure:"user_session"`
@@ -87,6 +96,17 @@ type Config struct {
 	Log struct {
 		Level string `mapstructure:"level"` // e.g. "debug", "info"
 	} `mapstructure:"log"`
+
+	Upload struct {
+		Common struct {
+			AllowedFormats []string `mapstructure:"allowed_formats"` // глобально разрешённые форматы (png, jpg, webp, mp4 и т.д.)
+			MaxSizeMB      int      `mapstructure:"max_size_mb"`     // общий лимит (на всякий случай)
+		} `mapstructure:"common"`
+
+		Spool struct {
+			MaxBannerSizeMB int `mapstructure:"max_banner_size_mb"`
+		} `mapstructure:"spool"`
+	}
 }
 
 // LoadConfig загружает конфигурацию из файла YAML и переменных среды.

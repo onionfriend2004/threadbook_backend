@@ -14,11 +14,12 @@ import (
 
 func (h *SpoolHandler) GetSpoolInfoById(w http.ResponseWriter, r *http.Request) {
 	spoolIDStr := chi.URLParam(r, "spoolID")
-	spoolID, err := strconv.Atoi(spoolIDStr)
-	if err != nil {
-		lib.WriteError(w, "invalid spool id", lib.StatusBadRequest)
+	spoolIDInt, err := strconv.Atoi(spoolIDStr)
+	if err != nil || spoolIDInt < 0 {
+		lib.WriteError(w, "invalid spool_id", http.StatusBadRequest)
 		return
 	}
+	spoolID := uint(spoolIDInt)
 
 	spool, err := h.usecase.GetSpoolInfoById(r.Context(), usecase.GetSpoolInfoByIdInput{SpoolID: spoolID})
 	if err != nil {
@@ -28,7 +29,7 @@ func (h *SpoolHandler) GetSpoolInfoById(w http.ResponseWriter, r *http.Request) 
 	}
 
 	resp := dto.GetSpoolInfoByIdResponse{
-		ID:         spool.ID,
+		SpoolID:    spool.ID,
 		Name:       spool.Name,
 		BannerLink: spool.BannerLink,
 		CreatedAt:  spool.CreatedAt.Format("2006-01-02 15:04:05"),

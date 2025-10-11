@@ -116,9 +116,9 @@ func (u *spoolUsecase) GetSpoolInfoById(ctx context.Context, input GetSpoolInfoB
 		return nil, ErrInvalidInput
 	}
 
-	spool, err := u.spoolRepo.GetSpoolByID(ctx, uint(input.SpoolID))
+	spool, err := u.spoolRepo.GetSpoolByID(ctx, input.SpoolID)
 	if err != nil {
-		u.logger.Error("failed to get spool info", zap.Error(err), zap.Int("spool_id", input.SpoolID))
+		u.logger.Error("failed to get spool info", zap.Error(err), zap.Uint("spool_id", input.SpoolID))
 		return nil, err
 	}
 

@@ -18,19 +18,31 @@ const (
 	UsernameKey contextKey = "username"
 )
 
-func GetUserIDFromContext(ctx context.Context) (int, error) {
+func GetUserIDFromContext(ctx context.Context) (uint, error) {
 	value := ctx.Value(UserIDKey)
 	if value == nil {
 		return 0, ErrNoUserIDInContext
 	}
 
 	switch v := value.(type) {
-	case int:
+	case uint:
 		return v, nil
+	case int:
+		if v < 0 {
+			return 0, errors.New("negative user ID in context")
+		}
+		return uint(v), nil
 	case string:
-		return strconv.Atoi(v)
+		id, err := strconv.ParseUint(v, 10, 64)
+		if err != nil {
+			return 0, err
+		}
+		return uint(id), nil
 	case float64:
-		return int(v), nil
+		if v < 0 {
+			return 0, errors.New("negative user ID in context")
+		}
+		return uint(v), nil
 	default:
 		return 0, errors.New("invalid user ID type in context")
 	}

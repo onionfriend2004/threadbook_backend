@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/onionfriend2004/threadbook_backend/internal/gdomain"
 )
 
@@ -18,11 +18,13 @@ func NewSpoolRepo(db *gorm.DB) SpoolRepoInterface {
 	return &spoolRepo{db: db}
 }
 
+// Проверка на нарушение уникальности (Postgres)
 func isUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
 
+// Создание Spool + связь с владельцем
 func (r *spoolRepo) CreateSpool(ctx context.Context, spool *gdomain.Spool, ownerID uint) (*gdomain.Spool, error) {
 	if spool.Name == "" {
 		return nil, ErrInvalidSpool
@@ -40,7 +42,7 @@ func (r *spoolRepo) CreateSpool(ctx context.Context, spool *gdomain.Spool, owner
 
 	userSpool := gdomain.UserSpool{
 		UserID:  ownerID,
-		SpoolID: int(spool.ID),
+		SpoolID: spool.ID,
 	}
 	if err := tx.Create(&userSpool).Error; err != nil {
 		tx.Rollback()
@@ -53,16 +55,16 @@ func (r *spoolRepo) CreateSpool(ctx context.Context, spool *gdomain.Spool, owner
 	return spool, nil
 }
 
-func (r *spoolRepo) GetSpoolByID(ctx context.Context, id uint) (*gdomain.Spool, error) {
+func (r *spoolRepo) GetSpoolByID(ctx context.Context, spoolID uint) (*gdomain.Spool, error) {
 	var spool gdomain.Spool
-	err := r.db.WithContext(ctx).First(&spool, id).Error
+	err := r.db.WithContext(ctx).First(&spool, spoolID).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, ErrNotFound
 	}
 	return &spool, err
 }
 
-func (r *spoolRepo) UpdateSpool(ctx context.Context, spoolID int, name, bannerLink string) (*gdomain.Spool, error) {
+func (r *spoolRepo) UpdateSpool(ctx context.Context, spoolID uint, name, bannerLink string) (*gdomain.Spool, error) {
 	var spool gdomain.Spool
 	if err := r.db.WithContext(ctx).First(&spool, spoolID).Error; err != nil {
 		return nil, err
@@ -81,11 +83,11 @@ func (r *spoolRepo) UpdateSpool(ctx context.Context, spoolID int, name, bannerLi
 	return &spool, nil
 }
 
-func (r *spoolRepo) DeleteSpool(ctx context.Context, id uint) error {
-	return r.db.WithContext(ctx).Delete(&gdomain.Spool{}, id).Error
+func (r *spoolRepo) DeleteSpool(ctx context.Context, spoolID uint) error {
+	return r.db.WithContext(ctx).Delete(&gdomain.Spool{}, spoolID).Error
 }
 
-func (r *spoolRepo) AddUserToSpoolByUsername(ctx context.Context, username string, spoolID int) error {
+func (r *spoolRepo) AddUserToSpoolByUsername(ctx context.Context, username string, spoolID uint) error {
 	var user gdomain.User
 	if err := r.db.WithContext(ctx).Where("username = ?", username).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -109,13 +111,13 @@ func (r *spoolRepo) AddUserToSpoolByUsername(ctx context.Context, username strin
 	return nil
 }
 
-func (r *spoolRepo) RemoveUserFromSpool(ctx context.Context, userID, spoolID int) error {
+func (r *spoolRepo) RemoveUserFromSpool(ctx context.Context, userID, spoolID uint) error {
 	return r.db.WithContext(ctx).
 		Where("user_id = ? AND spool_id = ?", userID, spoolID).
 		Delete(&gdomain.UserSpool{}).Error
 }
 
-func (r *spoolRepo) GetSpoolsByUser(ctx context.Context, userID int) ([]gdomain.Spool, error) {
+func (r *spoolRepo) GetSpoolsByUser(ctx context.Context, userID uint) ([]gdomain.Spool, error) {
 	var spools []gdomain.Spool
 	err := r.db.WithContext(ctx).
 		Joins("JOIN user_spools us ON us.spool_id = spools.id").
@@ -124,7 +126,7 @@ func (r *spoolRepo) GetSpoolsByUser(ctx context.Context, userID int) ([]gdomain.
 	return spools, err
 }
 
-func (r *spoolRepo) GetMembersBySpoolID(ctx context.Context, spoolID int) ([]gdomain.User, error) {
+func (r *spoolRepo) GetMembersBySpoolID(ctx context.Context, spoolID uint) ([]gdomain.User, error) {
 	var users []gdomain.User
 	err := r.db.WithContext(ctx).
 		Joins("JOIN user_spools us ON us.user_id = users.id").
