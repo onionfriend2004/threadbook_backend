@@ -51,6 +51,7 @@ func (r *FileRepo) SaveFile(ctx context.Context, filename string, reader io.Read
 	return nil
 }
 func (r *FileRepo) DeleteFile(ctx context.Context, filename string) error {
+	fmt.Printf("pizda")
 	err := r.client.RemoveObject(ctx, r.bucketName, filename, minio.RemoveObjectOptions{})
 	if err != nil {
 		return fmt.Errorf("%s: %w", ErrRemoveObject, err)

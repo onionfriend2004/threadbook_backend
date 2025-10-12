@@ -3,24 +3,22 @@ package deliveryHTTP
 import (
 	"net/http"
 	"net/url"
-	"strings"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/onionfriend2004/threadbook_backend/internal/file/usecase"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib"
 	"go.uber.org/zap"
 )
 
 func (h *FileHandler) GetFile(w http.ResponseWriter, r *http.Request) {
-	filename := strings.TrimPrefix(r.URL.Path, "/files/")
+	filename := chi.URLParam(r, "filename")
 	filename, err := url.PathUnescape(filename)
 	if err != nil {
 		lib.WriteError(w, "invalid file path", http.StatusBadRequest)
 		return
 	}
-	input := usecase.GetFileInput{
-		Filename: filename,
-	}
 
+	input := usecase.GetFileInput{Filename: filename}
 	if input.Filename == "" {
 		lib.WriteError(w, "filename required", http.StatusBadRequest)
 		return
@@ -29,8 +27,6 @@ func (h *FileHandler) GetFile(w http.ResponseWriter, r *http.Request) {
 	data, contentType, err := h.usecase.GetFile(r.Context(), input)
 	if err != nil {
 		h.logger.Error("failed to get file", zap.Error(err))
-
-		// Можем различать ошибки по типу
 		switch err {
 		case usecase.ErrInvalidInput:
 			lib.WriteError(w, err.Error(), http.StatusBadRequest)

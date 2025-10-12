@@ -62,7 +62,7 @@ func (u *spoolUsecase) CreateSpool(ctx context.Context, input CreateSpoolInput) 
 		bannerUploaded = true
 
 		defer func(bannerLink string, uploaded bool) {
-			if uploaded {
+			if !uploaded {
 				if deleteErr := u.fileUC.DeleteFile(ctx, usecase.DeleteFileInput{Filename: bannerLink}); deleteErr != nil {
 					u.logger.Error("failed to cleanup banner after error",
 						zap.Error(deleteErr),
@@ -138,6 +138,7 @@ func (u *spoolUsecase) InviteMemberInSpool(ctx context.Context, input InviteMemb
 }
 
 // ---------- Update ----------
+// надо переделать, если нужен будет
 func (u *spoolUsecase) UpdateSpool(ctx context.Context, input UpdateSpoolInput) (*gdomain.Spool, error) {
 	if input.SpoolID == 0 {
 		return nil, ErrInvalidInput
@@ -153,21 +154,65 @@ func (u *spoolUsecase) UpdateSpool(ctx context.Context, input UpdateSpoolInput) 
 
 // ---------- Get members ----------
 func (u *spoolUsecase) GetSpoolMembers(ctx context.Context, input GetSpoolMembersInput) ([]gdomain.User, error) {
-	if input.SpoolID == 0 {
+	if input.SpoolID == 0 || input.UserID == 0 {
 		return nil, ErrInvalidInput
 	}
-	return u.spoolRepo.GetMembersBySpoolID(ctx, input.SpoolID)
+
+	// Проверяем, что пользователь состоит в спуле
+	inSpool, err := u.spoolRepo.IsUserInSpool(ctx, input.UserID, input.SpoolID)
+	if err != nil {
+		u.logger.Error("failed to check user membership in spool", zap.Error(err))
+		return nil, ErrInternal
+	}
+	if !inSpool {
+		u.logger.Warn("user tried to access members without membership",
+			zap.Uint("user_id", input.UserID),
+			zap.Uint("spool_id", input.SpoolID),
+		)
+		return nil, ErrForbidden
+	}
+
+	members, err := u.spoolRepo.GetMembersBySpoolID(ctx, input.SpoolID)
+
+	// Логируем результат
+	if err != nil {
+		u.logger.Error("failed to get spool members from repository",
+			zap.Uint("spool_id", input.SpoolID),
+			zap.Error(err),
+		)
+		return nil, ErrInternal
+	}
+
+	u.logger.Debug("successfully retrieved spool members",
+		zap.Uint("spool_id", input.SpoolID),
+		zap.Int("members_count", len(members)),
+	)
+
+	return members, nil
 }
 
 // ---------- Get info ----------
 func (u *spoolUsecase) GetSpoolInfoById(ctx context.Context, input GetSpoolInfoByIdInput) (*gdomain.Spool, error) {
-	if input.SpoolID == 0 {
+	if input.SpoolID == 0 || input.UserID == 0 {
 		return nil, ErrInvalidInput
+	}
+
+	inSpool, err := u.spoolRepo.IsUserInSpool(ctx, input.UserID, input.SpoolID)
+	if err != nil {
+		u.logger.Error("failed to check user membership in spool", zap.Error(err))
+		return nil, ErrInternal
+	}
+	if !inSpool {
+		u.logger.Warn("user tried to get spool info without membership",
+			zap.Uint("user_id", input.UserID),
+			zap.Uint("spool_id", input.SpoolID),
+		)
+		return nil, ErrForbidden
 	}
 
 	spool, err := u.spoolRepo.GetSpoolByID(ctx, input.SpoolID)
 	if err != nil {
-		u.logger.Error("failed to get spool info", zap.Error(err), zap.Uint("spool_id", input.SpoolID))
+		u.logger.Error("failed to get spool info", zap.Error(err))
 		return nil, err
 	}
 

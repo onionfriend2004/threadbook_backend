@@ -29,12 +29,14 @@ type GetUserSpoolListInput struct {
 
 // ---------- InviteMemberInSpool ----------
 type InviteMemberInSpoolInput struct {
+	UserID          uint
 	SpoolID         uint
 	MemberUsernames []string
 }
 
 // ---------- UpdateSpool ----------
 type UpdateSpoolInput struct {
+	UserID     uint
 	SpoolID    uint
 	Name       string
 	BannerLink string
@@ -42,10 +44,12 @@ type UpdateSpoolInput struct {
 
 // ---------- GetSpoolInfoById ----------
 type GetSpoolInfoByIdInput struct {
+	UserID  uint
 	SpoolID uint
 }
 
 // ---------- GetSpoolMembers ----------
 type GetSpoolMembersInput struct {
+	UserID  uint
 	SpoolID uint
 }

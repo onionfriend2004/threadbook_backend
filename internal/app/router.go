@@ -124,7 +124,6 @@ func Run(config *config.Config, logger *zap.Logger) error {
 
 func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.Conn, livekit *livekit.RoomServiceClient, minio *minio.Client, logger *zap.Logger) (chi.Router, error) {
 	r := chi.NewRouter()
-
 	// ===================== Auth =====================
 
 	authenticator := auth.NewAuthenticator(redis)

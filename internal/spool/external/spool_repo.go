@@ -18,5 +18,7 @@ type SpoolRepoInterface interface {
 	GetSpoolsByUser(ctx context.Context, userID uint) ([]gdomain.Spool, error)
 	GetMembersBySpoolID(ctx context.Context, spoolID uint) ([]gdomain.User, error)
 
+	IsUserInSpool(ctx context.Context, userID uint, spoolID uint) (bool, error)
+
 	WithTx(ctx context.Context, fn func(txCtx context.Context) error) error
 }

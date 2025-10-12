@@ -150,3 +150,18 @@ func (r *spoolRepo) GetMembersBySpoolID(ctx context.Context, spoolID uint) ([]gd
 		Find(&users).Error
 	return users, err
 }
+
+func (r *spoolRepo) IsUserInSpool(ctx context.Context, userID uint, spoolID uint) (bool, error) {
+	var count int64
+
+	err := r.db.WithContext(ctx).
+		Table("user_spools").
+		Where("user_id = ? AND spool_id = ?", userID, spoolID).
+		Count(&count).Error
+
+	if err != nil {
+		return false, err
+	}
+
+	return count > 0, nil
+}

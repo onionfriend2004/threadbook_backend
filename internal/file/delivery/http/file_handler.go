@@ -19,5 +19,5 @@ func NewFileHandler(u usecase.FileUsecaseInterface, logger *zap.Logger) *FileHan
 }
 
 func (h *FileHandler) Routes(r chi.Router) {
-	r.Get("/files/{filename}", h.GetFile)
+	r.Get("/uploads/{filename}", h.GetFile)
 }

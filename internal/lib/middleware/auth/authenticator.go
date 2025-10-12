@@ -21,7 +21,6 @@ func AuthMiddleware(authenticator AuthenticatorInterface) func(http.Handler) htt
 				lib.WriteError(w, err.Error(), http.StatusUnauthorized)
 				return
 			}
-
 			ctx := context.WithValue(r.Context(), UserIDKey, userID)
 			ctx = context.WithValue(ctx, UsernameKey, username)
 			next.ServeHTTP(w, r.WithContext(ctx))
