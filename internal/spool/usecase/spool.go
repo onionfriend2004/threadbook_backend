@@ -169,6 +169,7 @@ func (u *spoolUsecase) GetSpoolMembers(ctx context.Context, input GetSpoolMember
 			zap.Uint("user_id", input.UserID),
 			zap.Uint("spool_id", input.SpoolID),
 		)
+
 		return nil, ErrForbidden
 	}
 
@@ -203,7 +204,7 @@ func (u *spoolUsecase) GetSpoolInfoById(ctx context.Context, input GetSpoolInfoB
 		return nil, ErrInternal
 	}
 	if !inSpool {
-		u.logger.Warn("user tried to get spool info without membership",
+		u.logger.Debug("user tried to get spool info without membership",
 			zap.Uint("user_id", input.UserID),
 			zap.Uint("spool_id", input.SpoolID),
 		)
