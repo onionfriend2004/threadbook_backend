@@ -12,8 +12,11 @@ type SpoolRepoInterface interface {
 	UpdateSpool(ctx context.Context, spoolID uint, name, bannerLink string) (*gdomain.Spool, error)
 	DeleteSpool(ctx context.Context, spoolID uint) error
 
+	// join-таблицы spool <-> user
 	AddUserToSpoolByUsername(ctx context.Context, username string, spoolID uint) error
 	RemoveUserFromSpool(ctx context.Context, userID, spoolID uint) error
 	GetSpoolsByUser(ctx context.Context, userID uint) ([]gdomain.Spool, error)
 	GetMembersBySpoolID(ctx context.Context, spoolID uint) ([]gdomain.User, error)
+
+	WithTx(ctx context.Context, fn func(txCtx context.Context) error) error
 }

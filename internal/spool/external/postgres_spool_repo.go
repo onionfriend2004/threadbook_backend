@@ -24,6 +24,22 @@ func isUniqueViolation(err error) bool {
 	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
 
+func (r *spoolRepo) WithTx(ctx context.Context, fn func(txCtx context.Context) error) error {
+	tx := r.db.Begin() // GORM
+	if tx.Error != nil {
+		return tx.Error
+	}
+
+	txCtx := context.WithValue(ctx, "tx", tx) // передаём tx через контекст
+
+	err := fn(txCtx)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	return tx.Commit().Error
+}
+
 // Создание Spool + связь с владельцем
 func (r *spoolRepo) CreateSpool(ctx context.Context, spool *gdomain.Spool, ownerID uint) (*gdomain.Spool, error) {
 	if spool.Name == "" {

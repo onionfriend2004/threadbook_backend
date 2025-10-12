@@ -2,7 +2,10 @@ package usecase
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 
+	"github.com/onionfriend2004/threadbook_backend/internal/file/usecase"
 	"github.com/onionfriend2004/threadbook_backend/internal/gdomain"
 	"github.com/onionfriend2004/threadbook_backend/internal/spool/external"
 	"go.uber.org/zap"
@@ -20,38 +23,84 @@ type SpoolUsecaseInterface interface {
 
 type spoolUsecase struct {
 	spoolRepo external.SpoolRepoInterface
+	fileUC    usecase.FileUsecaseInterface
 	logger    *zap.Logger
 }
 
 func NewSpoolUsecase(
 	spoolRepo external.SpoolRepoInterface,
+	fileUC usecase.FileUsecaseInterface,
 	logger *zap.Logger,
 ) SpoolUsecaseInterface {
 	return &spoolUsecase{
 		spoolRepo: spoolRepo,
+		fileUC:    fileUC,
 		logger:    logger,
 	}
 }
 
 // ---------- Create ----------
 func (u *spoolUsecase) CreateSpool(ctx context.Context, input CreateSpoolInput) (*gdomain.Spool, error) {
-	// if input.Name == "" || input.OwnerID == 0 {
-	// 	return nil, ErrInvalidInput
-	// }
-	input.OwnerID = 1
+	var bannerLink string
+	var bannerUploaded bool
 
-	newSpool, err := gdomain.NewSpool(input.Name, input.BannerLink)
-	if err != nil {
-		return nil, err
+	if input.BannerInput != nil {
+		fileInput := usecase.SaveFile{
+			File:        input.BannerInput.File,
+			Size:        input.BannerInput.Size,
+			Filename:    input.BannerInput.Filename,
+			ContentType: input.BannerInput.ContentType,
+			UserID:      strconv.FormatUint(uint64(input.OwnerID), 10),
+			FileType:    "spool_banner",
+		}
+
+		var saveErr error
+		bannerLink, saveErr = u.fileUC.SaveFile(ctx, fileInput)
+		if saveErr != nil {
+			return nil, fmt.Errorf("failed to save banner: %w", saveErr)
+		}
+		bannerUploaded = true
+
+		defer func(bannerLink string, uploaded bool) {
+			if uploaded {
+				if deleteErr := u.fileUC.DeleteFile(ctx, usecase.DeleteFileInput{Filename: bannerLink}); deleteErr != nil {
+					u.logger.Error("failed to cleanup banner after error",
+						zap.Error(deleteErr),
+						zap.String("banner_link", bannerLink),
+					)
+				}
+			}
+		}(bannerLink, bannerUploaded)
 	}
 
-	created, err := u.spoolRepo.CreateSpool(ctx, newSpool, input.OwnerID)
+	// Создаем доменную модель спула
+	newSpool, err := gdomain.NewSpool(input.Name, bannerLink)
 	if err != nil {
-		u.logger.Error("failed to create spool", zap.Error(err))
-		return nil, err
+		return nil, fmt.Errorf("failed to create spool domain: %w", err)
 	}
 
-	return created, nil
+	var createdSpool *gdomain.Spool
+	// Оборачиваем сохранение в БД в транзакцию
+	err = u.spoolRepo.WithTx(ctx, func(txCtx context.Context) error {
+		var txErr error
+		createdSpool, txErr = u.spoolRepo.CreateSpool(txCtx, newSpool, input.OwnerID)
+		return txErr
+	})
+	if err != nil {
+		u.logger.Error("failed to create spool in database",
+			zap.Error(err),
+			zap.String("spool_name", input.Name),
+		)
+		return nil, fmt.Errorf("failed to save spool to database: %w", err)
+	}
+
+	u.logger.Info("spool created successfully",
+		zap.Uint("spool_id", createdSpool.ID),
+		zap.String("spool_name", createdSpool.Name),
+		zap.Bool("has_banner", bannerUploaded),
+	)
+
+	return createdSpool, nil
 }
 
 // ---------- Leave ----------

@@ -27,8 +27,8 @@ func NewAuthenticator(redisClient *redis.Client) *Authenticator {
 
 func (a *Authenticator) Authenticate(cookie string) (int, string, error) {
 	ctx := context.Background()
-
-	val, err := a.redisClient.Get(ctx, cookie).Result()
+	key := "session_id:" + cookie
+	val, err := a.redisClient.Get(ctx, key).Result()
 	if err != nil {
 		if err == redis.Nil {
 			return 0, "", ErrSessionNotFound

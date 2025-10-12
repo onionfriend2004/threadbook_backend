@@ -14,7 +14,7 @@ type FileRepo struct {
 	bucketName string
 }
 
-func NewFileRepo(client *minio.Client, bucket string) *FileRepo {
+func NewFileRepo(client *minio.Client, bucket string) FileRepoInterface {
 	return &FileRepo{
 		client:     client,
 		bucketName: bucket,
@@ -41,8 +41,8 @@ func (r *FileRepo) GetFile(ctx context.Context, filename string) ([]byte, string
 	return buf.Bytes(), info.ContentType, nil
 }
 
-func (r *FileRepo) SaveFile(ctx context.Context, filename string, data []byte, contentType string) error {
-	_, err := r.client.PutObject(ctx, r.bucketName, filename, bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{
+func (r *FileRepo) SaveFile(ctx context.Context, filename string, reader io.Reader, size int64, contentType string) error {
+	_, err := r.client.PutObject(ctx, r.bucketName, filename, reader, size, minio.PutObjectOptions{
 		ContentType: contentType,
 	})
 	if err != nil {
@@ -50,7 +50,6 @@ func (r *FileRepo) SaveFile(ctx context.Context, filename string, data []byte, c
 	}
 	return nil
 }
-
 func (r *FileRepo) DeleteFile(ctx context.Context, filename string) error {
 	err := r.client.RemoveObject(ctx, r.bucketName, filename, minio.RemoveObjectOptions{})
 	if err != nil {

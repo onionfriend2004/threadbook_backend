@@ -1,10 +1,19 @@
 package usecase
 
+import "io"
+
 // ---------- CreateSpool ----------
 type CreateSpoolInput struct {
-	OwnerID    uint
-	Name       string
-	BannerLink string
+	OwnerID     uint
+	Name        string
+	BannerInput *BannerInput
+}
+
+type BannerInput struct {
+	File        io.Reader
+	Size        int64
+	Filename    string
+	ContentType string
 }
 
 // ---------- LeaveFromSpool ----------

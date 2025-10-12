@@ -23,6 +23,9 @@ import (
 	authExternal "github.com/onionfriend2004/threadbook_backend/internal/auth/external"
 	"github.com/onionfriend2004/threadbook_backend/internal/auth/hasher"
 	authUsecase "github.com/onionfriend2004/threadbook_backend/internal/auth/usecase"
+	fileDeliveryHTTP "github.com/onionfriend2004/threadbook_backend/internal/file/delivery/http"
+	fileExternal "github.com/onionfriend2004/threadbook_backend/internal/file/external"
+	fileUsecase "github.com/onionfriend2004/threadbook_backend/internal/file/usecase"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib/middleware/auth"
 	spoolDeliveryHTTP "github.com/onionfriend2004/threadbook_backend/internal/spool/delivery/http"
 	spoolExternal "github.com/onionfriend2004/threadbook_backend/internal/spool/external"
@@ -138,7 +141,7 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 		return nil, fmt.Errorf("failed to create hasher: %w", err)
 	}
 	cookieConfig := config.NewCookieConfig(cfg)
-
+	fileConfig := config.NewFileConfig(cfg)
 	// usecase
 	authauthUsecase := authUsecase.NewAuthUsecase(userRepo, sessionRepo, sendCodeRepo, verifyCodeRepo, hasher, logger)
 
@@ -146,16 +149,16 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 	authHandler := authDeliveryHTTP.NewAuthHandler(authauthUsecase, logger.With(zap.String("component", "auth")), cookieConfig)
 	authHandler.Routes(r)
 
+	// ===================== File =====================
+	fileRepo := fileExternal.NewFileRepo(minio, cfg.Minio.Bucket)
+	fileUC := fileUsecase.NewFileUsecase(fileRepo, logger)
+	fileHandler := fileDeliveryHTTP.NewFileHandler(fileUC, logger)
+	fileHandler.Routes(r)
+
 	// ===================== Spool =====================
-
-	// external
 	spoolRepo := spoolExternal.NewSpoolRepo(db)
-
-	// usecase
-	spoolUsecase := spoolUsecase.NewSpoolUsecase(spoolRepo, logger)
-
-	// handler
-	spoolHandler := spoolDeliveryHTTP.NewSpoolHandler(spoolUsecase, logger)
+	spoolUC := spoolUsecase.NewSpoolUsecase(spoolRepo, fileUC, logger)
+	spoolHandler := spoolDeliveryHTTP.NewSpoolHandler(spoolUC, logger, fileConfig)
 	spoolHandler.Routes(r, authenticator)
 
 	// ===================== Thread =====================

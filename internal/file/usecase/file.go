@@ -9,7 +9,7 @@ import (
 
 type FileUsecaseInterface interface {
 	GetFile(ctx context.Context, input GetFileInput) ([]byte, string, error)
-	SaveFile(ctx context.Context, input SaveFileInput) error
+	SaveFile(ctx context.Context, input SaveFile) (string, error)
 	DeleteFile(ctx context.Context, input DeleteFileInput) error
 }
 
@@ -39,19 +39,12 @@ func (u *fileUsecase) GetFile(ctx context.Context, input GetFileInput) ([]byte, 
 	return data, contentType, nil
 }
 
-func (u *fileUsecase) SaveFile(ctx context.Context, input SaveFileInput) error {
-	if input.Filename == "" || len(input.Data) == 0 {
-		return ErrInvalidInput
+func (u *fileUsecase) SaveFile(ctx context.Context, input SaveFile) (string, error) {
+	if err := u.repo.SaveFile(ctx, input.Filename, input.File, input.Size, input.ContentType); err != nil {
+		return "", err
 	}
-
-	if err := u.repo.SaveFile(ctx, input.Filename, input.Data, input.ContentType); err != nil {
-		u.logger.Error("failed to save file", zap.Error(err))
-		return ErrSaveFailed
-	}
-
-	return nil
+	return input.Filename, nil
 }
-
 func (u *fileUsecase) DeleteFile(ctx context.Context, input DeleteFileInput) error {
 	if input.Filename == "" {
 		return ErrInvalidInput
