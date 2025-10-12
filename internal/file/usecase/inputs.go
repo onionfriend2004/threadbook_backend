@@ -1,13 +1,18 @@
 package usecase
 
+import "io"
+
 type GetFileInput struct {
 	Filename string
 }
 
-type SaveFileInput struct {
+type SaveFile struct {
+	File        io.Reader
+	Size        int64
 	Filename    string
-	Data        []byte
 	ContentType string
+	UserID      string
+	FileType    string
 }
 
 type DeleteFileInput struct {

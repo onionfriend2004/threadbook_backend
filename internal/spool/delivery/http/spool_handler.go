@@ -2,20 +2,23 @@ package deliveryHTTP
 
 import (
 	"github.com/go-chi/chi/v5"
+	"github.com/onionfriend2004/threadbook_backend/config"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib/middleware/auth"
 	"github.com/onionfriend2004/threadbook_backend/internal/spool/usecase"
 	"go.uber.org/zap"
 )
 
 type SpoolHandler struct {
-	usecase usecase.SpoolUsecaseInterface
-	logger  *zap.Logger
+	usecase    usecase.SpoolUsecaseInterface
+	logger     *zap.Logger
+	fileConfig *config.FileConfig
 }
 
-func NewSpoolHandler(usecase usecase.SpoolUsecaseInterface, logger *zap.Logger) *SpoolHandler {
+func NewSpoolHandler(u usecase.SpoolUsecaseInterface, logger *zap.Logger, fileConfig *config.FileConfig) *SpoolHandler {
 	return &SpoolHandler{
-		usecase: usecase,
-		logger:  logger,
+		usecase:    u,
+		logger:     logger,
+		fileConfig: fileConfig,
 	}
 }
 

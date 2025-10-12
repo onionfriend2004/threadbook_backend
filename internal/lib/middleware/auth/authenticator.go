@@ -10,9 +10,9 @@ import (
 func AuthMiddleware(authenticator AuthenticatorInterface) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			cookie, err := r.Cookie("session_id")
+			cookie, err := r.Cookie("sid")
 			if err != nil || cookie.Value == "" {
-				lib.WriteError(w, "unauthorized: missing session_id cookie", http.StatusUnauthorized)
+				lib.WriteError(w, "unauthorized: missing sid cookie", http.StatusUnauthorized)
 				return
 			}
 
