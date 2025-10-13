@@ -165,13 +165,9 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 	// external
 	threadRepo := threadExternal.NewThreadRepository(db, logger)
 	liveKitRepo := threadExternal.NewLiveKitRepo(livekit, cfg.Room.EmptyTTL, cfg.Room.MaxParticipants)
-
-	// usecase
 	threadUsecase := threadUsecase.NewThreadUsecase(threadRepo, liveKitRepo, cfg.LiveKit.URL, cfg.LiveKit.APIKey, cfg.LiveKit.APISecret, logger)
-
-	// handler
 	threadHandler := threadDeliveryHTTP.NewThreadHandler(threadUsecase, logger)
-	threadHandler.Routes(r)
+	threadHandler.Routes(r, authenticator)
 	// ===================== Other =====================
 
 	return r, nil

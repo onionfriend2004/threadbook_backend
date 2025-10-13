@@ -2,18 +2,22 @@ package usecase
 
 import (
 	"context"
-
-	// "errors"
+	"errors"
 
 	"github.com/onionfriend2004/threadbook_backend/internal/thread/domain"
 	repo "github.com/onionfriend2004/threadbook_backend/internal/thread/external"
 	"go.uber.org/zap"
 )
 
+var (
+	ErrWrognTypeThread = errors.New("wrong type of thread")
+)
+
 type ThreadUsecaseInterface interface {
-	CreateThread(ctx context.Context, title string, spool_id int, typeThread string) (*domain.Thread, error)
-	GetBySpoolID(ctx context.Context, spool_id int) ([]*domain.Thread, error)
-	CloseThread(ctx context.Context, id int) (*domain.Thread, error)
+	CreateThread(ctx context.Context, title string, spool_id int, owner_id int, typeThread string) (*domain.Thread, error)
+	GetBySpoolID(ctx context.Context, userID, spoolID int) ([]*domain.Thread, error)
+	CloseThread(ctx context.Context, id int, userID int) (*domain.Thread, error)
+	InviteToThread(ctx context.Context, inviterID, inviteeID, threadID int) error
 
 	GetVoiceToken(ctx context.Context, username string, threadID int) (string, error)
 }
@@ -43,22 +47,33 @@ func NewThreadUsecase(
 	}
 }
 
-func (u *ThreadUsecase) CreateThread(ctx context.Context, title string, spool_id int, typeThread string) (*domain.Thread, error) {
-	newThread, err := u.threadRepo.Create(ctx, title, spool_id, typeThread)
+func (u *ThreadUsecase) CreateThread(ctx context.Context, title string, spoolID int, ownerID int, typeThread string) (*domain.Thread, error) {
+	if !(typeThread == "private" || typeThread == "public") {
+		return nil, ErrWrognTypeThread
+	}
+	newThread, err := u.threadRepo.Create(ctx, ownerID, spoolID, title, typeThread)
 	if err != nil {
 		return nil, err
 	}
 	return newThread, nil
 }
 
-func (u *ThreadUsecase) GetBySpoolID(ctx context.Context, spool_id int) ([]*domain.Thread, error) {
-	newThread, err := u.threadRepo.GetBySpoolID(ctx, spool_id)
+func (u *ThreadUsecase) GetBySpoolID(ctx context.Context, userID, spoolID int) ([]*domain.Thread, error) {
+	newThread, err := u.threadRepo.GetBySpoolID(ctx, userID, spoolID)
 	if err != nil {
 		return nil, err
 	}
 	return newThread, nil
 }
 
-func (u *ThreadUsecase) CloseThread(ctx context.Context, id int) (*domain.Thread, error) {
-	return u.threadRepo.CloseThread(id)
+func (u *ThreadUsecase) CloseThread(ctx context.Context, id int, userID int) (*domain.Thread, error) {
+	return u.threadRepo.CloseThread(id, userID)
+}
+
+func (u *ThreadUsecase) InviteToThread(ctx context.Context, inviterID, inviteeID, threadID int) error {
+	err := u.threadRepo.InviteToThread(ctx, inviterID, inviteeID, threadID)
+	if err != nil {
+		return err
+	}
+	return nil
 }

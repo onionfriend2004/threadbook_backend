@@ -5,6 +5,7 @@ import (
 
 	"github.com/goccy/go-json"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib"
+	"github.com/onionfriend2004/threadbook_backend/internal/lib/middleware/auth"
 	"github.com/onionfriend2004/threadbook_backend/internal/thread/delivery/dto"
 	"github.com/onionfriend2004/threadbook_backend/internal/thread/usecase"
 	"go.uber.org/zap"
@@ -19,15 +20,11 @@ func (h *ThreadHandler) GetVoiceToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	username := "pasha8Durov" // TODO: AUTH MIDDLEWARE
-	/*
-		Чёт тип такого или внутри мидлвары возвращать что юзер не авторизован
-		userID, ok := r.Context().Value("user_id").(int)
-		if !ok || userID <= 0 {
-			lib.WriteError(w, "unauthorized", lib.StatusUnauthorized)
-			return
-		}
-	*/
+	username, err := auth.GetUsernameFromContext(r.Context())
+	if err != nil {
+		lib.WriteError(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	token, err := h.usecase.GetVoiceToken(r.Context(), username, req.ThreadID)
 	if err != nil {

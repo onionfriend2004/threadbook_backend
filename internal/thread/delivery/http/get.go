@@ -7,6 +7,7 @@ import (
 
 	"github.com/goccy/go-json"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib"
+	"github.com/onionfriend2004/threadbook_backend/internal/lib/middleware/auth"
 	"github.com/onionfriend2004/threadbook_backend/internal/thread/delivery/dto"
 	"go.uber.org/zap"
 )
@@ -25,7 +26,13 @@ func (h *ThreadHandler) GetBySpoolID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	threads, err := h.usecase.GetBySpoolID(r.Context(), spoolID)
+	userID, err := auth.GetUserIDFromContext(r.Context())
+	if err != nil {
+		lib.WriteError(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	threads, err := h.usecase.GetBySpoolID(r.Context(), int(userID), spoolID)
 	if err != nil {
 		h.logger.Warn("failed to get threads by spool_id", zap.Error(err))
 		lib.WriteError(w, "failed to get threads", lib.StatusInternalServerError)
