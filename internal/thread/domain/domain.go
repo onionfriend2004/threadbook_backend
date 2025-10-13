@@ -3,12 +3,20 @@ package domain
 import "time"
 
 type Thread struct {
-	ID        int       `db:"id"`
-	CreatorID int       `db:"creator_id"`
-	SpoolID   int       `db:"spool_id"`
-	Title     string    `db:"title"`
-	Type      string    `db:"type"`
-	IsClosed  bool      `db:"is_closed"`
-	CreatedAt time.Time `db:"created_at"`
-	UpdatedAt time.Time `db:"updated_at"`
+	ID        int       `gorm:"column:id;primaryKey"`
+	CreatorID int       `gorm:"column:creator_id;not null"`
+	SpoolID   int       `gorm:"column:spool_id;not null"`
+	Title     string    `gorm:"column:title;not null"`
+	Type      string    `gorm:"column:type;not null"`
+	IsClosed  bool      `gorm:"column:is_closed;not null"`
+	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt time.Time `gorm:"column:updated_at;autoUpdateTime"`
+}
+
+type UpdateThreadInput struct {
+	ID       int     `json:"id"`
+	EditorID int     `json:"editor_id"`
+	Title    *string `json:"title"`
+	Type     *string `json:"type"`
+	IsClosed *bool   `json:"is_closed"`
 }

@@ -11,8 +11,9 @@ import (
 )
 
 var (
-	ErrUserNotInSpool = errors.New("user not in spool")
-	ErrUserNoAccess   = errors.New("user not owner")
+	ErrUserNotInSpool   = errors.New("user not in spool")
+	ErrPermissionDenied = errors.New("permission denied")
+	ErrUserNoAccess     = errors.New("user not owner")
 )
 
 type ThreadRepositoryInterface interface {
@@ -20,7 +21,7 @@ type ThreadRepositoryInterface interface {
 	GetBySpoolID(ctx context.Context, userID, spoolID int) ([]*domain.Thread, error)
 	CloseThread(id int, userID int) (*domain.Thread, error)
 	InviteToThread(ctx context.Context, inviterID, inviteeID, threadID int) error
-
+	Update(ctx context.Context, input domain.UpdateThreadInput) (*domain.Thread, error)
 	GetThreadByID(ctx context.Context, threadID int) (*domain.Thread, error)
 }
 
@@ -215,4 +216,45 @@ func (r *ThreadRepository) InviteToThread(ctx context.Context, inviterID, invite
 		"thread_id": threadID,
 		"is_member": true,
 	}).Error
+}
+
+func (r *ThreadRepository) Update(ctx context.Context, input domain.UpdateThreadInput) (*domain.Thread, error) {
+	var thread domain.Thread
+
+	err := r.Db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Проверяем, существует ли тред
+		if err := tx.First(&thread, "id = ?", input.ID).Error; err != nil {
+			return err
+		}
+
+		if thread.CreatorID != input.EditorID {
+			return ErrPermissionDenied
+		}
+
+		updates := map[string]interface{}{
+			"updated_at": time.Now(),
+		}
+
+		if input.Title != nil {
+			updates["title"] = *input.Title
+		}
+		if input.Type != nil {
+			updates["type"] = *input.Type
+		}
+		if input.IsClosed != nil {
+			updates["is_closed"] = *input.IsClosed
+		}
+
+		if err := tx.Model(&thread).Updates(updates).Error; err != nil {
+			return err
+		}
+
+		return tx.First(&thread, "id = ?", input.ID).Error
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &thread, nil
 }
