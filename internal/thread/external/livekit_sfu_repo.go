@@ -2,6 +2,7 @@ package external
 
 import (
 	"context"
+	"fmt"
 
 	livekit "github.com/livekit/protocol/livekit"
 	lksdk "github.com/livekit/server-sdk-go/v2"
@@ -34,6 +35,7 @@ func (r *LiveKitRepo) EnsureRoom(ctx context.Context, roomName string) error {
 		if st, ok := status.FromError(err); ok && st.Code() == codes.AlreadyExists {
 			return nil // комната уже есть — это по правилам =)
 		}
+		fmt.Println(err)
 		// Любая другая ошибка — косячок
 		return err
 	}
