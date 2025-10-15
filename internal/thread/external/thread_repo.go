@@ -237,9 +237,6 @@ func (r *ThreadRepository) Update(ctx context.Context, input domain.UpdateThread
 		if input.Type != nil {
 			updates["type"] = *input.Type
 		}
-		if input.IsClosed != nil {
-			updates["is_closed"] = *input.IsClosed
-		}
 
 		if err := tx.Model(&thread).Updates(updates).Error; err != nil {
 			return err

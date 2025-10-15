@@ -27,7 +27,7 @@ func (h *ThreadHandler) Routes(r chi.Router, authenticator auth.AuthenticatorInt
 		r.Use(auth.AuthMiddleware(authenticator))
 
 		r.Post("/create", h.Create)
-		r.Get("/close", h.Close)
+		r.Put("/close", h.Close)
 		r.Get("/", h.GetBySpoolID)
 		r.Post("/invite", h.InviteToThread)
 		r.Post("/sfu/token", h.GetVoiceToken)

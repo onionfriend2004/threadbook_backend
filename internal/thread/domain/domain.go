@@ -18,5 +18,4 @@ type UpdateThreadInput struct {
 	EditorID int     `json:"editor_id"`
 	Title    *string `json:"title"`
 	Type     *string `json:"type"`
-	IsClosed *bool   `json:"is_closed"`
 }
