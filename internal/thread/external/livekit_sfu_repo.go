@@ -30,12 +30,12 @@ func (r *LiveKitRepo) EnsureRoom(ctx context.Context, roomName string) error {
 			MaxParticipants: r.maxParticipants, // Макс участнников в штуках <3
 		},
 	)
+	fmt.Println(err)
 	if err != nil {
 		// Проверяем: ошибка "комната уже существует"?
 		if st, ok := status.FromError(err); ok && st.Code() == codes.AlreadyExists {
 			return nil // комната уже есть — это по правилам =)
 		}
-		fmt.Println(err)
 		// Любая другая ошибка — косячок
 		return err
 	}
