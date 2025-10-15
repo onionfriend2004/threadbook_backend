@@ -31,7 +31,8 @@ func (h *ThreadHandler) InviteToThread(w http.ResponseWriter, r *http.Request) {
 
 	err = h.usecase.InviteToThread(r.Context(), int(inviterID), req.InviteeID, req.ThreadID)
 	if err != nil {
-		lib.WriteError(w, "failed to invite user", http.StatusInternalServerError)
+		h.logger.Warn("failed to invite user", zap.Error(err))
+		lib.WriteError(w, "failed to invite user", lib.StatusBadRequest)
 		return
 	}
 

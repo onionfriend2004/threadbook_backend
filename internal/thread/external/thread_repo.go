@@ -43,7 +43,7 @@ func (r *ThreadRepository) Create(ctx context.Context, creatorID, spoolID int, t
 	err := r.Db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var count int64
 		if err := tx.
-			Table("user_spool").
+			Table("user_spools").
 			Where("user_id = ? AND spool_id = ?", creatorID, spoolID).
 			Count(&count).Error; err != nil {
 			return err
@@ -71,7 +71,7 @@ func (r *ThreadRepository) Create(ctx context.Context, creatorID, spoolID int, t
 		if threadType == "public" {
 			var userIDs []int
 			if err := tx.
-				Table("user_spool").
+				Table("user_spools").
 				Select("user_id").
 				Where("spool_id = ?", spoolID).
 				Pluck("user_id", &userIDs).Error; err != nil {
@@ -84,20 +84,18 @@ func (r *ThreadRepository) Create(ctx context.Context, creatorID, spoolID int, t
 					records = append(records, map[string]interface{}{
 						"user_id":   uid,
 						"thread_id": thread.ID,
-						"is_member": true,
 					})
 				}
 
-				if err := tx.Table("user_thread").Create(&records).Error; err != nil {
+				if err := tx.Table("thread_users").Create(&records).Error; err != nil {
 					return err
 				}
 			}
 		} else {
 			// Иначе добавляем только создателя
-			if err := tx.Table("user_thread").Create(map[string]interface{}{
+			if err := tx.Table("thread_users").Create(map[string]interface{}{
 				"user_id":   creatorID,
 				"thread_id": thread.ID,
-				"is_member": true,
 			}).Error; err != nil {
 				return err
 			}
@@ -119,8 +117,8 @@ func (r *ThreadRepository) GetBySpoolID(ctx context.Context, userID, spoolID int
 
 	err := r.Db.
 		Table("threads AS t").
-		Joins("JOIN user_thread ut ON ut.thread_id = t.id").
-		Where("t.spool_id = ? AND ut.user_id = ? AND ut.is_member = ?", spoolID, userID, true).
+		Joins("JOIN thread_users ut ON ut.thread_id = t.id").
+		Where("t.spool_id = ? AND ut.user_id = ?", spoolID, userID, true).
 		Find(&threads).Error
 
 	if err != nil {
@@ -160,7 +158,6 @@ func (r *ThreadRepository) GetThreadByID(ctx context.Context, threadID int) (*do
 // DONT CHANGE THIS METHOD!!!
 
 func (r *ThreadRepository) InviteToThread(ctx context.Context, inviterID, inviteeID, threadID int) error {
-	// Проверяем, что тред приватный
 	var thread struct {
 		ID      int
 		Type    string
@@ -180,8 +177,8 @@ func (r *ThreadRepository) InviteToThread(ctx context.Context, inviterID, invite
 
 	var inThread int64
 	if err := r.Db.
-		Table("user_thread").
-		Where("user_id = ? AND thread_id = ? AND is_member = true", inviterID, threadID).
+		Table("thread_users").
+		Where("user_id = ? AND thread_id = ?", inviterID, threadID).
 		Count(&inThread).Error; err != nil {
 		return err
 	}
@@ -191,7 +188,7 @@ func (r *ThreadRepository) InviteToThread(ctx context.Context, inviterID, invite
 
 	var inSpool int64
 	if err := r.Db.
-		Table("user_spool").
+		Table("user_spools").
 		Where("user_id = ? AND spool_id = ?", inviteeID, thread.SpoolID).
 		Count(&inSpool).Error; err != nil {
 		return err
@@ -202,7 +199,7 @@ func (r *ThreadRepository) InviteToThread(ctx context.Context, inviterID, invite
 
 	var exists int64
 	if err := r.Db.
-		Table("user_thread").
+		Table("thread_users").
 		Where("user_id = ? AND thread_id = ?", inviteeID, threadID).
 		Count(&exists).Error; err != nil {
 		return err
@@ -211,10 +208,9 @@ func (r *ThreadRepository) InviteToThread(ctx context.Context, inviterID, invite
 		return nil
 	}
 
-	return r.Db.Table("user_thread").Create(map[string]interface{}{
+	return r.Db.Table("thread_users").Create(map[string]interface{}{
 		"user_id":   inviteeID,
 		"thread_id": threadID,
-		"is_member": true,
 	}).Error
 }
 

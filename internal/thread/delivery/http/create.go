@@ -3,8 +3,6 @@ package deliveryHTTP
 import (
 	"net/http"
 
-	"strconv"
-
 	"github.com/goccy/go-json"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib/middleware/auth"
@@ -19,20 +17,15 @@ func (h *ThreadHandler) Create(w http.ResponseWriter, r *http.Request) {
 		lib.WriteError(w, "invalid JSON", lib.StatusBadRequest)
 		return
 	}
-	spoolID, err := strconv.Atoi(req.SpoolID)
-	if err != nil {
-		h.logger.Warn("failed string to int spool_id", zap.Error(err))
-		return
-	}
 	userID, err := auth.GetUserIDFromContext(r.Context())
 	if err != nil {
 		lib.WriteError(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	createdThread, err := h.usecase.CreateThread(r.Context(), req.Title, spoolID, int(userID), req.TypeThread)
+	createdThread, err := h.usecase.CreateThread(r.Context(), req.Title, req.SpoolID, int(userID), req.TypeThread)
 	if err != nil {
-		h.logger.Warn("failed to encode response", zap.Error(err))
+		lib.WriteError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
