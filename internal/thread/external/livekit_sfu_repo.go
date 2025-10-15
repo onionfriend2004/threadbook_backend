@@ -2,7 +2,6 @@ package external
 
 import (
 	"context"
-	"fmt"
 
 	livekit "github.com/livekit/protocol/livekit"
 	lksdk "github.com/livekit/server-sdk-go/v2"
@@ -30,7 +29,6 @@ func (r *LiveKitRepo) EnsureRoom(ctx context.Context, roomName string) error {
 			MaxParticipants: r.maxParticipants, // Макс участнников в штуках <3
 		},
 	)
-	fmt.Println(err)
 	if err != nil {
 		// Проверяем: ошибка "комната уже существует"?
 		if st, ok := status.FromError(err); ok && st.Code() == codes.AlreadyExists {

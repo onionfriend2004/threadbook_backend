@@ -40,6 +40,6 @@ func (a *Authenticator) Authenticate(cookie string) (uint, string, error) {
 	if err := json.Unmarshal([]byte(val), &session); err != nil {
 		return 0, "", fmt.Errorf("%w: %v", ErrJSONDecode, err)
 	}
-
+	fmt.Println(session)
 	return session.UserID, session.Username, nil
 }

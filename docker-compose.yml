@@ -112,7 +112,7 @@ services:
     networks:
       - vibecode_network
     healthcheck:
-      test: [ "CMD", "wget", "--quiet", "--tries=1", "http://localhost:7880" ]
+      test: [ "CMD", "wget", "--quiet", "--tries=1", "http://livekit:7880" ]
       interval: 10s
       timeout: 5s
       retries: 3
