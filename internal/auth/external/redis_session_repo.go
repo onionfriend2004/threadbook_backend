@@ -56,6 +56,7 @@ func (r *sessionRepo) AddSessionForUser(ctx context.Context, user *gdomain.User)
 	session := &domain.Session{
 		ID:        sessionID,
 		UserID:    user.ID,
+		Username:  user.Username,
 		CreatedAt: now,
 		ExpiresAt: expiresAt,
 	}
