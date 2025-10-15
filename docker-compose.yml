@@ -100,11 +100,15 @@ services:
     container_name: VibeLiveKit
     restart: unless-stopped
     ports:
-      - "${LIVEKIT_WS_PORT}:7880" # WebSocket for Clients
-      - "${LIVEKIT_API_PORT}:7881" # LiveKit HTTP API
+      - "${LIVEKIT_WS_PORT}:7880"
+      - "${LIVEKIT_API_PORT}:7882" # LiveKit HTTP API
+      - "${LIVEKIT_WEBRTC_START_PORT}-${LIVEKIT_WEBRTC_END_PORT}:${LIVEKIT_WEBRTC_START_PORT}-${LIVEKIT_WEBRTC_END_PORT}/udp" # for Web-RTC Connections
     environment:
       LIVEKIT_KEYS: "${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}"
-    command: --config /dev/null --dev # --dev отключает TLS и упрощает dev
+    volumes:
+      - ./config/livekit.yaml:/etc/livekit.yaml
+    command: --config /etc/livekit.yaml
+    # command: --config /dev/null --dev # --dev отключает TLS и упрощает dev
     networks:
       - vibecode_network
     healthcheck:
@@ -112,7 +116,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
-      
+
   minio:
     image: minio/minio:latest
     container_name: VibeMinio
@@ -121,15 +125,15 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     ports:
-      - "${MINIO_API_PORT}:9000"       # S3 API
-      - "${MINIO_CONSOLE_PORT}:9001"   # Web Console
+      - "${MINIO_API_PORT}:9000" # S3 API
+      - "${MINIO_CONSOLE_PORT}:9001" # Web Console
     volumes:
-      - minio_data:/data               
+      - minio_data:/data
     command: server /data --console-address ":9001"
     networks:
       - vibecode_network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
       interval: 30s
       timeout: 20s
       retries: 3
