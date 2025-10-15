@@ -118,7 +118,7 @@ func (r *ThreadRepository) GetBySpoolID(ctx context.Context, userID, spoolID int
 	err := r.Db.
 		Table("threads AS t").
 		Joins("JOIN thread_users ut ON ut.thread_id = t.id").
-		Where("t.spool_id = ? AND ut.user_id = ?", spoolID, userID, true).
+		Where("t.spool_id = ? AND ut.user_id = ?", spoolID, userID).
 		Find(&threads).Error
 
 	if err != nil {
