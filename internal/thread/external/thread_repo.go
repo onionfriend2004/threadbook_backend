@@ -23,6 +23,8 @@ type ThreadRepositoryInterface interface {
 	InviteToThread(ctx context.Context, inviterID, inviteeID, threadID int) error
 	Update(ctx context.Context, input domain.UpdateThreadInput) (*domain.Thread, error)
 	GetThreadByID(ctx context.Context, threadID int) (*domain.Thread, error)
+
+	CheckRightsUserOnThreadRoom(ctx context.Context, threadID int, userID uint) (bool, error)
 }
 
 type ThreadRepository struct {
@@ -156,6 +158,22 @@ func (r *ThreadRepository) GetThreadByID(ctx context.Context, threadID int) (*do
 }
 
 // DONT CHANGE THIS METHOD!!!
+
+// TODO: OPTIMIZE INDEX SEARCH
+// CREATE INDEX idx_thread_users_user_thread_member
+// ON thread_users (user_id, thread_id)
+// WHERE is_member = true;
+func (r *ThreadRepository) CheckRightsUserOnThreadRoom(ctx context.Context, threadID int, userID uint) (bool, error) {
+	var count int64
+	err := r.Db.WithContext(ctx).
+		Table("thread_users").
+		Where("user_id = ? AND thread_id = ? AND is_member = ?", userID, threadID, true).
+		Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
 
 func (r *ThreadRepository) InviteToThread(ctx context.Context, inviterID, inviteeID, threadID int) error {
 	var thread struct {

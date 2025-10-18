@@ -19,7 +19,7 @@ type ThreadUsecaseInterface interface {
 	CloseThread(ctx context.Context, id int, userID int) (*domain.Thread, error)
 	InviteToThread(ctx context.Context, inviterID, inviteeID, threadID int) error
 	UpdateThread(ctx context.Context, input domain.UpdateThreadInput) (*domain.Thread, error)
-	GetVoiceToken(ctx context.Context, username string, threadID int) (string, error)
+	GetVoiceToken(ctx context.Context, userID uint, username string, threadID int) (string, error)
 }
 
 type ThreadUsecase struct {

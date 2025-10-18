@@ -20,13 +20,21 @@ func (h *ThreadHandler) GetVoiceToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	username, err := auth.GetUsernameFromContext(r.Context())
+	ctx := r.Context()
+
+	username, err := auth.GetUsernameFromContext(ctx)
 	if err != nil {
 		lib.WriteError(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	token, err := h.usecase.GetVoiceToken(r.Context(), username, req.ThreadID)
+	userID, err := auth.GetUserIDFromContext(ctx)
+	if err != nil {
+		lib.WriteError(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	token, err := h.usecase.GetVoiceToken(ctx, userID, username, req.ThreadID)
 	if err != nil {
 		switch {
 		case err == usecase.ErrInvalidInput:
@@ -35,6 +43,8 @@ func (h *ThreadHandler) GetVoiceToken(w http.ResponseWriter, r *http.Request) {
 			lib.WriteError(w, "thread not found", lib.StatusNotFound)
 		case err == usecase.ErrFaildToEnsureRoom:
 			lib.WriteError(w, "failed to prepare voice room", lib.StatusInternalServerError)
+		case err == usecase.ErrNoRightsOnJoinRoom:
+			lib.WriteError(w, "you are not member list of this thread room", lib.StatusForbidden)
 		default:
 			h.logger.Error("failed to generate voice token", zap.Error(err))
 			lib.WriteError(w, "internal server error", lib.StatusInternalServerError)

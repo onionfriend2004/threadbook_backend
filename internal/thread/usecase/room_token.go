@@ -14,14 +14,19 @@ var (
 	CanPublishData = true
 )
 
-func (u *ThreadUsecase) GetVoiceToken(ctx context.Context, username string, threadID int) (string, error) {
+func (u *ThreadUsecase) GetVoiceToken(ctx context.Context, userID uint, username string, threadID int) (string, error) {
 	if username == "" || threadID <= 0 {
 		return "", ErrInvalidInput
 	}
 
-	_, err := u.threadRepo.GetThreadByID(ctx, threadID)
+	thread, err := u.threadRepo.GetThreadByID(ctx, threadID)
 	if err != nil {
 		return "", ErrThreadNotFound
+	}
+
+	hasRights, err := u.threadRepo.CheckRightsUserOnThreadRoom(ctx, thread.ID, userID)
+	if !hasRights || err != nil {
+		return "", ErrNoRightsOnJoinRoom
 	}
 
 	roomName := fmt.Sprintf("thread_%d", threadID) // Можно оптимизировать на 0,001% быстрее
