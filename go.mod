@@ -5,6 +5,7 @@ go 1.24.2
 toolchain go1.24.7
 
 require (
+	github.com/centrifugal/gocent/v3 v3.4.0
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/goccy/go-json v0.10.5
 	github.com/livekit/protocol v1.40.1-0.20250826073447-c714707269e5

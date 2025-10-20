@@ -55,6 +55,16 @@ type Config struct {
 		Bucket    string `mapstructure:"bucket"` // можно для основного бакета
 	} `mapstructure:"minio"`
 
+	Centrifugo struct {
+		Host        string `mapstructure:"host"`
+		Port        int    `mapstructure:"port"`
+		UseSSL      bool   `mapstructure:"use_ssl"`
+		APIKey      string `mapstructure:"api_key"`       // ключ для админ/серверных запросов
+		TokenHMAC   string `mapstructure:"token_hmac"`    // секрет для подписания user токенов (JWT)
+		AdminAPIKey string `mapstructure:"admin_api_key"` // ключ для административного API (если нужно)
+		Namespace   string `mapstructure:"namespace"`     // например, "chat"
+	} `mapstructure:"centrifugo"`
+
 	UserSession struct {
 		TTL uint32 `mapstructure:"ttl"` // TTL Жизни сессии пользователя
 	} `mapstructure:"user_session"`

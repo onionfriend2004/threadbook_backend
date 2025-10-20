@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/centrifugal/gocent/v3"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	livekit "github.com/livekit/server-sdk-go/v2"
@@ -58,6 +59,14 @@ func Run(config *config.Config, logger *zap.Logger) error {
 		logger.Error("failed to connect to NATS", zap.Error(err))
 		return err
 	}
+
+	// ===================== CentrifugoConn =====================
+	centrifugoClient, err := infra.CentrifugoConnect(config)
+	if err != nil {
+		logger.Error("failed to connect to Centrifugo", zap.Error(err))
+		return err
+	}
+
 	// ===================== LiveKitConn =====================
 	liveKitConn := infra.LiveKitConnect(config)
 
@@ -85,7 +94,7 @@ func Run(config *config.Config, logger *zap.Logger) error {
 	r.Use(middleware.RealIP)    // - RealIP: извлекает реальный IP клиента из заголовков (X-Forwarded-For и др.).
 	r.Use(middleware.Recoverer) // - Recoverer: перехватывает паники в обработчиках и предотвращает падение сервера.
 
-	apiRouter, err := apiRouter(config, postgreConn, redisConn, natsConn, liveKitConn, minioConn, logger)
+	apiRouter, err := apiRouter(config, postgreConn, redisConn, natsConn, liveKitConn, minioConn, centrifugoClient, logger)
 	if err != nil {
 		return err
 	}
@@ -122,7 +131,7 @@ func Run(config *config.Config, logger *zap.Logger) error {
 	return nil
 }
 
-func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.Conn, livekit *livekit.RoomServiceClient, minio *minio.Client, logger *zap.Logger) (chi.Router, error) {
+func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.Conn, livekit *livekit.RoomServiceClient, minio *minio.Client, centrifugo *gocent.Client, logger *zap.Logger) (chi.Router, error) {
 	r := chi.NewRouter()
 	// ===================== Auth =====================
 
