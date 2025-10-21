@@ -157,6 +157,7 @@ services:
 
   nginx:
     image: nginx
+    container_name: VibeNginX
     ports:
       - "80:80"
       - "443:443"
