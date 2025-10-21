@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 	livekit "github.com/livekit/server-sdk-go/v2"
 	"github.com/minio/minio-go/v7"
 	"github.com/nats-io/nats.go"
@@ -81,9 +82,18 @@ func Run(config *config.Config, logger *zap.Logger) error {
 	r := chi.NewRouter()
 
 	// Middlewares
-	r.Use(middleware.RequestID) // - RequestID: генерирует уникальный ID для каждого запроса (полезен для трассировки).
-	r.Use(middleware.RealIP)    // - RealIP: извлекает реальный IP клиента из заголовков (X-Forwarded-For и др.).
-	r.Use(middleware.Recoverer) // - Recoverer: перехватывает паники в обработчиках и предотвращает падение сервера.
+	corsMiddleware := cors.New(cors.Options{
+		AllowedOrigins:   config.CORS.AllowedOrigins,
+		AllowedMethods:   config.CORS.AllowedMethods,
+		AllowedHeaders:   config.CORS.AllowedHeaders,
+		AllowCredentials: config.CORS.AllowCredentials,
+		MaxAge:           config.CORS.MaxAge,
+	})
+
+	r.Use(corsMiddleware.Handler) // CORS
+	r.Use(middleware.RequestID)   // - RequestID: генерирует уникальный ID для каждого запроса (полезен для трассировки).
+	r.Use(middleware.RealIP)      // - RealIP: извлекает реальный IP клиента из заголовков (X-Forwarded-For и др.).
+	r.Use(middleware.Recoverer)   // - Recoverer: перехватывает паники в обработчиках и предотвращает падение сервера.
 
 	apiRouter, err := apiRouter(config, postgreConn, redisConn, natsConn, liveKitConn, minioConn, logger)
 	if err != nil {

@@ -107,6 +107,14 @@ type Config struct {
 			MaxBannerSizeMB int `mapstructure:"max_banner_size_mb"`
 		} `mapstructure:"spool"`
 	}
+
+	CORS struct {
+		AllowedOrigins   []string `mapstructure:"allowed_origins"`   // e.g. ["http://localhost:3000", "https://yourdomain.com"]
+		AllowedMethods   []string `mapstructure:"allowed_methods"`   // e.g. ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+		AllowedHeaders   []string `mapstructure:"allowed_headers"`   // e.g. ["Content-Type", "Authorization", "X-Requested-With"]
+		AllowCredentials bool     `mapstructure:"allow_credentials"` // true
+		MaxAge           int      `mapstructure:"max_age"`           // в секундах, например 86400
+	} `mapstructure:"cors"`
 }
 
 // LoadConfig загружает конфигурацию из файла YAML и переменных среды.
