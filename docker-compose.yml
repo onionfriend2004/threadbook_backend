@@ -158,6 +158,8 @@ services:
     image: nginx
     volumes:
       - ./config/nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - vibecode_network
 
 volumes:
   redis_data:
