@@ -154,6 +154,11 @@ services:
       - vibecode_network
     restart: unless-stopped
 
+  nginx:
+    image: nginx
+    volumes:
+      - ./config/nginx.conf:/etc/nginx/nginx.conf:ro
+
 volumes:
   redis_data:
   pg_data:
