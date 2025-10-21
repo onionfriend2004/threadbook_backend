@@ -161,6 +161,7 @@ services:
       - "443:443"
     volumes:
       - ./config/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ~/frontend/build:/site:ro
     networks:
       - vibecode_network
 
