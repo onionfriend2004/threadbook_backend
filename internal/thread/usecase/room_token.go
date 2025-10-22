@@ -14,22 +14,22 @@ var (
 	CanPublishData = true
 )
 
-func (u *ThreadUsecase) GetVoiceToken(ctx context.Context, userID uint, username string, threadID int) (string, error) {
-	if username == "" || threadID <= 0 {
+func (u *ThreadUsecase) GetVoiceToken(ctx context.Context, input GetVoiceTokenInput) (string, error) {
+	if input.Username == "" || input.ThreadID <= 0 {
 		return "", ErrInvalidInput
 	}
 
-	thread, err := u.threadRepo.GetThreadByID(ctx, threadID)
+	thread, err := u.threadRepo.GetThreadByID(ctx, input.ThreadID)
 	if err != nil {
 		return "", ErrThreadNotFound
 	}
 
-	hasRights, err := u.threadRepo.CheckRightsUserOnThreadRoom(ctx, thread.ID, userID)
+	hasRights, err := u.threadRepo.CheckRightsUserOnThreadRoom(ctx, thread.ID, input.UserID)
 	if !hasRights || err != nil {
 		return "", ErrNoRightsOnJoinRoom
 	}
 
-	roomName := fmt.Sprintf("thread_%d", threadID) // Можно оптимизировать на 0,001% быстрее
+	roomName := fmt.Sprintf("thread_%d", input.ThreadID)
 
 	if err := u.liveKitRepo.EnsureRoom(ctx, roomName); err != nil {
 		return "", ErrFaildToEnsureRoom
@@ -43,10 +43,13 @@ func (u *ThreadUsecase) GetVoiceToken(ctx context.Context, userID uint, username
 		CanPublish:        &CanPublish,
 		CanPublishData:    &CanPublishData,
 		CanSubscribe:      &CanSubscribe,
-		CanPublishSources: []string{"camera", "microphone", "screen"}, // Всё можно ж =)
+		CanPublishSources: []string{"camera", "microphone", "screen"},
 	}
+
 	// TODO: подумать над длительностью токена, захардкожу 15 минут
-	token.SetVideoGrant(grant).SetIdentity(username).SetValidFor(15 * time.Minute)
+	token.SetVideoGrant(grant).
+		SetIdentity(input.Username).
+		SetValidFor(15 * time.Minute)
 
 	return token.ToJWT()
 }

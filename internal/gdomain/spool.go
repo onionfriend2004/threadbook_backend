@@ -11,7 +11,7 @@ type Spool struct {
 	BannerLink string `gorm:"type:text" json:"banner_link,omitempty"`
 
 	// связи
-	Threads []Thread `gorm:"many2many:spool_thread;constraint:OnDelete:CASCADE;" json:"threads,omitempty"`
+	Threads []Thread `gorm:"foreignKey:SpoolID;constraint:OnDelete:CASCADE;" json:"threads,omitempty"`
 	Members []User   `gorm:"many2many:user_spool;constraint:OnDelete:CASCADE;" json:"members,omitempty"`
 
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
@@ -23,12 +23,6 @@ type UserSpool struct {
 	UserID    uint `gorm:"primaryKey"`
 	SpoolID   uint `gorm:"primaryKey"`
 	IsDeleted bool `gorm:"default:false"`
-}
-
-// SpoolThread — join таблица спул <-> тред
-type SpoolThread struct {
-	SpoolID  uint `gorm:"primaryKey"`
-	ThreadID uint `gorm:"primaryKey"`
 }
 
 // NormalizeName приводит название к нормализованному виду

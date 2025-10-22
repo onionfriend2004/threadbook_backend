@@ -11,7 +11,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// GetVoiceToken выдаёт токен для подключения к голосовой комнате треда
 func (h *ThreadHandler) GetVoiceToken(w http.ResponseWriter, r *http.Request) {
 	var req dto.GetVoiceTokenRequest
 
@@ -34,7 +33,13 @@ func (h *ThreadHandler) GetVoiceToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := h.usecase.GetVoiceToken(ctx, userID, username, req.ThreadID)
+	input := usecase.GetVoiceTokenInput{
+		UserID:   userID,
+		Username: username,
+		ThreadID: req.ThreadID,
+	}
+
+	token, err := h.usecase.GetVoiceToken(ctx, input)
 	if err != nil {
 		switch {
 		case err == usecase.ErrInvalidInput:

@@ -7,7 +7,7 @@ import (
 	"github.com/onionfriend2004/threadbook_backend/internal/lib"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib/middleware/auth"
 	"github.com/onionfriend2004/threadbook_backend/internal/thread/delivery/dto"
-	"github.com/onionfriend2004/threadbook_backend/internal/thread/domain"
+	"github.com/onionfriend2004/threadbook_backend/internal/thread/usecase"
 	"go.uber.org/zap"
 )
 
@@ -18,13 +18,18 @@ func (h *ThreadHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var input domain.UpdateThreadInput
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+	var req dto.UpdateThreadRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		lib.WriteError(w, "invalid request body", lib.StatusBadRequest)
 		return
 	}
 
-	input.EditorID = int(userID)
+	input := usecase.UpdateThreadInput{
+		ID:         req.ID,
+		EditorID:   int(userID),
+		Title:      req.Title,
+		ThreadType: req.Type,
+	}
 
 	updatedThread, err := h.usecase.UpdateThread(r.Context(), input)
 	if err != nil {

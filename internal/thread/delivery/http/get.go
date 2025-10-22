@@ -2,13 +2,13 @@ package deliveryHTTP
 
 import (
 	"net/http"
-
 	"strconv"
 
 	"github.com/goccy/go-json"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib/middleware/auth"
 	"github.com/onionfriend2004/threadbook_backend/internal/thread/delivery/dto"
+	"github.com/onionfriend2004/threadbook_backend/internal/thread/usecase"
 	"go.uber.org/zap"
 )
 
@@ -32,7 +32,12 @@ func (h *ThreadHandler) GetBySpoolID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	threads, err := h.usecase.GetBySpoolID(r.Context(), int(userID), spoolID)
+	input := usecase.GetBySpoolIDInput{
+		UserID:  int(userID),
+		SpoolID: spoolID,
+	}
+
+	threads, err := h.usecase.GetBySpoolID(r.Context(), input)
 	if err != nil {
 		h.logger.Warn("failed to get threads by spool_id", zap.Error(err))
 		lib.WriteError(w, "failed to get threads", lib.StatusInternalServerError)
@@ -56,6 +61,5 @@ func (h *ThreadHandler) GetBySpoolID(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(lib.StatusOK)
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		h.logger.Warn("failed to encode response", zap.Error(err))
-		return
 	}
 }

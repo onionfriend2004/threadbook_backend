@@ -32,5 +32,7 @@ func (h *ThreadHandler) Routes(r chi.Router, authenticator auth.AuthenticatorInt
 		r.Post("/invite", h.InviteToThread)
 		r.Post("/sfu/token", h.GetVoiceToken)
 		r.Put("/update", h.Update)
+		r.Get("/{id}/messages", h.GetMessages)
+		r.Post("/{id}/messages", h.SendMessage)
 	})
 }
