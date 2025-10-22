@@ -2,23 +2,24 @@ package deliveryHTTP
 
 import (
 	"net/http"
-
 	"strconv"
 
 	"github.com/goccy/go-json"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib/middleware/auth"
 	"github.com/onionfriend2004/threadbook_backend/internal/thread/delivery/dto"
+	"github.com/onionfriend2004/threadbook_backend/internal/thread/usecase"
 	"go.uber.org/zap"
 )
 
 func (h *ThreadHandler) Close(w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("id")
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
+	idInt, err := strconv.Atoi(idStr)
+	if err != nil || idInt < 0 {
 		lib.WriteError(w, "invalid thread id", lib.StatusBadRequest)
 		return
 	}
+	id := uint(idInt) // теперь uint
 
 	userID, err := auth.GetUserIDFromContext(r.Context())
 	if err != nil {
@@ -26,7 +27,12 @@ func (h *ThreadHandler) Close(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	closedThread, err := h.usecase.CloseThread(r.Context(), id, int(userID))
+	input := usecase.CloseThreadInput{
+		ThreadID: id,
+		UserID:   userID,
+	}
+
+	closedThread, err := h.threadUsecase.CloseThread(r.Context(), input)
 	if err != nil {
 		h.logger.Warn("failed to close thread", zap.Error(err))
 		lib.WriteError(w, "failed to close thread", lib.StatusInternalServerError)
@@ -47,6 +53,5 @@ func (h *ThreadHandler) Close(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(lib.StatusOK)
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		h.logger.Warn("failed to encode response", zap.Error(err))
-		return
 	}
 }

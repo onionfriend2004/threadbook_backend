@@ -21,8 +21,6 @@ func main() {
 	log := logger.New(cfg)
 	defer log.Sync()
 
-	log.Info("Hello world!")
-
 	// Запуск приложения
 	if err := app.Run(cfg, log); err != nil {
 		log.Error("application failed", zap.Error(err))

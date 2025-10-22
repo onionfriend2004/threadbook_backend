@@ -31,6 +31,9 @@ go.work.sum
 config/*.yml
 config/*.yaml
 
+# json config
+config/*.json
+
 # Editor/IDE
 .idea/
 .vscode/
