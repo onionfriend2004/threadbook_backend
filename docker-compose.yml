@@ -164,8 +164,20 @@ services:
     volumes:
       - ./config/nginx.conf:/etc/nginx/nginx.conf:ro
       - ../frontend/build:/site:ro
+      - ./data/certbot/conf:/etc/letsencrypt:ro
+      - ./data/certbot/www:/var/www/certbot:ro
     networks:
       - vibecode_network
+
+  certbot:
+    image: certbot/certbot
+    container_name: VibeCertbot
+    restart: "no"
+    volumes:
+      - ./data/certbot/conf:/etc/letsencrypt
+      - ./data/certbot/www:/var/www/certbot
+    depends_on:
+      - nginx
 
 volumes:
   redis_data:
