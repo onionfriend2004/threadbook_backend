@@ -32,6 +32,7 @@ func PostgresConnect(cfg *config.Config) (*gorm.DB, error) {
 		&gdomain.Spool{},
 		&gdomain.UserSpool{},
 		&gdomain.Thread{},
+		&gdomain.ThreadUser{},
 		&gdomain.Message{},
 		&gdomain.MessagePayload{},
 	)

@@ -28,11 +28,11 @@ func (h *ThreadHandler) Create(w http.ResponseWriter, r *http.Request) {
 	input := usecase.CreateThreadInput{
 		Title:      req.Title,
 		SpoolID:    req.SpoolID,
-		OwnerID:    int(userID),
+		OwnerID:    userID,
 		TypeThread: req.TypeThread,
 	}
 
-	createdThread, err := h.usecase.CreateThread(r.Context(), input)
+	createdThread, err := h.threadUsecase.CreateThread(r.Context(), input)
 	if err != nil {
 		h.logger.Warn("failed to create thread", zap.Error(err))
 		lib.WriteError(w, err.Error(), http.StatusBadRequest)

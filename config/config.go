@@ -63,6 +63,7 @@ type Config struct {
 		TokenHMAC   string `mapstructure:"token_hmac"`    // секрет для подписания user токенов (JWT)
 		AdminAPIKey string `mapstructure:"admin_api_key"` // ключ для административного API (если нужно)
 		Namespace   string `mapstructure:"namespace"`     // например, "chat"
+		TTL         uint32 `mapstructure:"ttl"`           // TTL токена подключения пользователя в секундах
 	} `mapstructure:"centrifugo"`
 
 	UserSession struct {

@@ -1,36 +1,38 @@
 package usecase
 
+import "github.com/onionfriend2004/threadbook_backend/internal/gdomain"
+
 // ---------- CreateThread ----------
 type CreateThreadInput struct {
 	Title      string
-	SpoolID    int
-	OwnerID    int
+	SpoolID    uint
+	OwnerID    uint
 	TypeThread string
 }
 
 // ---------- GetBySpoolID ----------
 type GetBySpoolIDInput struct {
-	UserID  int
-	SpoolID int
+	UserID  uint
+	SpoolID uint
 }
 
 // ---------- CloseThread ----------
 type CloseThreadInput struct {
-	ThreadID int
-	UserID   int
+	ThreadID uint
+	UserID   uint
 }
 
 // ---------- InviteToThread ----------
 type InviteToThreadInput struct {
-	InviterID int
-	InviteeID int
-	ThreadID  int
+	InviterID uint
+	InviteeID uint
+	ThreadID  uint
 }
 
 // ---------- UpdateThread ----------
 type UpdateThreadInput struct {
-	ID         int
-	EditorID   int
+	ID         uint
+	EditorID   uint
 	Title      *string
 	ThreadType *string
 }
@@ -39,5 +41,26 @@ type UpdateThreadInput struct {
 type GetVoiceTokenInput struct {
 	UserID   uint
 	Username string
-	ThreadID int
+	ThreadID uint
+}
+
+// ---------- SendMessage ----------
+type SendMessageInput struct {
+	UserID   uint
+	ThreadID uint
+	Content  string
+	Payloads []gdomain.MessagePayload
+}
+
+// ---------- GetMessages ----------
+type GetMessagesInput struct {
+	ThreadID uint
+	Limit    int
+	Offset   int
+}
+
+// ---------- GetSubscribeToken ----------
+type GetSubscribeTokenInput struct {
+	UserID   uint
+	ThreadID uint
 }

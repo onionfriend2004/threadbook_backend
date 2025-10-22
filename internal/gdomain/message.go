@@ -4,8 +4,8 @@ import "time"
 
 type Message struct {
 	ID        uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	ThreadID  int       `gorm:"not null;index" json:"thread_id"` // связь с Thread
-	UserID    int       `gorm:"not null;index" json:"user_id"`   // автор сообщения
+	ThreadID  uint      `gorm:"not null;index" json:"thread_id"` // связь с Thread
+	UserID    uint      `gorm:"not null;index" json:"user_id"`   // автор сообщения
 	Content   string    `gorm:"type:text;not null" json:"content"`
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`

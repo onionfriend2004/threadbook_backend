@@ -6,6 +6,8 @@ import (
 	"time"
 
 	liveKitAuth "github.com/livekit/protocol/auth"
+	repo "github.com/onionfriend2004/threadbook_backend/internal/thread/external"
+	"go.uber.org/zap"
 )
 
 var (
@@ -14,7 +16,35 @@ var (
 	CanPublishData = true
 )
 
-func (u *ThreadUsecase) GetVoiceToken(ctx context.Context, input GetVoiceTokenInput) (string, error) {
+type RoomUsecaseInterface interface {
+	GetVoiceToken(ctx context.Context, input GetVoiceTokenInput) (string, error)
+}
+type RoomUsecase struct {
+	threadRepo  repo.ThreadRepoInterface
+	liveKitRepo repo.SFUInterface
+	liveKitURL  string
+	apiKey      string
+	apiSecret   string
+	logger      *zap.Logger
+}
+
+func NewRoomUsecase(
+	threadRepo repo.ThreadRepoInterface,
+	liveKitRepo repo.SFUInterface,
+	liveKitURL, apiKey, apiSecret string,
+	logger *zap.Logger,
+) RoomUsecaseInterface {
+	return &RoomUsecase{
+		threadRepo:  threadRepo,
+		liveKitRepo: liveKitRepo,
+		liveKitURL:  liveKitURL,
+		apiKey:      apiKey,
+		apiSecret:   apiSecret,
+		logger:      logger,
+	}
+}
+
+func (u *RoomUsecase) GetVoiceToken(ctx context.Context, input GetVoiceTokenInput) (string, error) {
 	if input.Username == "" || input.ThreadID <= 0 {
 		return "", ErrInvalidInput
 	}

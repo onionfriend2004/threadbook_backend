@@ -8,6 +8,7 @@ require (
 	github.com/centrifugal/gocent/v3 v3.4.0
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/goccy/go-json v0.10.5
+	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/livekit/protocol v1.40.1-0.20250826073447-c714707269e5
 	github.com/livekit/server-sdk-go/v2 v2.11.3
 	github.com/minio/minio-go/v7 v7.0.95

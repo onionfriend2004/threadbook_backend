@@ -26,12 +26,12 @@ func (h *ThreadHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	input := usecase.UpdateThreadInput{
 		ID:         req.ID,
-		EditorID:   int(userID),
+		EditorID:   userID,
 		Title:      req.Title,
 		ThreadType: req.Type,
 	}
 
-	updatedThread, err := h.usecase.UpdateThread(r.Context(), input)
+	updatedThread, err := h.threadUsecase.UpdateThread(r.Context(), input)
 	if err != nil {
 		h.logger.Warn("failed to update thread", zap.Error(err))
 		lib.WriteError(w, "failed to update thread", lib.StatusInternalServerError)

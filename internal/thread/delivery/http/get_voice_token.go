@@ -39,7 +39,7 @@ func (h *ThreadHandler) GetVoiceToken(w http.ResponseWriter, r *http.Request) {
 		ThreadID: req.ThreadID,
 	}
 
-	token, err := h.usecase.GetVoiceToken(ctx, input)
+	token, err := h.roomUsecase.GetVoiceToken(ctx, input)
 	if err != nil {
 		switch {
 		case err == usecase.ErrInvalidInput:

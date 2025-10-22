@@ -31,12 +31,12 @@ func (h *ThreadHandler) InviteToThread(w http.ResponseWriter, r *http.Request) {
 	}
 
 	input := usecase.InviteToThreadInput{
-		InviterID: int(inviterID),
+		InviterID: inviterID,
 		InviteeID: req.InviteeID,
 		ThreadID:  req.ThreadID,
 	}
 
-	err = h.usecase.InviteToThread(r.Context(), input)
+	err = h.threadUsecase.InviteToThread(r.Context(), input)
 	if err != nil {
 		h.logger.Warn("failed to invite user", zap.Error(err))
 		lib.WriteError(w, "failed to invite user", lib.StatusBadRequest)

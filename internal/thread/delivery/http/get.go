@@ -19,12 +19,13 @@ func (h *ThreadHandler) GetBySpoolID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	spoolID, err := strconv.Atoi(spoolIDStr)
-	if err != nil {
+	spoolIDInt, err := strconv.Atoi(spoolIDStr)
+	if err != nil || spoolIDInt < 0 {
 		h.logger.Warn("failed string to int spool_id", zap.Error(err))
 		lib.WriteError(w, "invalid spool_id", lib.StatusBadRequest)
 		return
 	}
+	spoolID := uint(spoolIDInt)
 
 	userID, err := auth.GetUserIDFromContext(r.Context())
 	if err != nil {
@@ -33,11 +34,11 @@ func (h *ThreadHandler) GetBySpoolID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	input := usecase.GetBySpoolIDInput{
-		UserID:  int(userID),
+		UserID:  userID,
 		SpoolID: spoolID,
 	}
 
-	threads, err := h.usecase.GetBySpoolID(r.Context(), input)
+	threads, err := h.threadUsecase.GetBySpoolID(r.Context(), input)
 	if err != nil {
 		h.logger.Warn("failed to get threads by spool_id", zap.Error(err))
 		lib.WriteError(w, "failed to get threads", lib.StatusInternalServerError)

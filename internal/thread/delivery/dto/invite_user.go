@@ -1,6 +1,6 @@
 package dto
 
 type InviteRequest struct {
-	ThreadID  int `json:"thread_id"`
-	InviteeID int `json:"invitee_id"`
+	ThreadID  uint `json:"thread_id"`
+	InviteeID uint `json:"invitee_id"`
 }

@@ -10,19 +10,19 @@ import (
 	"gorm.io/gorm"
 )
 
-type ThreadRepository struct {
+type ThreadRepo struct {
 	Db     *gorm.DB
 	logger *zap.Logger
 }
 
-func NewThreadRepository(db *gorm.DB, logger *zap.Logger) *ThreadRepository {
-	return &ThreadRepository{
+func NewThreadRepo(db *gorm.DB, logger *zap.Logger) ThreadRepoInterface {
+	return &ThreadRepo{
 		Db:     db,
 		logger: logger,
 	}
 }
 
-func (r *ThreadRepository) Create(ctx context.Context, creatorID, spoolID int, title, threadType string) (*gdomain.Thread, error) {
+func (r *ThreadRepo) Create(ctx context.Context, creatorID, spoolID uint, title, threadType string) (*gdomain.Thread, error) {
 	var thread gdomain.Thread
 
 	err := r.Db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -96,9 +96,9 @@ func (r *ThreadRepository) Create(ctx context.Context, creatorID, spoolID int, t
 	return &thread, nil
 }
 
-func (r *ThreadRepository) GetBySpoolID(ctx context.Context, userID, spoolID int) ([]*gdomain.Thread, error) {
+func (r *ThreadRepo) GetBySpoolID(ctx context.Context, userID, spoolID uint) ([]*gdomain.Thread, error) {
 	var threads []*gdomain.Thread
-	const op = "ThreadRepository.GetBySpoolID"
+	const op = "ThreadRepo.GetBySpoolID"
 
 	err := r.Db.
 		Table("threads AS t").
@@ -113,7 +113,7 @@ func (r *ThreadRepository) GetBySpoolID(ctx context.Context, userID, spoolID int
 	return threads, nil
 }
 
-func (r *ThreadRepository) CloseThread(id int, userID int) (*gdomain.Thread, error) {
+func (r *ThreadRepo) CloseThread(id uint, userID uint) (*gdomain.Thread, error) {
 	var thread gdomain.Thread
 	if err := r.Db.First(&thread, id).Error; err != nil {
 		return nil, err
@@ -129,7 +129,7 @@ func (r *ThreadRepository) CloseThread(id int, userID int) (*gdomain.Thread, err
 }
 
 // DONT CHANGE THIS METHOD!!!
-func (r *ThreadRepository) GetThreadByID(ctx context.Context, threadID int) (*gdomain.Thread, error) {
+func (r *ThreadRepo) GetThreadByID(ctx context.Context, threadID uint) (*gdomain.Thread, error) {
 	var thread gdomain.Thread
 	if err := r.Db.WithContext(ctx).First(&thread, threadID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -146,7 +146,7 @@ func (r *ThreadRepository) GetThreadByID(ctx context.Context, threadID int) (*gd
 // CREATE INDEX idx_thread_users_user_thread_member
 // ON thread_users (user_id, thread_id)
 // WHERE is_member = true;
-func (r *ThreadRepository) CheckRightsUserOnThreadRoom(ctx context.Context, threadID int, userID uint) (bool, error) {
+func (r *ThreadRepo) CheckRightsUserOnThreadRoom(ctx context.Context, threadID uint, userID uint) (bool, error) {
 	var count int64
 	err := r.Db.WithContext(ctx).
 		Table("thread_users").
@@ -158,11 +158,11 @@ func (r *ThreadRepository) CheckRightsUserOnThreadRoom(ctx context.Context, thre
 	return count > 0, nil
 }
 
-func (r *ThreadRepository) InviteToThread(ctx context.Context, inviterID, inviteeID, threadID int) error {
+func (r *ThreadRepo) InviteToThread(ctx context.Context, inviterID, inviteeID, threadID uint) error {
 	var thread struct {
-		ID      int
+		ID      uint
 		Type    string
-		SpoolID int
+		SpoolID uint
 	}
 	if err := r.Db.
 		Table("threads").
@@ -215,10 +215,10 @@ func (r *ThreadRepository) InviteToThread(ctx context.Context, inviterID, invite
 	}).Error
 }
 
-func (r *ThreadRepository) Update(
+func (r *ThreadRepo) Update(
 	ctx context.Context,
-	id int,
-	editorID int,
+	id uint,
+	editorID uint,
 	title *string,
 	threadType *string,
 ) (*gdomain.Thread, error) {
@@ -261,4 +261,15 @@ func (r *ThreadRepository) Update(
 	}
 
 	return &thread, nil
+}
+
+func (r *ThreadRepo) GetThreadMembers(ctx context.Context, threadID uint) ([]gdomain.ThreadUser, error) {
+	var members []gdomain.ThreadUser
+	if err := r.Db.WithContext(ctx).
+		Table("thread_users").
+		Where("thread_id = ? AND is_member = ?", threadID, true).
+		Find(&members).Error; err != nil {
+		return nil, err
+	}
+	return members, nil
 }

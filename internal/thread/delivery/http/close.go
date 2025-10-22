@@ -14,11 +14,12 @@ import (
 
 func (h *ThreadHandler) Close(w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("id")
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
+	idInt, err := strconv.Atoi(idStr)
+	if err != nil || idInt < 0 {
 		lib.WriteError(w, "invalid thread id", lib.StatusBadRequest)
 		return
 	}
+	id := uint(idInt) // теперь uint
 
 	userID, err := auth.GetUserIDFromContext(r.Context())
 	if err != nil {
@@ -28,10 +29,10 @@ func (h *ThreadHandler) Close(w http.ResponseWriter, r *http.Request) {
 
 	input := usecase.CloseThreadInput{
 		ThreadID: id,
-		UserID:   int(userID),
+		UserID:   userID,
 	}
 
-	closedThread, err := h.usecase.CloseThread(r.Context(), input)
+	closedThread, err := h.threadUsecase.CloseThread(r.Context(), input)
 	if err != nil {
 		h.logger.Warn("failed to close thread", zap.Error(err))
 		lib.WriteError(w, "failed to close thread", lib.StatusInternalServerError)

@@ -9,41 +9,26 @@ import (
 	"go.uber.org/zap"
 )
 
-var (
-	ErrWrognTypeThread = errors.New("wrong type of thread")
-)
-
 type ThreadUsecaseInterface interface {
 	CreateThread(ctx context.Context, input CreateThreadInput) (*gdomain.Thread, error)
 	GetBySpoolID(ctx context.Context, input GetBySpoolIDInput) ([]*gdomain.Thread, error)
 	CloseThread(ctx context.Context, input CloseThreadInput) (*gdomain.Thread, error)
 	InviteToThread(ctx context.Context, input InviteToThreadInput) error
 	UpdateThread(ctx context.Context, input UpdateThreadInput) (*gdomain.Thread, error)
-	GetVoiceToken(ctx context.Context, input GetVoiceTokenInput) (string, error)
 }
 
 type ThreadUsecase struct {
-	threadRepo  repo.ThreadRepositoryInterface
-	liveKitRepo repo.SFUInterface
-	liveKitURL  string
-	apiKey      string
-	apiSecret   string
-	logger      *zap.Logger
+	threadRepo repo.ThreadRepoInterface
+	logger     *zap.Logger
 }
 
 func NewThreadUsecase(
-	threadRepo repo.ThreadRepositoryInterface,
-	liveKitRepo repo.SFUInterface,
-	liveKitURL, apiKey, apiSecret string,
+	threadRepo repo.ThreadRepoInterface,
 	logger *zap.Logger,
 ) ThreadUsecaseInterface {
 	return &ThreadUsecase{
-		threadRepo:  threadRepo,
-		liveKitRepo: liveKitRepo,
-		liveKitURL:  liveKitURL,
-		apiKey:      apiKey,
-		apiSecret:   apiSecret,
-		logger:      logger,
+		threadRepo: threadRepo,
+		logger:     logger,
 	}
 }
 

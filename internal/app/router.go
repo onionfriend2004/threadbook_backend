@@ -170,12 +170,25 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 	spoolHandler.Routes(r, authenticator)
 
 	// ===================== Thread =====================
-
-	// external
-	threadRepo := threadExternal.NewThreadRepository(db, logger)
+	// external repos
+	threadRepo := threadExternal.NewThreadRepo(db, logger)
 	liveKitRepo := threadExternal.NewLiveKitRepo(livekit, cfg.Room.EmptyTTL, cfg.Room.MaxParticipants)
-	threadUsecase := threadUsecase.NewThreadUsecase(threadRepo, liveKitRepo, cfg.LiveKit.URL, cfg.LiveKit.APIKey, cfg.LiveKit.APISecret, logger)
-	threadHandler := threadDeliveryHTTP.NewThreadHandler(threadUsecase, logger)
+	websocketRepo := threadExternal.NewWebsocketRepo(
+		centrifugo,               // *gocent.Client
+		cfg.Centrifugo.Namespace, // namespace
+		cfg.Centrifugo.TokenHMAC, // JWT secret
+		"threadbook",             // token issuer (можно из конфига или статично)
+	)
+	// messages repo
+	messageRepo := threadExternal.NewMessageRepo(db)
+
+	// usecases
+	threadUC := threadUsecase.NewThreadUsecase(threadRepo, logger)
+	messageUC := threadUsecase.NewMessageUsecase(messageRepo, websocketRepo, threadRepo, time.Duration(cfg.Centrifugo.TTL)*time.Second, logger)
+	roomUC := threadUsecase.NewRoomUsecase(threadRepo, liveKitRepo, cfg.LiveKit.URL, cfg.LiveKit.APIKey, cfg.LiveKit.APISecret, logger)
+
+	// handler
+	threadHandler := threadDeliveryHTTP.NewThreadHandler(threadUC, messageUC, roomUC, logger)
 	threadHandler.Routes(r, authenticator)
 	// ===================== Other =====================
 
