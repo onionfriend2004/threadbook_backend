@@ -7,7 +7,7 @@ type MessageResponse struct {
 	ThreadID  uint      `json:"thread_id"`
 	UserID    uint      `json:"user_id"`
 	Content   string    `json:"content"`
-	Payloads  []any     `json:"payloads,omitempty"` // можно заменить на конкретный тип
+	Payloads  []any     `json:"payloads,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

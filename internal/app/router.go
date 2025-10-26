@@ -175,9 +175,8 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 	liveKitRepo := threadExternal.NewLiveKitRepo(livekit, cfg.Room.EmptyTTL, cfg.Room.MaxParticipants)
 	websocketRepo := threadExternal.NewWebsocketRepo(
 		centrifugo,               // *gocent.Client
-		cfg.Centrifugo.Namespace, // namespace
 		cfg.Centrifugo.TokenHMAC, // JWT secret
-		"threadbook",             // token issuer (можно из конфига или статично)
+		"threadbook",             // token issuer
 	)
 	// messages repo
 	messageRepo := threadExternal.NewMessageRepo(db)

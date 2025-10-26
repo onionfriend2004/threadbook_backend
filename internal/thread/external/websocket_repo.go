@@ -7,5 +7,6 @@ import (
 
 type WebsocketRepoInterface interface {
 	PublishToUser(ctx context.Context, userID uint, data any) error
-	GenerateUserToken(ctx context.Context, userID uint, ttl time.Duration) (string, error)
+	GenerateConnectToken(ctx context.Context, userID uint, ttl time.Duration) (string, error)
+	GenerateSubscribeTokens(ctx context.Context, userID uint, threadIDs []uint, ttl time.Duration) (map[string]string, error)
 }

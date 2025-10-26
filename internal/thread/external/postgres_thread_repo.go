@@ -273,3 +273,15 @@ func (r *ThreadRepo) GetThreadMembers(ctx context.Context, threadID uint) ([]gdo
 	}
 	return members, nil
 }
+
+func (r *ThreadRepo) GetAccessibleThreadIDs(ctx context.Context, userID uint) ([]uint, error) {
+	var threadIDs []uint
+	err := r.Db.WithContext(ctx).
+		Table("thread_users").
+		Where("user_id = ? AND is_member = ?", userID, true).
+		Pluck("thread_id", &threadIDs).Error
+	if err != nil {
+		return nil, err
+	}
+	return threadIDs, nil
+}

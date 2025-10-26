@@ -64,3 +64,9 @@ type GetSubscribeTokenInput struct {
 	UserID   uint
 	ThreadID uint
 }
+
+// ---------- GetConnectAndSubscribeTokens ----------
+type ConnectAndSubscribeTokens struct {
+	ConnectToken  string
+	ChannelTokens map[string]string
+}

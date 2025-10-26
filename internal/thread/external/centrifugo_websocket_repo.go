@@ -12,74 +12,98 @@ import (
 
 type websocketRepo struct {
 	client      *gocent.Client
-	channelNS   string // например "user"
 	secret      string // JWT secret
-	tokenIssuer string // optional iss claim
+	tokenIssuer string
 }
 
-func NewWebsocketRepo(client *gocent.Client, channelNS, secret, tokenIssuer string) WebsocketRepoInterface {
+func NewWebsocketRepo(client *gocent.Client, secret, tokenIssuer string) WebsocketRepoInterface {
 	return &websocketRepo{
 		client:      client,
-		channelNS:   channelNS,
 		secret:      secret,
 		tokenIssuer: tokenIssuer,
 	}
 }
 
-// channelName возвращает имя пользовательского канала вида "user:{id}" или "namespace:user:{id}"
-func (r *websocketRepo) channelName(userID uint) string {
-	if r.channelNS == "" {
-		return fmt.Sprintf("user:%d", userID)
-	}
-	return fmt.Sprintf("%s:user:%d", r.channelNS, userID)
+// user channel: "user#{id}"
+func (r *websocketRepo) userChannel(userID uint) string {
+	return fmt.Sprintf("user#%d", userID)
 }
 
-// PublishToUser публикует сообщение конкретному пользователю
-func (r *websocketRepo) PublishToUser(ctx context.Context, userID uint, data any) error {
-	channel := r.channelName(userID)
+// thread channel: "thread#{id}"
+func (r *websocketRepo) threadChannel(threadID uint) string {
+	return fmt.Sprintf("thread#%d", threadID)
+}
 
-	var payload []byte
-	switch v := data.(type) {
-	case []byte:
-		payload = v
-	case json.RawMessage:
-		payload = []byte(v)
-	default:
-		b, err := json.Marshal(data)
-		if err != nil {
-			return fmt.Errorf("marshal publish data: %w", err)
-		}
-		payload = b
+func (r *websocketRepo) PublishToUser(ctx context.Context, userID uint, data any) error {
+	channel := r.userChannel(userID)
+
+	payload, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("marshal publish data: %w", err)
 	}
 
-	_, err := r.client.Publish(ctx, channel, payload)
-	if err != nil {
+	if _, err := r.client.Publish(ctx, channel, payload); err != nil {
 		return fmt.Errorf("centrifugo publish failed: %w", err)
 	}
+
 	return nil
 }
 
-// GenerateUserToken генерирует токен для подключения к пользовательскому каналу
-func (r *websocketRepo) GenerateUserToken(ctx context.Context, userID uint, ttl time.Duration) (string, error) {
+// CONNECT JWT
+func (r *websocketRepo) GenerateConnectToken(ctx context.Context, userID uint, ttl time.Duration) (string, error) {
 	now := time.Now()
-	exp := now.Add(ttl).Unix()
-
-	channel := r.channelName(userID)
-
 	claims := jwt.MapClaims{
-		"sub":     fmt.Sprintf("%d", userID),
-		"channel": channel,
-		"exp":     exp,
-		"iat":     now.Unix(),
+		"sub": fmt.Sprintf("%d", userID),
+		"exp": now.Add(ttl).Unix(),
+		"iat": now.Unix(),
 	}
 	if r.tokenIssuer != "" {
 		claims["iss"] = r.tokenIssuer
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	signed, err := token.SignedString([]byte(r.secret))
+	return token.SignedString([]byte(r.secret))
+}
+
+// SUBSCRIBE JWT tokens for all user channels
+func (r *websocketRepo) GenerateSubscribeTokens(ctx context.Context, userID uint, threadIDs []uint, ttl time.Duration) (map[string]string, error) {
+	tokens := make(map[string]string)
+
+	// user channel
+	userCh := r.userChannel(userID)
+	userToken, err := r.generateChannelToken(userID, userCh, ttl)
 	if err != nil {
-		return "", fmt.Errorf("failed to sign token: %w", err)
+		return nil, err
 	}
-	return signed, nil
+	tokens[userCh] = userToken
+
+	// thread channels
+	for _, threadID := range threadIDs {
+		threadCh := r.threadChannel(threadID)
+		token, err := r.generateChannelToken(userID, threadCh, ttl)
+		if err != nil {
+			return nil, err
+		}
+		tokens[threadCh] = token
+	}
+
+	return tokens, nil
+}
+
+// private helper to generate SUB JWT
+func (r *websocketRepo) generateChannelToken(userID uint, channel string, ttl time.Duration) (string, error) {
+	now := time.Now()
+	claims := jwt.MapClaims{
+		"sub":     fmt.Sprintf("%d", userID),
+		"channel": channel,
+		"exp":     now.Add(ttl).Unix(),
+		"iat":     now.Unix(),
+	}
+
+	if r.tokenIssuer != "" {
+		claims["iss"] = r.tokenIssuer
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(r.secret))
 }
