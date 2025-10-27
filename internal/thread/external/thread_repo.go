@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/onionfriend2004/threadbook_backend/internal/gdomain"
 	"github.com/onionfriend2004/threadbook_backend/internal/thread/domain"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -20,7 +21,7 @@ type ThreadRepositoryInterface interface {
 	Create(ctx context.Context, creatorID, spoolID int, title, threadType string) (*domain.Thread, error)
 	GetBySpoolID(ctx context.Context, userID, spoolID int) ([]*domain.Thread, error)
 	CloseThread(id int, userID int) (*domain.Thread, error)
-	InviteToThread(ctx context.Context, inviterID, inviteeID, threadID int) error
+	InviteToThread(ctx context.Context, inviterID int, inviteeUsernames []string, threadID int) error
 	Update(ctx context.Context, input domain.UpdateThreadInput) (*domain.Thread, error)
 	GetThreadByID(ctx context.Context, threadID int) (*domain.Thread, error)
 
@@ -175,17 +176,9 @@ func (r *ThreadRepository) CheckRightsUserOnThreadRoom(ctx context.Context, thre
 	return count > 0, nil
 }
 
-func (r *ThreadRepository) InviteToThread(ctx context.Context, inviterID, inviteeID, threadID int) error {
-	var thread struct {
-		ID      int
-		Type    string
-		SpoolID int
-	}
-	if err := r.Db.
-		Table("threads").
-		Select("id, type, spool_id").
-		Where("id = ?", threadID).
-		Scan(&thread).Error; err != nil {
+func (r *ThreadRepository) InviteToThread(ctx context.Context, inviterID int, inviteeUsernames []string, threadID int) error {
+	var thread gdomain.Thread
+	if err := r.Db.First(&thread, threadID).Error; err != nil {
 		return err
 	}
 
@@ -193,43 +186,45 @@ func (r *ThreadRepository) InviteToThread(ctx context.Context, inviterID, invite
 		return ErrUserNoAccess
 	}
 
-	var inThread int64
-	if err := r.Db.
-		Table("thread_users").
-		Where("user_id = ? AND thread_id = ?", inviterID, threadID).
-		Count(&inThread).Error; err != nil {
-		return err
-	}
-	if inThread == 0 {
+	if inviterID != thread.CreatorID {
 		return ErrUserNoAccess
 	}
 
-	var inSpool int64
-	if err := r.Db.
-		Table("user_spools").
-		Where("user_id = ? AND spool_id = ?", inviteeID, thread.SpoolID).
-		Count(&inSpool).Error; err != nil {
-		return err
-	}
-	if inSpool == 0 {
-		return ErrUserNotInSpool
+	for _, username := range inviteeUsernames {
+		var invitee gdomain.User
+		if err := r.Db.Where("username = ?", username).First(&invitee).Error; err != nil {
+			return err
+		}
+
+		// Проверяем, что пользователь уже в спуле потока
+		var inSpool int64
+		if err := r.Db.Table("user_spools").
+			Where("user_id = ? AND spool_id = ?", invitee.ID, thread.SpoolID).
+			Count(&inSpool).Error; err != nil {
+			return err
+		}
+		if inSpool == 0 {
+			return ErrUserNotInSpool
+		}
+
+		// Проверяем, что пользователь ещё не в потоке
+		var exists int64
+		if err := r.Db.Table("thread_users").
+			Where("user_id = ? AND thread_id = ?", invitee.ID, thread.ID).
+			Count(&exists).Error; err != nil {
+			return err
+		}
+		if exists > 0 {
+			continue
+		}
+
+		// Добавляем пользователя в поток
+		if err := r.Db.Model(&thread).Association("Users").Append(&invitee); err != nil {
+			return err
+		}
 	}
 
-	var exists int64
-	if err := r.Db.
-		Table("thread_users").
-		Where("user_id = ? AND thread_id = ?", inviteeID, threadID).
-		Count(&exists).Error; err != nil {
-		return err
-	}
-	if exists > 0 {
-		return nil
-	}
-
-	return r.Db.Table("thread_users").Create(map[string]interface{}{
-		"user_id":   inviteeID,
-		"thread_id": threadID,
-	}).Error
+	return nil
 }
 
 func (r *ThreadRepository) Update(ctx context.Context, input domain.UpdateThreadInput) (*domain.Thread, error) {

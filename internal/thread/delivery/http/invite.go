@@ -18,7 +18,7 @@ func (h *ThreadHandler) InviteToThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.ThreadID == 0 || req.InviteeID == 0 {
+	if req.ThreadID == 0 || len(req.Usernames) == 0 {
 		lib.WriteError(w, "thread_id and invitee_id are required", lib.StatusBadRequest)
 		return
 	}
@@ -29,7 +29,7 @@ func (h *ThreadHandler) InviteToThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.usecase.InviteToThread(r.Context(), int(inviterID), req.InviteeID, req.ThreadID)
+	err = h.usecase.InviteToThread(r.Context(), int(inviterID), req.Usernames, req.ThreadID)
 	if err != nil {
 		h.logger.Warn("failed to invite user", zap.Error(err))
 		lib.WriteError(w, "failed to invite user", lib.StatusBadRequest)

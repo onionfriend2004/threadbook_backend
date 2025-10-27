@@ -17,7 +17,7 @@ type ThreadUsecaseInterface interface {
 	CreateThread(ctx context.Context, title string, spool_id int, owner_id int, typeThread string) (*domain.Thread, error)
 	GetBySpoolID(ctx context.Context, userID, spoolID int) ([]*domain.Thread, error)
 	CloseThread(ctx context.Context, id int, userID int) (*domain.Thread, error)
-	InviteToThread(ctx context.Context, inviterID, inviteeID, threadID int) error
+	InviteToThread(ctx context.Context, inviterID int, inviteeUsernames []string, threadID int) error
 	UpdateThread(ctx context.Context, input domain.UpdateThreadInput) (*domain.Thread, error)
 	GetVoiceToken(ctx context.Context, userID uint, username string, threadID int) (string, error)
 }
@@ -70,8 +70,8 @@ func (u *ThreadUsecase) CloseThread(ctx context.Context, id int, userID int) (*d
 	return u.threadRepo.CloseThread(id, userID)
 }
 
-func (u *ThreadUsecase) InviteToThread(ctx context.Context, inviterID, inviteeID, threadID int) error {
-	err := u.threadRepo.InviteToThread(ctx, inviterID, inviteeID, threadID)
+func (u *ThreadUsecase) InviteToThread(ctx context.Context, inviterID int, inviteeUsernames []string, threadID int) error {
+	err := u.threadRepo.InviteToThread(ctx, inviterID, inviteeUsernames, threadID)
 	if err != nil {
 		return err
 	}
