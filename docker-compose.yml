@@ -138,6 +138,20 @@ services:
       timeout: 20s
       retries: 3
 
+  centrifugo:
+    image: centrifugo/centrifugo:v5
+    container_name: VibeCentrifugo
+    restart: unless-stopped
+    ports:
+      - "${CENTRIFUGO_WS_PORT}:8000"
+    command: centrifugo --config=/config/centrifugo.json
+    volumes:
+      - ./config/centrifugo.json:/config/centrifugo.json
+    networks:
+      - vibecode_network
+    depends_on:
+      - redis
+
   api:
     build:
       context: .
