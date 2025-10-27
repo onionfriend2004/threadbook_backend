@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/centrifugal/gocent/v3"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -62,6 +63,14 @@ func Run(config *config.Config, logger *zap.Logger) error {
 		logger.Error("failed to connect to NATS", zap.Error(err))
 		return err
 	}
+
+	// ===================== CentrifugoConn =====================
+	centrifugoClient, err := infra.CentrifugoConnect(config)
+	if err != nil {
+		logger.Error("failed to connect to Centrifugo", zap.Error(err))
+		return err
+	}
+
 	// ===================== LiveKitConn =====================
 	liveKitConn := infra.LiveKitConnect(config)
 
@@ -98,7 +107,7 @@ func Run(config *config.Config, logger *zap.Logger) error {
 	r.Use(middleware.RealIP)      // - RealIP: извлекает реальный IP клиента из заголовков (X-Forwarded-For и др.).
 	r.Use(middleware.Recoverer)   // - Recoverer: перехватывает паники в обработчиках и предотвращает падение сервера.
 
-	apiRouter, err := apiRouter(config, postgreConn, redisConn, natsConn, liveKitConn, minioConn, logger)
+	apiRouter, err := apiRouter(config, postgreConn, redisConn, natsConn, liveKitConn, minioConn, centrifugoClient, logger)
 	if err != nil {
 		return err
 	}
@@ -135,7 +144,7 @@ func Run(config *config.Config, logger *zap.Logger) error {
 	return nil
 }
 
-func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.Conn, livekit *livekit.RoomServiceClient, minio *minio.Client, logger *zap.Logger) (chi.Router, error) {
+func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.Conn, livekit *livekit.RoomServiceClient, minio *minio.Client, centrifugo *gocent.Client, logger *zap.Logger) (chi.Router, error) {
 	r := chi.NewRouter()
 	// ===================== Auth =====================
 
@@ -174,12 +183,24 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 	spoolHandler.Routes(r, authenticator)
 
 	// ===================== Thread =====================
-
-	// external
-	threadRepo := threadExternal.NewThreadRepository(db, logger)
+	// external repos
+	threadRepo := threadExternal.NewThreadRepo(db, logger)
 	liveKitRepo := threadExternal.NewLiveKitRepo(livekit, cfg.Room.EmptyTTL, cfg.Room.MaxParticipants)
-	threadUsecase := threadUsecase.NewThreadUsecase(threadRepo, liveKitRepo, cfg.LiveKit.URL, cfg.LiveKit.APIKey, cfg.LiveKit.APISecret, logger)
-	threadHandler := threadDeliveryHTTP.NewThreadHandler(threadUsecase, logger)
+	websocketRepo := threadExternal.NewWebsocketRepo(
+		centrifugo,               // *gocent.Client
+		cfg.Centrifugo.TokenHMAC, // JWT secret
+		"threadbook",             // token issuer
+	)
+	// messages repo
+	messageRepo := threadExternal.NewMessageRepo(db)
+
+	// usecases
+	threadUC := threadUsecase.NewThreadUsecase(threadRepo, logger)
+	messageUC := threadUsecase.NewMessageUsecase(messageRepo, websocketRepo, threadRepo, time.Duration(cfg.Centrifugo.TTL)*time.Second, logger)
+	roomUC := threadUsecase.NewRoomUsecase(threadRepo, liveKitRepo, cfg.LiveKit.URL, cfg.LiveKit.APIKey, cfg.LiveKit.APISecret, logger)
+
+	// handler
+	threadHandler := threadDeliveryHTTP.NewThreadHandler(threadUC, messageUC, roomUC, logger)
 	threadHandler.Routes(r, authenticator)
 
 	// ===================== Profile =====================

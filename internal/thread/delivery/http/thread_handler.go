@@ -8,17 +8,23 @@ import (
 )
 
 type ThreadHandler struct {
-	usecase usecase.ThreadUsecaseInterface
-	logger  *zap.Logger
+	threadUsecase  usecase.ThreadUsecaseInterface
+	messageUsecase *usecase.MessageUsecase
+	roomUsecase    usecase.RoomUsecaseInterface
+	logger         *zap.Logger
 }
 
 func NewThreadHandler(
-	usecase usecase.ThreadUsecaseInterface,
+	threadUC usecase.ThreadUsecaseInterface,
+	messageUC *usecase.MessageUsecase,
+	roomUC usecase.RoomUsecaseInterface,
 	logger *zap.Logger,
 ) *ThreadHandler {
 	return &ThreadHandler{
-		usecase: usecase,
-		logger:  logger,
+		threadUsecase:  threadUC,
+		messageUsecase: messageUC,
+		roomUsecase:    roomUC,
+		logger:         logger,
 	}
 }
 
@@ -32,5 +38,10 @@ func (h *ThreadHandler) Routes(r chi.Router, authenticator auth.AuthenticatorInt
 		r.Post("/invite", h.InviteToThread)
 		r.Post("/sfu/token", h.GetVoiceToken)
 		r.Put("/update", h.Update)
+		r.Route("/{id}", func(r chi.Router) {
+			r.Get("/messages", h.GetMessages)
+			r.Post("/messages", h.SendMessage)
+		})
+		r.Get("/ws/token", h.GetSubscribeToken)
 	})
 }

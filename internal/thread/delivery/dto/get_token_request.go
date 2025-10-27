@@ -1,5 +1,5 @@
 package dto
 
 type GetVoiceTokenRequest struct {
-	ThreadID int `json:"thread_id" binding:"required,min=1"`
+	ThreadID uint `json:"thread_id" binding:"required,min=1"`
 }
