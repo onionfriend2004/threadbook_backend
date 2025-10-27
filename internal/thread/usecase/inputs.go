@@ -24,9 +24,9 @@ type CloseThreadInput struct {
 
 // ---------- InviteToThread ----------
 type InviteToThreadInput struct {
-	InviterID uint
-	InviteeID uint
-	ThreadID  uint
+	InviterID        uint
+	InviteeUsernames []string
+	ThreadID         uint
 }
 
 // ---------- UpdateThread ----------

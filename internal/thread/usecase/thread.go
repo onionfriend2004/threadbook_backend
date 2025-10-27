@@ -10,12 +10,11 @@ import (
 )
 
 type ThreadUsecaseInterface interface {
-	CreateThread(ctx context.Context, title string, spool_id int, owner_id int, typeThread string) (*gdomain.Thread, error)
-	GetBySpoolID(ctx context.Context, userID, spoolID int) ([]*gdomain.Thread, error)
-	CloseThread(ctx context.Context, id int, userID int) (*gdomain.Thread, error)
-	InviteToThread(ctx context.Context, inviterID int, inviteeUsernames []string, threadID int) error
-	UpdateThread(ctx context.Context, input domain.UpdateThreadInput) (*gdomain.Thread, error)
-	GetVoiceToken(ctx context.Context, userID uint, username string, threadID int) (string, error)
+	CreateThread(ctx context.Context, input CreateThreadInput) (*gdomain.Thread, error)
+	GetBySpoolID(ctx context.Context, input GetBySpoolIDInput) ([]*gdomain.Thread, error)
+	CloseThread(ctx context.Context, input CloseThreadInput) (*gdomain.Thread, error)
+	InviteToThread(ctx context.Context, input InviteToThreadInput) error
+	UpdateThread(ctx context.Context, input UpdateThreadInput) (*gdomain.Thread, error)
 }
 
 type ThreadUsecase struct {
@@ -57,8 +56,8 @@ func (u *ThreadUsecase) CloseThread(ctx context.Context, input CloseThreadInput)
 	return u.threadRepo.CloseThread(input.ThreadID, input.UserID)
 }
 
-func (u *ThreadUsecase) InviteToThread(ctx context.Context, inviterID int, inviteeUsernames []string, threadID int) error {
-	return u.threadRepo.InviteToThread(ctx, inviterID, inviteeUsernames, threadID)
+func (u *ThreadUsecase) InviteToThread(ctx context.Context, input InviteToThreadInput) error {
+	return u.threadRepo.InviteToThread(ctx, input.InviterID, input.InviteeUsernames, input.ThreadID)
 }
 
 func (u *ThreadUsecase) UpdateThread(ctx context.Context, input UpdateThreadInput) (*gdomain.Thread, error) {

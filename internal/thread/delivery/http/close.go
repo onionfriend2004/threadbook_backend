@@ -19,7 +19,7 @@ func (h *ThreadHandler) Close(w http.ResponseWriter, r *http.Request) {
 		lib.WriteError(w, "invalid thread id", lib.StatusBadRequest)
 		return
 	}
-	id := uint(idInt) // теперь uint
+	id := uint(idInt)
 
 	userID, err := auth.GetUserIDFromContext(r.Context())
 	if err != nil {

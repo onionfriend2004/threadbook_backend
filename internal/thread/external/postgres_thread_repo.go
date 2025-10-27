@@ -158,63 +158,6 @@ func (r *ThreadRepo) CheckRightsUserOnThreadRoom(ctx context.Context, threadID u
 	return count > 0, nil
 }
 
-func (r *ThreadRepo) InviteToThread(ctx context.Context, inviterID, inviteeID, threadID uint) error {
-	var thread struct {
-		ID      uint
-		Type    string
-		SpoolID uint
-	}
-	if err := r.Db.
-		Table("threads").
-		Select("id, type, spool_id").
-		Where("id = ?", threadID).
-		Scan(&thread).Error; err != nil {
-		return err
-	}
-
-	if thread.Type != "private" {
-		return ErrUserNoAccess
-	}
-
-	var inThread int64
-	if err := r.Db.
-		Table("thread_users").
-		Where("user_id = ? AND thread_id = ?", inviterID, threadID).
-		Count(&inThread).Error; err != nil {
-		return err
-	}
-	if inThread == 0 {
-		return ErrUserNoAccess
-	}
-
-	var inSpool int64
-	if err := r.Db.
-		Table("user_spools").
-		Where("user_id = ? AND spool_id = ?", inviteeID, thread.SpoolID).
-		Count(&inSpool).Error; err != nil {
-		return err
-	}
-	if inSpool == 0 {
-		return ErrUserNotInSpool
-	}
-
-	var exists int64
-	if err := r.Db.
-		Table("thread_users").
-		Where("user_id = ? AND thread_id = ?", inviteeID, threadID).
-		Count(&exists).Error; err != nil {
-		return err
-	}
-	if exists > 0 {
-		return nil
-	}
-
-	return r.Db.Table("thread_users").Create(map[string]interface{}{
-		"user_id":   inviteeID,
-		"thread_id": threadID,
-	}).Error
-}
-
 func (r *ThreadRepo) Update(
 	ctx context.Context,
 	id uint,
@@ -284,4 +227,55 @@ func (r *ThreadRepo) GetAccessibleThreadIDs(ctx context.Context, userID uint) ([
 		return nil, err
 	}
 	return threadIDs, nil
+}
+
+func (r *ThreadRepo) InviteToThread(ctx context.Context, inviterID uint, inviteeUsernames []string, threadID uint) error {
+	var thread gdomain.Thread
+	if err := r.Db.First(&thread, threadID).Error; err != nil {
+		return err
+	}
+
+	if thread.Type != "private" {
+		return ErrUserNoAccess
+	}
+
+	if inviterID != thread.CreatorID {
+		return ErrUserNoAccess
+	}
+
+	for _, username := range inviteeUsernames {
+		var invitee gdomain.User
+		if err := r.Db.Where("username = ?", username).First(&invitee).Error; err != nil {
+			return err
+		}
+
+		// Проверяем, что пользователь уже в спуле потока
+		var inSpool int64
+		if err := r.Db.Table("user_spools").
+			Where("user_id = ? AND spool_id = ?", invitee.ID, thread.SpoolID).
+			Count(&inSpool).Error; err != nil {
+			return err
+		}
+		if inSpool == 0 {
+			return ErrUserNotInSpool
+		}
+
+		// Проверяем, что пользователь ещё не в потоке
+		var exists int64
+		if err := r.Db.Table("thread_users").
+			Where("user_id = ? AND thread_id = ?", invitee.ID, thread.ID).
+			Count(&exists).Error; err != nil {
+			return err
+		}
+		if exists > 0 {
+			continue
+		}
+
+		// Добавляем пользователя в поток
+		if err := r.Db.Model(&thread).Association("Users").Append(&invitee); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

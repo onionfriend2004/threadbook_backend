@@ -7,6 +7,7 @@ import (
 	"github.com/onionfriend2004/threadbook_backend/internal/lib"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib/middleware/auth"
 	"github.com/onionfriend2004/threadbook_backend/internal/thread/delivery/dto"
+	"github.com/onionfriend2004/threadbook_backend/internal/thread/usecase"
 	"go.uber.org/zap"
 )
 
@@ -29,7 +30,13 @@ func (h *ThreadHandler) InviteToThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.usecase.InviteToThread(r.Context(), int(inviterID), req.Usernames, req.ThreadID)
+	input := usecase.InviteToThreadInput{
+		InviterID:        inviterID,
+		InviteeUsernames: req.Usernames,
+		ThreadID:         req.ThreadID,
+	}
+
+	err = h.threadUsecase.InviteToThread(r.Context(), input)
 	if err != nil {
 		h.logger.Warn("failed to invite user", zap.Error(err))
 		lib.WriteError(w, "failed to invite user", lib.StatusBadRequest)
