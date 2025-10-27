@@ -28,6 +28,9 @@ import (
 	fileExternal "github.com/onionfriend2004/threadbook_backend/internal/file/external"
 	fileUsecase "github.com/onionfriend2004/threadbook_backend/internal/file/usecase"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib/middleware/auth"
+	profileDeliveryHTTP "github.com/onionfriend2004/threadbook_backend/internal/profile/delivery/http"
+	profileExternal "github.com/onionfriend2004/threadbook_backend/internal/profile/external"
+	profileUsecase "github.com/onionfriend2004/threadbook_backend/internal/profile/usecase"
 	spoolDeliveryHTTP "github.com/onionfriend2004/threadbook_backend/internal/spool/delivery/http"
 	spoolExternal "github.com/onionfriend2004/threadbook_backend/internal/spool/external"
 	spoolUsecase "github.com/onionfriend2004/threadbook_backend/internal/spool/usecase"
@@ -158,15 +161,15 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 	authHandler := authDeliveryHTTP.NewAuthHandler(authauthUsecase, logger.With(zap.String("component", "auth")), cookieConfig)
 	authHandler.Routes(r)
 
-	// ===================== File =====================
-	fileRepo := fileExternal.NewFileRepo(minio, cfg.Minio.Bucket)
-	fileUC := fileUsecase.NewFileUsecase(fileRepo, logger)
-	fileHandler := fileDeliveryHTTP.NewFileHandler(fileUC, logger)
-	fileHandler.Routes(r)
-
 	// ===================== Spool =====================
+
+	spoolFileRepo := fileExternal.NewFileRepo(minio, "uploads")
+	spoolFileUC := fileUsecase.NewFileUsecase(spoolFileRepo, logger)
+	spoolFileHandler := fileDeliveryHTTP.NewFileHandler(spoolFileUC, logger)
+	spoolFileHandler.Routes(r)
+
 	spoolRepo := spoolExternal.NewSpoolRepo(db)
-	spoolUC := spoolUsecase.NewSpoolUsecase(spoolRepo, fileUC, logger)
+	spoolUC := spoolUsecase.NewSpoolUsecase(spoolRepo, spoolFileUC, logger)
 	spoolHandler := spoolDeliveryHTTP.NewSpoolHandler(spoolUC, logger, fileConfig)
 	spoolHandler.Routes(r, authenticator)
 
@@ -178,6 +181,18 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 	threadUsecase := threadUsecase.NewThreadUsecase(threadRepo, liveKitRepo, cfg.LiveKit.URL, cfg.LiveKit.APIKey, cfg.LiveKit.APISecret, logger)
 	threadHandler := threadDeliveryHTTP.NewThreadHandler(threadUsecase, logger)
 	threadHandler.Routes(r, authenticator)
+
+	// ===================== Profile =====================
+	profileRepo := profileExternal.NewProfileRepo(db)
+	profileFileRepo := fileExternal.NewFileRepo(minio, "avatars")
+	profileFileUC := fileUsecase.NewFileUsecase(profileFileRepo, logger)
+	profileFileHandler := fileDeliveryHTTP.NewFileHandler(profileFileUC, logger)
+	profileFileHandler.Routes(r)
+
+	profileUC := profileUsecase.NewProfileUsecase(profileRepo, profileFileUC, logger)
+	profileHandler := profileDeliveryHTTP.NewProfileHandler(profileUC, logger, fileConfig)
+	profileHandler.Routes(r, authenticator)
+
 	// ===================== Other =====================
 
 	return r, nil

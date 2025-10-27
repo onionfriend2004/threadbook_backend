@@ -9,6 +9,7 @@ import (
 type FileHandler struct {
 	usecase usecase.FileUsecaseInterface
 	logger  *zap.Logger
+	bucket  string
 }
 
 func NewFileHandler(u usecase.FileUsecaseInterface, logger *zap.Logger) *FileHandler {
@@ -19,5 +20,5 @@ func NewFileHandler(u usecase.FileUsecaseInterface, logger *zap.Logger) *FileHan
 }
 
 func (h *FileHandler) Routes(r chi.Router) {
-	r.Get("/uploads/{filename}", h.GetFile)
+	r.Get("/uploads/{bucket}/{filename}", h.GetFile)
 }

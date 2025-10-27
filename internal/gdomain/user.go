@@ -10,6 +10,7 @@ type User struct {
 	Email        string    `gorm:"uniqueIndex:idx_users_email;not null" json:"email"`
 	EmailVerify  bool      `gorm:"not null" json:"is_verify"`
 	Username     string    `gorm:"uniqueIndex:idx_users_username;not null" json:"username"`
+	Profile      Profile   `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;foreignKey:UserID"`
 	PasswordHash string    `gorm:"not null" json:"-"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`

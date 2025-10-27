@@ -4,6 +4,7 @@ import "io"
 
 type GetFileInput struct {
 	Filename string
+	Bucket   string
 }
 
 type SaveFile struct {
