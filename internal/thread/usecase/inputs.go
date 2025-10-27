@@ -47,6 +47,7 @@ type GetVoiceTokenInput struct {
 // ---------- SendMessage ----------
 type SendMessageInput struct {
 	UserID   uint
+	Username string
 	ThreadID uint
 	Content  string
 	Payloads []gdomain.MessagePayload

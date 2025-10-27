@@ -75,7 +75,7 @@ func (uc *MessageUsecase) SendMessage(ctx context.Context, input SendMessageInpu
 	// TODO: подумать, как лучше эту структуру впихнуть сюда
 	msgResp := &dto.MessageResponse{
 		ThreadID: input.ThreadID,
-		UserID:   input.UserID,
+		Username: input.Username,
 		Content:  input.Content,
 	}
 	// Рассылаем сообщение всем участникам

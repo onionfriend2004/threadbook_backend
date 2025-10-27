@@ -27,6 +27,11 @@ func (h *ThreadHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		lib.WriteError(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
+	username, err := auth.GetUsernameFromContext(r.Context())
+	if err != nil {
+		lib.WriteError(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	var req dto.SendMessageRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -37,6 +42,7 @@ func (h *ThreadHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	input := usecase.SendMessageInput{
 		ThreadID: threadID,
 		UserID:   userID,
+		Username: username,
 		Content:  req.Content,
 	}
 
@@ -51,7 +57,7 @@ func (h *ThreadHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		Message: dto.MessageResponse{
 			ID:        msg.ID,
 			ThreadID:  msg.ThreadID,
-			UserID:    msg.UserID,
+			Username:  input.Username,
 			Content:   msg.Content,
 			CreatedAt: msg.CreatedAt,
 			UpdatedAt: msg.UpdatedAt,

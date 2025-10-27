@@ -38,13 +38,12 @@ func (h *ThreadHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 		lib.WriteError(w, "failed to get messages", lib.StatusInternalServerError)
 		return
 	}
-
 	var resp []dto.MessageResponse
 	for _, m := range msgs {
 		resp = append(resp, dto.MessageResponse{
 			ID:        m.ID,
 			ThreadID:  m.ThreadID,
-			UserID:    m.UserID,
+			Username:  m.User.Username,
 			Content:   m.Content,
 			CreatedAt: m.CreatedAt,
 			UpdatedAt: m.UpdatedAt,

@@ -5,7 +5,7 @@ import "time"
 type MessageResponse struct {
 	ID        uint      `json:"id"`
 	ThreadID  uint      `json:"thread_id"`
-	UserID    uint      `json:"user_id"`
+	Username  string    `json:"username"`
 	Content   string    `json:"content"`
 	Payloads  []any     `json:"payloads,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
