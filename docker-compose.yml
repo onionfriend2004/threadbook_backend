@@ -107,6 +107,8 @@ services:
       LIVEKIT_KEYS: "${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}"
     volumes:
       - ./config/livekit.yaml:/etc/livekit.yaml
+      - ./data/certbot/conf:/etc/letsencrypt:ro
+      - ./data/certbot/www:/var/www/certbot:ro
     command: --config /etc/livekit.yaml
     # command: --config /dev/null --dev # --dev отключает TLS и упрощает dev
     networks:
