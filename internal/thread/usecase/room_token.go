@@ -8,12 +8,7 @@ import (
 	liveKitAuth "github.com/livekit/protocol/auth"
 	repo "github.com/onionfriend2004/threadbook_backend/internal/thread/external"
 	"go.uber.org/zap"
-)
-
-var (
-	CanPublish     = true
-	CanSubscribe   = true
-	CanPublishData = true
+	"google.golang.org/protobuf/proto"
 )
 
 type RoomUsecaseInterface interface {
@@ -70,9 +65,9 @@ func (u *RoomUsecase) GetVoiceToken(ctx context.Context, input GetVoiceTokenInpu
 	grant := &liveKitAuth.VideoGrant{
 		RoomJoin:          true,
 		Room:              roomName,
-		CanPublish:        &CanPublish,
-		CanPublishData:    &CanPublishData,
-		CanSubscribe:      &CanSubscribe,
+		CanPublish:        proto.Bool(true),
+		CanPublishData:    proto.Bool(true),
+		CanSubscribe:      proto.Bool(true),
 		CanPublishSources: []string{"camera", "microphone", "screen"},
 	}
 
