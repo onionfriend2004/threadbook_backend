@@ -12,7 +12,7 @@ type Spool struct {
 
 	// связи
 	Threads []Thread `gorm:"foreignKey:SpoolID;constraint:OnDelete:CASCADE;" json:"threads,omitempty"`
-	Members []User   `gorm:"many2many:user_spool;constraint:OnDelete:CASCADE;" json:"members,omitempty"`
+	Members []User   `gorm:"many2many:user_spools;constraint:OnDelete:CASCADE;" json:"members,omitempty"`
 
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`
