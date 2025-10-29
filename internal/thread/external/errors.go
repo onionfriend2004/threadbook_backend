@@ -7,4 +7,5 @@ var (
 	ErrUserNotInSpool   = errors.New("user not in spool")
 	ErrPermissionDenied = errors.New("permission denied")
 	ErrUserNoAccess     = errors.New("user not owner")
+	ErrUserNotFound     = errors.New("user not found")
 )

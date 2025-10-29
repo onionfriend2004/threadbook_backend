@@ -8,6 +8,7 @@ import (
 	"github.com/onionfriend2004/threadbook_backend/internal/gdomain"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type ThreadRepo struct {
@@ -230,52 +231,57 @@ func (r *ThreadRepo) GetAccessibleThreadIDs(ctx context.Context, userID uint) ([
 }
 
 func (r *ThreadRepo) InviteToThread(ctx context.Context, inviterID uint, inviteeUsernames []string, threadID uint) error {
-	var thread gdomain.Thread
-	if err := r.Db.First(&thread, threadID).Error; err != nil {
-		return err
-	}
-
-	if thread.Type != "private" {
-		return ErrUserNoAccess
-	}
-
-	if inviterID != thread.CreatorID {
-		return ErrUserNoAccess
-	}
-
-	for _, username := range inviteeUsernames {
-		var invitee gdomain.User
-		if err := r.Db.Where("username = ?", username).First(&invitee).Error; err != nil {
+	return r.Db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var thread gdomain.Thread
+		if err := tx.First(&thread, threadID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrThreadNotFound
+			}
 			return err
 		}
 
-		// Проверяем, что пользователь уже в спуле потока
-		var inSpool int64
-		if err := r.Db.Table("user_spools").
-			Where("user_id = ? AND spool_id = ?", invitee.ID, thread.SpoolID).
-			Count(&inSpool).Error; err != nil {
-			return err
-		}
-		if inSpool == 0 {
-			return ErrUserNotInSpool
+		// Разрешаем инвайты только в приватные треды
+		if thread.Type != "private" {
+			return ErrUserNoAccess
 		}
 
-		// Проверяем, что пользователь ещё не в потоке
-		var exists int64
-		if err := r.Db.Table("thread_users").
-			Where("user_id = ? AND thread_id = ?", invitee.ID, thread.ID).
-			Count(&exists).Error; err != nil {
-			return err
-		}
-		if exists > 0 {
-			continue
+		// Проверяем, что приглашает создатель
+		if inviterID != thread.CreatorID {
+			return ErrUserNoAccess
 		}
 
-		// Добавляем пользователя в поток
-		if err := r.Db.Model(&thread).Association("Users").Append(&invitee); err != nil {
-			return err
-		}
-	}
+		for _, username := range inviteeUsernames {
+			var invitee gdomain.User
+			if err := tx.Where("username = ?", username).First(&invitee).Error; err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					return ErrUserNotFound
+				}
+				return err
+			}
 
-	return nil
+			// Проверяем, что юзер в спуле
+			var inSpool int64
+			if err := tx.Table("user_spools").
+				Where("user_id = ? AND spool_id = ?", invitee.ID, thread.SpoolID).
+				Count(&inSpool).Error; err != nil {
+				return err
+			}
+			if inSpool == 0 {
+				return ErrUserNotInSpool
+			}
+
+			// Добавляем пользователя в поток, если его там ещё нет
+			threadUser := gdomain.ThreadUser{
+				UserID:   invitee.ID,
+				ThreadID: thread.ID,
+				IsMember: true,
+			}
+
+			if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&threadUser).Error; err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
 }
