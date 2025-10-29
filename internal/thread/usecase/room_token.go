@@ -68,7 +68,7 @@ func (u *RoomUsecase) GetVoiceToken(ctx context.Context, input GetVoiceTokenInpu
 		CanPublish:        proto.Bool(true),
 		CanPublishData:    proto.Bool(true),
 		CanSubscribe:      proto.Bool(true),
-		CanPublishSources: []string{"camera", "microphone", "audio", "screen"},
+		CanPublishSources: []string{"camera", "microphone", "screen"},
 	}
 
 	// TODO: подумать над длительностью токена, захардкожу 15 минут
