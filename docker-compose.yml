@@ -105,7 +105,7 @@ services:
       # - "3478:3478/udp" # TURN -> We use External
       - "${LIVEKIT_WEBRTC_START_PORT}-${LIVEKIT_WEBRTC_END_PORT}:${LIVEKIT_WEBRTC_START_PORT}-${LIVEKIT_WEBRTC_END_PORT}/udp" # for Web-RTC Connections
     environment:
-      LIVEKIT_KEYS: "${LIVEKIT_API_KEY}:${LIVEKIT_API_SECRET}"
+      LIVEKIT_KEYS: "${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}"
     volumes:
       - ./config/livekit.yaml:/etc/livekit.yaml
       - ./data/certbot/conf:/etc/letsencrypt:ro
