@@ -181,6 +181,12 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 	spoolUC := spoolUsecase.NewSpoolUsecase(spoolRepo, spoolFileUC, logger)
 	spoolHandler := spoolDeliveryHTTP.NewSpoolHandler(spoolUC, logger, fileConfig)
 	spoolHandler.Routes(r, authenticator)
+  
+	// ===================== File =====================
+	fileRepo := fileExternal.NewFileRepo(minio, cfg.Minio.Bucket)
+	fileUC := fileUsecase.NewFileUsecase(fileRepo, logger)
+	fileHandler := fileDeliveryHTTP.NewFileHandler(fileUC, logger)
+	fileHandler.Routes(r)
 
 	// ===================== Thread =====================
 	// external repos
@@ -195,7 +201,7 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 	messageRepo := threadExternal.NewMessageRepo(db)
 
 	// usecases
-	threadUC := threadUsecase.NewThreadUsecase(threadRepo, logger)
+	threadUC := threadUsecase.NewThreadUsecase(threadRepo, websocketRepo, time.Duration(cfg.Centrifugo.TTL)*time.Second, logger)
 	messageUC := threadUsecase.NewMessageUsecase(messageRepo, websocketRepo, threadRepo, time.Duration(cfg.Centrifugo.TTL)*time.Second, logger)
 	roomUC := threadUsecase.NewRoomUsecase(threadRepo, liveKitRepo, cfg.LiveKit.URL, cfg.LiveKit.APIKey, cfg.LiveKit.APISecret, logger)
 
@@ -214,6 +220,17 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 	profileHandler := profileDeliveryHTTP.NewProfileHandler(profileUC, logger, fileConfig)
 	profileHandler.Routes(r, authenticator)
 
+	// ===================== Spool =====================
+
+	spoolFileRepo := fileExternal.NewFileRepo(minio, "uploads")
+	spoolFileUC := fileUsecase.NewFileUsecase(spoolFileRepo, logger)
+	spoolFileHandler := fileDeliveryHTTP.NewFileHandler(spoolFileUC, logger)
+	spoolFileHandler.Routes(r)
+
+	spoolRepo := spoolExternal.NewSpoolRepo(db)
+	spoolUC := spoolUsecase.NewSpoolUsecase(spoolRepo, websocketRepo, spoolFileUC, logger)
+	spoolHandler := spoolDeliveryHTTP.NewSpoolHandler(spoolUC, logger, fileConfig)
+	spoolHandler.Routes(r, authenticator)
 	// ===================== Other =====================
 
 	return r, nil

@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/goccy/go-json"
+	"github.com/onionfriend2004/threadbook_backend/internal/apperrors"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib/middleware/auth"
 	"github.com/onionfriend2004/threadbook_backend/internal/thread/delivery/dto"
@@ -40,12 +41,13 @@ func (h *ThreadHandler) GetBySpoolID(w http.ResponseWriter, r *http.Request) {
 
 	threads, err := h.threadUsecase.GetBySpoolID(r.Context(), input)
 	if err != nil {
+		code, clientErr := apperrors.GetErrAndCodeToSend(err)
 		h.logger.Warn("failed to get threads by spool_id", zap.Error(err))
-		lib.WriteError(w, "failed to get threads", lib.StatusInternalServerError)
+		lib.WriteError(w, clientErr.Error(), code)
 		return
 	}
 
-	var resp []dto.ThreadCreateResponse
+	resp := make([]dto.ThreadCreateResponse, 0, len(threads))
 	for _, t := range threads {
 		resp = append(resp, dto.ThreadCreateResponse{
 			ID:        t.ID,

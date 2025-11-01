@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/goccy/go-json"
+	"github.com/onionfriend2004/threadbook_backend/internal/apperrors"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib/middleware/auth"
 	"github.com/onionfriend2004/threadbook_backend/internal/thread/delivery/dto"
@@ -27,6 +28,7 @@ func (h *ThreadHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		lib.WriteError(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
+
 	username, err := auth.GetUsernameFromContext(r.Context())
 	if err != nil {
 		lib.WriteError(w, "unauthorized", http.StatusUnauthorized)
@@ -48,8 +50,9 @@ func (h *ThreadHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 
 	msg, err := h.messageUsecase.SendMessage(r.Context(), input)
 	if err != nil {
+		code, clientErr := apperrors.GetErrAndCodeToSend(err)
 		h.logger.Warn("failed to send message", zap.Error(err))
-		lib.WriteError(w, "failed to send message", lib.StatusInternalServerError)
+		lib.WriteError(w, clientErr.Error(), code)
 		return
 	}
 
@@ -57,7 +60,7 @@ func (h *ThreadHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		Message: dto.MessageResponse{
 			ID:        msg.ID,
 			ThreadID:  msg.ThreadID,
-			Username:  input.Username,
+			Username:  msg.User.Username,
 			Content:   msg.Content,
 			CreatedAt: msg.CreatedAt,
 			UpdatedAt: msg.UpdatedAt,
@@ -66,5 +69,7 @@ func (h *ThreadHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(lib.StatusOK)
-	_ = json.NewEncoder(w).Encode(resp)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		h.logger.Error("failed to encode send message response", zap.Error(err))
+	}
 }

@@ -4,8 +4,8 @@ import (
 	"net/http"
 
 	"github.com/goccy/go-json"
+	"github.com/onionfriend2004/threadbook_backend/internal/apperrors"
 	"github.com/onionfriend2004/threadbook_backend/internal/auth/delivery/dto"
-	"github.com/onionfriend2004/threadbook_backend/internal/auth/usecase"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib"
 	"go.uber.org/zap"
 )
@@ -30,13 +30,15 @@ func (h *AuthHandler) WhoIAm(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.usecase.AuthenticateUser(r.Context(), cookie.Value)
 	if err != nil {
-		switch {
-		case err == usecase.ErrSessionNotFound, err == usecase.ErrUserNotFound, err == usecase.ErrInvalidInput:
-			lib.WriteError(w, "not authenticated", lib.StatusUnauthorized)
-		default:
+		code, clientErr := apperrors.GetErrAndCodeToSend(err)
+
+		if code >= 500 {
 			h.logger.Error("failed to authenticate user", zap.Error(err))
-			lib.WriteError(w, "internal server error", lib.StatusInternalServerError)
+		} else {
+			h.logger.Warn("failed to authenticate user", zap.Error(err))
 		}
+
+		lib.WriteError(w, clientErr.Error(), code)
 		return
 	}
 
@@ -49,6 +51,5 @@ func (h *AuthHandler) WhoIAm(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(lib.StatusOK)
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		h.logger.Warn("failed to encode response", zap.Error(err))
-		return
 	}
 }

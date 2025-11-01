@@ -14,9 +14,9 @@ type Thread struct {
 	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime"`
 	UpdatedAt time.Time `gorm:"column:updated_at;autoUpdateTime"`
 
-	Messages []Message `gorm:"foreignKey:ThreadID;constraint:OnDelete:CASCADE;" json:"messages,omitempty"`
+	Messages []Message `gorm:"foreignKey:ThreadID;constraint:OnDelete:CASCADE;"`
 
-	Users []User `gorm:"many2many:thread_users;joinForeignKey:ThreadID;joinReferences:UserID;constraint:OnDelete:CASCADE;" json:"users,omitempty"`
+	Users []User `gorm:"many2many:thread_users;joinForeignKey:ThreadID;joinReferences:UserID;constraint:OnDelete:CASCADE;"`
 }
 
 type ThreadUser struct {

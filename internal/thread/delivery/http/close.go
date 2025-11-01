@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/goccy/go-json"
+	"github.com/onionfriend2004/threadbook_backend/internal/apperrors"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib/middleware/auth"
 	"github.com/onionfriend2004/threadbook_backend/internal/thread/delivery/dto"
@@ -23,7 +24,7 @@ func (h *ThreadHandler) Close(w http.ResponseWriter, r *http.Request) {
 
 	userID, err := auth.GetUserIDFromContext(r.Context())
 	if err != nil {
-		lib.WriteError(w, "unauthorized", http.StatusUnauthorized)
+		lib.WriteError(w, "unauthorized", lib.StatusUnauthorized)
 		return
 	}
 
@@ -34,8 +35,9 @@ func (h *ThreadHandler) Close(w http.ResponseWriter, r *http.Request) {
 
 	closedThread, err := h.threadUsecase.CloseThread(r.Context(), input)
 	if err != nil {
+		code, clientErr := apperrors.GetErrAndCodeToSend(err)
 		h.logger.Warn("failed to close thread", zap.Error(err))
-		lib.WriteError(w, "failed to close thread", lib.StatusInternalServerError)
+		lib.WriteError(w, clientErr.Error(), code)
 		return
 	}
 
