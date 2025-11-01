@@ -2,6 +2,7 @@ package deliveryHTTP
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/goccy/go-json"
 	"github.com/onionfriend2004/threadbook_backend/internal/apperrors"
@@ -14,11 +15,15 @@ type VerifyEmailRequest struct {
 }
 
 func (h *AuthHandler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
-	userID := 1 // userID, err := xxx.GetUserIDFromContext(r.Context())
-	/*if err != nil {
-		lib.WriteError(w, "user not authenticated", lib.StatusUnauthorized)
+	cookie, err := r.Cookie(h.cookieConfig.Name)
+	if err != nil {
+		if err == http.ErrNoCookie {
+			lib.WriteError(w, "not authenticated", lib.StatusUnauthorized)
+			return
+		}
+		lib.WriteError(w, "bad request", lib.StatusBadRequest)
 		return
-	}*/
+	}
 
 	var req VerifyEmailRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -28,6 +33,12 @@ func (h *AuthHandler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 
 	if req.Code < 100000 || req.Code > 999999 {
 		lib.WriteError(w, "code must be 6 digits", http.StatusBadRequest)
+		return
+	}
+
+	userID, err := strconv.Atoi(cookie.Value)
+	if err != nil {
+		lib.WriteError(w, "invalid cookie value", lib.StatusUnauthorized)
 		return
 	}
 

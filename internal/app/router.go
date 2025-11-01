@@ -155,6 +155,7 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 	sessionRepo := authExternal.NewSessionRepo(redis, time.Duration(cfg.UserSession.TTL)*time.Minute)
 	sendCodeRepo := authExternal.NewSendCodeRepo(nts, cfg.Nats.VerifyCodeSubject)
 	verifyCodeRepo := authExternal.NewVerifyCodeRepo(redis, time.Duration(cfg.VerifyCode.TTL)*time.Minute)
+	attemptSendCodeRepo := authExternal.NewAttemptSendCodeRedisRepo(redis, cfg.AttemptsResend.ResendTTL)
 
 	// utils
 	hasher, err := hasher.NewArgon2HasherFromConfig(*cfg)
@@ -164,7 +165,7 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 	cookieConfig := config.NewCookieConfig(cfg)
 	fileConfig := config.NewFileConfig(cfg)
 	// usecase
-	authauthUsecase := authUsecase.NewAuthUsecase(userRepo, sessionRepo, sendCodeRepo, verifyCodeRepo, hasher, logger)
+	authauthUsecase := authUsecase.NewAuthUsecase(userRepo, sessionRepo, sendCodeRepo, verifyCodeRepo, hasher, logger, attemptSendCodeRepo, cfg.AttemptsResend.MaxResendAttempts)
 
 	// handler
 	authHandler := authDeliveryHTTP.NewAuthHandler(authauthUsecase, logger.With(zap.String("component", "auth")), cookieConfig)

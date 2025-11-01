@@ -33,7 +33,8 @@ var errToCode = map[error]int{
 	authUsecase.ErrInvalidCredentials: http.StatusUnauthorized, // 401 — неверный логин или пароль
 	authUsecase.ErrInvalidInput:       http.StatusBadRequest,   // 400 — некорректные входные данные
 	authUsecase.ErrCodeIncorrect:      http.StatusBadRequest,   // 400 — неверный код подтверждения
-
+	authUsecase.ErrTooManyAttempts:    http.StatusForbidden,    // 403 — слишком много попыток отправки кода подтверждения
+	authUsecase.ErrAlreadyConfirmed:   http.StatusBadRequest,   // 400 — почта уже подтверждена
 }
 
 func GetErrAndCodeToSend(err error) (int, error) {

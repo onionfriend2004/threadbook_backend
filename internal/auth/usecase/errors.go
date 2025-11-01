@@ -9,4 +9,6 @@ var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	ErrInvalidInput       = errors.New("invalid input")
 	ErrCodeIncorrect      = errors.New("invalid verify code")
+	ErrTooManyAttempts    = errors.New("too many attempts to send")
+	ErrAlreadyConfirmed   = errors.New("user email already verified")
 )
