@@ -6,6 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/onionfriend2004/threadbook_backend/internal/gdomain"
 )
@@ -126,27 +127,50 @@ func (r *spoolRepo) DeleteSpool(ctx context.Context, spoolID uint) error {
 }
 
 func (r *spoolRepo) AddUserToSpoolByUsername(ctx context.Context, username string, spoolID uint) error {
-	var user gdomain.User
-	if err := r.db.WithContext(ctx).Where("username = ?", username).First(&user).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrUserNotFound
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var user gdomain.User
+		if err := tx.Where("username = ?", username).First(&user).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrUserNotFound
+			}
+			return err
 		}
-		return err
-	}
 
-	userSpool := gdomain.UserSpool{
-		UserID:  user.ID,
-		SpoolID: spoolID,
-	}
-
-	if err := r.db.WithContext(ctx).Create(&userSpool).Error; err != nil {
-		if isUniqueViolation(err) {
-			return ErrUserAlreadyInSpool
+		userSpool := gdomain.UserSpool{
+			UserID:  user.ID,
+			SpoolID: spoolID,
 		}
-		return err
-	}
 
-	return nil
+		if err := tx.Create(&userSpool).Error; err != nil {
+			if isUniqueViolation(err) {
+				return ErrUserAlreadyInSpool
+			}
+			return err
+		}
+
+		var threads []gdomain.Thread
+		if err := tx.Where("spool_id = ? AND type = ?", spoolID, "public").
+			Find(&threads).Error; err != nil {
+			return ErrNotFound
+		}
+
+		if len(threads) > 0 {
+			threadUsers := make([]gdomain.ThreadUser, 0, len(threads))
+			for _, thread := range threads {
+				threadUsers = append(threadUsers, gdomain.ThreadUser{
+					UserID:   user.ID,
+					ThreadID: thread.ID,
+					IsMember: true,
+				})
+			}
+
+			if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&threadUsers).Error; err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
 }
 
 func (r *spoolRepo) RemoveUserFromSpool(ctx context.Context, userID, spoolID uint) error {

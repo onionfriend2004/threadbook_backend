@@ -11,18 +11,25 @@ type FileUsecaseInterface interface {
 	GetFile(ctx context.Context, input GetFileInput) ([]byte, string, error)
 	SaveFile(ctx context.Context, input SaveFile) (string, error)
 	DeleteFile(ctx context.Context, input DeleteFileInput) error
+	GetBucketName() string
 }
 
 type fileUsecase struct {
 	repo   external.FileRepoInterface
 	logger *zap.Logger
+	Bucket string
 }
 
 func NewFileUsecase(repo external.FileRepoInterface, logger *zap.Logger) FileUsecaseInterface {
 	return &fileUsecase{
 		repo:   repo,
 		logger: logger,
+		Bucket: repo.GetBucketName(),
 	}
+}
+
+func (u *fileUsecase) GetBucketName() string {
+	return u.Bucket
 }
 
 func (u *fileUsecase) GetFile(ctx context.Context, input GetFileInput) ([]byte, string, error) {
@@ -30,7 +37,7 @@ func (u *fileUsecase) GetFile(ctx context.Context, input GetFileInput) ([]byte, 
 		return nil, "", ErrInvalidInput
 	}
 
-	data, contentType, err := u.repo.GetFile(ctx, input.Filename)
+	data, contentType, err := u.repo.GetFile(ctx, input.Bucket, input.Filename)
 	if err != nil {
 		u.logger.Error("failed to get file", zap.Error(err))
 		return nil, "", ErrFileNotFound
@@ -40,10 +47,11 @@ func (u *fileUsecase) GetFile(ctx context.Context, input GetFileInput) ([]byte, 
 }
 
 func (u *fileUsecase) SaveFile(ctx context.Context, input SaveFile) (string, error) {
-	if err := u.repo.SaveFile(ctx, input.Filename, input.File, input.Size, input.ContentType); err != nil {
+	fileLink, err := u.repo.SaveFile(ctx, input.Filename, input.File, input.Size, input.ContentType)
+	if err != nil {
 		return "", err
 	}
-	return input.Filename, nil
+	return fileLink, nil
 }
 func (u *fileUsecase) DeleteFile(ctx context.Context, input DeleteFileInput) error {
 	if input.Filename == "" {

@@ -125,7 +125,7 @@ func (u *ThreadUsecase) CloseThread(ctx context.Context, input CloseThreadInput)
 
 func (u *ThreadUsecase) InviteToThread(ctx context.Context, input InviteToThreadInput) error {
 	// Добавляем пользователя в тред
-	if err := u.threadRepo.InviteToThread(ctx, input.InviterID, input.InviteeID, input.ThreadID); err != nil {
+	if err := u.threadRepo.InviteToThread(ctx, input.InviterID, input.InviteeUsernames, input.ThreadID); err != nil {
 		return err
 	}
 

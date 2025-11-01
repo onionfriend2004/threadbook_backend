@@ -18,8 +18,15 @@ func (h *FileHandler) GetFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	input := usecase.GetFileInput{Filename: filename}
-	if input.Filename == "" {
+	bucket := chi.URLParam(r, "bucket")
+	bucket, err = url.PathUnescape(bucket)
+	if err != nil {
+		lib.WriteError(w, "invalid file path", http.StatusBadRequest)
+		return
+	}
+
+	input := usecase.GetFileInput{Filename: filename, Bucket: bucket}
+	if input.Filename == "" || input.Bucket == "" {
 		lib.WriteError(w, "filename required", http.StatusBadRequest)
 		return
 	}

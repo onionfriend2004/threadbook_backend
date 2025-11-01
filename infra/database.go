@@ -35,6 +35,7 @@ func PostgresConnect(cfg *config.Config) (*gorm.DB, error) {
 		&gdomain.ThreadUser{},
 		&gdomain.Message{},
 		&gdomain.MessagePayload{},
+		&gdomain.Profile{},
 	)
 
 	if err != nil {

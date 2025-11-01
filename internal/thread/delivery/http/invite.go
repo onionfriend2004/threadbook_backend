@@ -20,7 +20,7 @@ func (h *ThreadHandler) InviteToThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.ThreadID == 0 || req.InviteeID == 0 {
+	if req.ThreadID == 0 || len(req.Usernames) == 0 {
 		lib.WriteError(w, "thread_id and invitee_id are required", lib.StatusBadRequest)
 		return
 	}
@@ -32,9 +32,9 @@ func (h *ThreadHandler) InviteToThread(w http.ResponseWriter, r *http.Request) {
 	}
 
 	input := usecase.InviteToThreadInput{
-		InviterID: inviterID,
-		InviteeID: req.InviteeID,
-		ThreadID:  req.ThreadID,
+		InviterID:        inviterID,
+		InviteeUsernames: req.Usernames,
+		ThreadID:         req.ThreadID,
 	}
 
 	if err := h.threadUsecase.InviteToThread(r.Context(), input); err != nil {
