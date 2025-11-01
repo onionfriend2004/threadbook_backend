@@ -30,6 +30,7 @@ type GetUserSpoolListInput struct {
 // ---------- InviteMemberInSpool ----------
 type InviteMemberInSpoolInput struct {
 	UserID          uint
+	Username        string
 	SpoolID         uint
 	MemberUsernames []string
 }

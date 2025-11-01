@@ -173,12 +173,6 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 	fileHandler := fileDeliveryHTTP.NewFileHandler(fileUC, logger)
 	fileHandler.Routes(r)
 
-	// ===================== Spool =====================
-	spoolRepo := spoolExternal.NewSpoolRepo(db)
-	spoolUC := spoolUsecase.NewSpoolUsecase(spoolRepo, fileUC, logger)
-	spoolHandler := spoolDeliveryHTTP.NewSpoolHandler(spoolUC, logger, fileConfig)
-	spoolHandler.Routes(r, authenticator)
-
 	// ===================== Thread =====================
 	// external repos
 	threadRepo := threadExternal.NewThreadRepo(db, logger)
@@ -192,13 +186,18 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 	messageRepo := threadExternal.NewMessageRepo(db)
 
 	// usecases
-	threadUC := threadUsecase.NewThreadUsecase(threadRepo, logger)
+	threadUC := threadUsecase.NewThreadUsecase(threadRepo, websocketRepo, time.Duration(cfg.Centrifugo.TTL)*time.Second, logger)
 	messageUC := threadUsecase.NewMessageUsecase(messageRepo, websocketRepo, threadRepo, time.Duration(cfg.Centrifugo.TTL)*time.Second, logger)
 	roomUC := threadUsecase.NewRoomUsecase(threadRepo, liveKitRepo, cfg.LiveKit.URL, cfg.LiveKit.APIKey, cfg.LiveKit.APISecret, logger)
 
 	// handler
 	threadHandler := threadDeliveryHTTP.NewThreadHandler(threadUC, messageUC, roomUC, logger)
 	threadHandler.Routes(r, authenticator)
+	// ===================== Spool =====================
+	spoolRepo := spoolExternal.NewSpoolRepo(db)
+	spoolUC := spoolUsecase.NewSpoolUsecase(spoolRepo, websocketRepo, fileUC, logger)
+	spoolHandler := spoolDeliveryHTTP.NewSpoolHandler(spoolUC, logger, fileConfig)
+	spoolHandler.Routes(r, authenticator)
 	// ===================== Other =====================
 
 	return r, nil

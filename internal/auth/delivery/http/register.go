@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/goccy/go-json"
+	"github.com/onionfriend2004/threadbook_backend/internal/apperrors"
 	"github.com/onionfriend2004/threadbook_backend/internal/auth/delivery/dto"
 	"github.com/onionfriend2004/threadbook_backend/internal/auth/usecase"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib"
@@ -23,22 +24,24 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		Password: req.Password,
 	})
 	if err != nil {
-		switch {
-		case err == usecase.ErrUserAlreadyExists:
-			lib.WriteError(w, "user already exists", lib.StatusConflict)
-		case err == usecase.ErrInvalidInput:
-			lib.WriteError(w, "invalid input", lib.StatusBadRequest)
-		default:
+		code, clientErr := apperrors.GetErrAndCodeToSend(err)
+
+		// Логируем Warn для 4xx, Error для 5xx
+		if code >= 500 {
 			h.logger.Error("failed to register user", zap.Error(err))
-			lib.WriteError(w, "internal server error", lib.StatusInternalServerError)
+		} else {
+			h.logger.Warn("failed to register user", zap.Error(err))
 		}
+
+		lib.WriteError(w, clientErr.Error(), code)
 		return
 	}
 
 	session, err := h.usecase.CreateSessionForUser(r.Context(), user)
 	if err != nil {
+		code, clientErr := apperrors.GetErrAndCodeToSend(err)
 		h.logger.Error("failed to create session", zap.Error(err))
-		lib.WriteError(w, "internal server error", lib.StatusInternalServerError)
+		lib.WriteError(w, clientErr.Error(), code)
 		return
 	}
 
@@ -53,6 +56,5 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(lib.StatusCreated)
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		h.logger.Warn("failed to encode response", zap.Error(err))
-		return
 	}
 }

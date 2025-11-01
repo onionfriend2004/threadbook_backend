@@ -7,14 +7,16 @@ import (
 
 	"github.com/onionfriend2004/threadbook_backend/internal/file/usecase"
 	"github.com/onionfriend2004/threadbook_backend/internal/gdomain"
+	"github.com/onionfriend2004/threadbook_backend/internal/lib/event"
 	"github.com/onionfriend2004/threadbook_backend/internal/spool/external"
+	wsexternal "github.com/onionfriend2004/threadbook_backend/internal/thread/external"
 	"go.uber.org/zap"
 )
 
 type SpoolUsecaseInterface interface {
 	CreateSpool(ctx context.Context, input CreateSpoolInput) (*gdomain.Spool, error)
 	LeaveFromSpool(ctx context.Context, input LeaveFromSpoolInput) error
-	GetUserSpoolList(ctx context.Context, input GetUserSpoolListInput) ([]gdomain.Spool, error)
+	GetUserSpoolList(ctx context.Context, input GetUserSpoolListInput) ([]gdomain.SpoolWithCreator, error)
 	InviteMemberInSpool(ctx context.Context, input InviteMemberInSpoolInput) error
 	UpdateSpool(ctx context.Context, input UpdateSpoolInput) (*gdomain.Spool, error)
 	GetSpoolInfoById(ctx context.Context, input GetSpoolInfoByIdInput) (*gdomain.Spool, error)
@@ -23,17 +25,20 @@ type SpoolUsecaseInterface interface {
 
 type spoolUsecase struct {
 	spoolRepo external.SpoolRepoInterface
+	wsRepo    wsexternal.WebsocketRepoInterface
 	fileUC    usecase.FileUsecaseInterface
 	logger    *zap.Logger
 }
 
 func NewSpoolUsecase(
 	spoolRepo external.SpoolRepoInterface,
+	wsRepo wsexternal.WebsocketRepoInterface,
 	fileUC usecase.FileUsecaseInterface,
 	logger *zap.Logger,
 ) SpoolUsecaseInterface {
 	return &spoolUsecase{
 		spoolRepo: spoolRepo,
+		wsRepo:    wsRepo,
 		fileUC:    fileUC,
 		logger:    logger,
 	}
@@ -74,7 +79,7 @@ func (u *spoolUsecase) CreateSpool(ctx context.Context, input CreateSpoolInput) 
 	}
 
 	// Создаем доменную модель спула
-	newSpool, err := gdomain.NewSpool(input.Name, bannerLink)
+	newSpool, err := gdomain.NewSpool(input.Name, bannerLink, input.OwnerID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create spool domain: %w", err)
 	}
@@ -108,11 +113,38 @@ func (u *spoolUsecase) LeaveFromSpool(ctx context.Context, input LeaveFromSpoolI
 	if input.UserID == 0 || input.SpoolID == 0 {
 		return ErrInvalidInput
 	}
-	return u.spoolRepo.RemoveUserFromSpool(ctx, input.UserID, input.SpoolID)
+
+	// Проверяем, кто является создателем спула
+	spool, err := u.spoolRepo.GetSpoolByID(ctx, input.SpoolID)
+	if err != nil {
+		u.logger.Error("failed to get spool info before leaving", zap.Error(err))
+		return ErrInternal
+	}
+
+	// Создатель не может выйти из собственного спула
+	if spool.CreatorID == input.UserID {
+		u.logger.Warn("creator tried to leave their own spool",
+			zap.Uint("creator_id", input.UserID),
+			zap.Uint("spool_id", input.SpoolID),
+		)
+		return ErrForbidden
+	}
+
+	// Удаляем пользователя из спула
+	if err := u.spoolRepo.RemoveUserFromSpool(ctx, input.UserID, input.SpoolID); err != nil {
+		u.logger.Error("failed to remove user from spool", zap.Error(err))
+		return ErrInternal
+	}
+
+	u.logger.Info("user left spool successfully",
+		zap.Uint("user_id", input.UserID),
+		zap.Uint("spool_id", input.SpoolID),
+	)
+	return nil
 }
 
 // ---------- List by user ----------
-func (u *spoolUsecase) GetUserSpoolList(ctx context.Context, input GetUserSpoolListInput) ([]gdomain.Spool, error) {
+func (u *spoolUsecase) GetUserSpoolList(ctx context.Context, input GetUserSpoolListInput) ([]gdomain.SpoolWithCreator, error) {
 	if input.UserID == 0 {
 		return nil, ErrInvalidInput
 	}
@@ -132,6 +164,24 @@ func (u *spoolUsecase) InviteMemberInSpool(ctx context.Context, input InviteMemb
 		if err := u.spoolRepo.AddUserToSpoolByUsername(ctx, username, input.SpoolID); err != nil {
 			u.logger.Error("failed to add user to spool", zap.String("username", username), zap.Error(err))
 			return err
+		}
+		spool, err := u.spoolRepo.GetSpoolByID(ctx, input.SpoolID)
+		if err != nil {
+			u.logger.Error("failed to get spool", zap.Uint("spool_id", input.SpoolID), zap.Error(err))
+			return ErrInternal
+		}
+
+		payload := event.SpoolInvitedPayload{
+			SpoolID:    spool.ID,
+			BannerLink: spool.BannerLink,
+			Name:       spool.Name,
+		}
+
+		if err := u.wsRepo.PublishToUser(ctx, input.UserID, event.Event{
+			Type:    event.ThreadInvited,
+			Payload: payload,
+		}); err != nil {
+			u.logger.Warn("failed to publish ThreadInvited event", zap.Uint("userID", input.UserID), zap.Error(err))
 		}
 	}
 	return nil

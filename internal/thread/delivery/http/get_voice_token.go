@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/goccy/go-json"
+	"github.com/onionfriend2004/threadbook_backend/internal/apperrors"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib/middleware/auth"
 	"github.com/onionfriend2004/threadbook_backend/internal/thread/delivery/dto"
@@ -13,7 +14,6 @@ import (
 
 func (h *ThreadHandler) GetVoiceToken(w http.ResponseWriter, r *http.Request) {
 	var req dto.GetVoiceTokenRequest
-
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		lib.WriteError(w, "invalid JSON", lib.StatusBadRequest)
 		return
@@ -41,19 +41,9 @@ func (h *ThreadHandler) GetVoiceToken(w http.ResponseWriter, r *http.Request) {
 
 	token, err := h.roomUsecase.GetVoiceToken(ctx, input)
 	if err != nil {
-		switch {
-		case err == usecase.ErrInvalidInput:
-			lib.WriteError(w, "invalid input", lib.StatusBadRequest)
-		case err == usecase.ErrThreadNotFound:
-			lib.WriteError(w, "thread not found", lib.StatusNotFound)
-		case err == usecase.ErrFaildToEnsureRoom:
-			lib.WriteError(w, "failed to prepare voice room", lib.StatusInternalServerError)
-		case err == usecase.ErrNoRightsOnJoinRoom:
-			lib.WriteError(w, "you are not member list of this thread room", lib.StatusForbidden)
-		default:
-			h.logger.Error("failed to generate voice token", zap.Error(err))
-			lib.WriteError(w, "internal server error", lib.StatusInternalServerError)
-		}
+		code, clientErr := apperrors.GetErrAndCodeToSend(err)
+		h.logger.Error("failed to generate voice token", zap.Error(err))
+		lib.WriteError(w, clientErr.Error(), code)
 		return
 	}
 
@@ -65,6 +55,5 @@ func (h *ThreadHandler) GetVoiceToken(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(lib.StatusOK)
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		h.logger.Warn("failed to encode voice token response", zap.Error(err))
-		return
 	}
 }

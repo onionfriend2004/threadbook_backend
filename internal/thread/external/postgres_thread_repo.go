@@ -285,3 +285,20 @@ func (r *ThreadRepo) GetAccessibleThreadIDs(ctx context.Context, userID uint) ([
 	}
 	return threadIDs, nil
 }
+
+func (r *ThreadRepo) GetAccessibleThreadIDsBySpool(ctx context.Context, userID, spoolID uint) ([]uint, error) {
+	var threadIDs []uint
+
+	err := r.Db.WithContext(ctx).
+		Table("thread_users tu").
+		Select("tu.thread_id").
+		Joins("JOIN threads t ON t.id = tu.thread_id").
+		Where("tu.user_id = ? AND tu.is_member = ? AND t.spool_id = ?", userID, true, spoolID).
+		Pluck("tu.thread_id", &threadIDs).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return threadIDs, nil
+}

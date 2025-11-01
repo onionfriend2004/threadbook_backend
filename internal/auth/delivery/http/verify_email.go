@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/goccy/go-json"
-	"github.com/onionfriend2004/threadbook_backend/internal/auth/usecase"
+	"github.com/onionfriend2004/threadbook_backend/internal/apperrors"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib"
 	"go.uber.org/zap"
 )
@@ -21,7 +21,6 @@ func (h *AuthHandler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	}*/
 
 	var req VerifyEmailRequest
-
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		lib.WriteError(w, "invalid request body", lib.StatusBadRequest)
 		return
@@ -33,15 +32,15 @@ func (h *AuthHandler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.usecase.VerifyUserEmail(r.Context(), userID, req.Code); err != nil {
-		switch err {
-		case usecase.ErrCodeIncorrect:
-			lib.WriteError(w, "invalid verification code", http.StatusBadRequest)
-		case usecase.ErrInvalidInput:
-			lib.WriteError(w, "invalid input", http.StatusBadRequest)
-		default:
+		code, clientErr := apperrors.GetErrAndCodeToSend(err)
+
+		if code >= 500 {
 			h.logger.Error("failed to verify email", zap.Error(err))
-			lib.WriteError(w, "failed to verify email", http.StatusInternalServerError)
+		} else {
+			h.logger.Warn("failed to verify email", zap.Error(err))
 		}
+
+		lib.WriteError(w, clientErr.Error(), code)
 		return
 	}
 

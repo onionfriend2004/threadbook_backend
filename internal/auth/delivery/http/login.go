@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/goccy/go-json"
+	"github.com/onionfriend2004/threadbook_backend/internal/apperrors"
 	"github.com/onionfriend2004/threadbook_backend/internal/auth/delivery/dto"
 	"github.com/onionfriend2004/threadbook_backend/internal/auth/usecase"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib"
@@ -22,22 +23,17 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		Password: req.Password,
 	})
 	if err != nil {
-		switch {
-		case err == usecase.ErrInvalidCredentials:
-			lib.WriteError(w, "invalid credentials", lib.StatusUnauthorized)
-		case err == usecase.ErrInvalidInput:
-			lib.WriteError(w, "invalid input", lib.StatusBadRequest)
-		default:
-			h.logger.Error("failed to sign in user", zap.Error(err))
-			lib.WriteError(w, "internal server error", lib.StatusInternalServerError)
-		}
+		code, clientErr := apperrors.GetErrAndCodeToSend(err)
+		h.logger.Warn("failed to sign in user", zap.Error(err))
+		lib.WriteError(w, clientErr.Error(), code)
 		return
 	}
 
 	session, err := h.usecase.CreateSessionForUser(r.Context(), user)
 	if err != nil {
+		code, clientErr := apperrors.GetErrAndCodeToSend(err)
 		h.logger.Error("failed to create session", zap.Error(err))
-		lib.WriteError(w, "internal server error", lib.StatusInternalServerError)
+		lib.WriteError(w, clientErr.Error(), code)
 		return
 	}
 
@@ -52,6 +48,5 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(lib.StatusOK)
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		h.logger.Warn("failed to encode response", zap.Error(err))
-		return
 	}
 }

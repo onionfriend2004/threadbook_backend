@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/goccy/go-json"
+	"github.com/onionfriend2004/threadbook_backend/internal/apperrors"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib/middleware/auth"
 	"github.com/onionfriend2004/threadbook_backend/internal/thread/delivery/dto"
@@ -36,16 +37,16 @@ func (h *ThreadHandler) InviteToThread(w http.ResponseWriter, r *http.Request) {
 		ThreadID:  req.ThreadID,
 	}
 
-	err = h.threadUsecase.InviteToThread(r.Context(), input)
-	if err != nil {
+	if err := h.threadUsecase.InviteToThread(r.Context(), input); err != nil {
+		code, clientErr := apperrors.GetErrAndCodeToSend(err)
 		h.logger.Warn("failed to invite user", zap.Error(err))
-		lib.WriteError(w, "failed to invite user", lib.StatusBadRequest)
+		lib.WriteError(w, clientErr.Error(), code)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(lib.StatusOK)
-	_ = json.NewEncoder(w).Encode(map[string]string{
-		"status": "ok",
-	})
+	if err := json.NewEncoder(w).Encode(map[string]string{"status": "ok"}); err != nil {
+		h.logger.Error("failed to encode response", zap.Error(err))
+	}
 }
