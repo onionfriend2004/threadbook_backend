@@ -113,10 +113,10 @@ services:
       - ./data/certbot/www:/var/www/certbot:ro
     command: --config /etc/livekit.yaml
     # command: --config /dev/null --dev # --dev отключает TLS и упрощает dev
-    networks:
-      - vibecode_network
+    # networks:
+    #  - vibecode_network
     healthcheck:
-      test: [ "CMD", "wget", "--quiet", "--tries=1", "http://localhost:7880" ]
+      test: [ "CMD", "wget", "--quiet", "--tries=1", "http://127.0.0.1:7880" ]
       interval: 10s
       timeout: 5s
       retries: 3
