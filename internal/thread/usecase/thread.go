@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	userexternal "github.com/onionfriend2004/threadbook_backend/internal/auth/external"
 	"github.com/onionfriend2004/threadbook_backend/internal/gdomain"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib/event"
 	"github.com/onionfriend2004/threadbook_backend/internal/thread/external"
@@ -23,6 +24,7 @@ type ThreadUsecaseInterface interface {
 type ThreadUsecase struct {
 	threadRepo external.ThreadRepoInterface
 	wsRepo     external.WebsocketRepoInterface
+	userRepo   userexternal.UserRepoInterface
 	tokenTTL   time.Duration
 	logger     *zap.Logger
 }
@@ -30,12 +32,14 @@ type ThreadUsecase struct {
 func NewThreadUsecase(
 	threadRepo external.ThreadRepoInterface,
 	wsRepo external.WebsocketRepoInterface,
+	userRepo userexternal.UserRepoInterface,
 	tokenTTL time.Duration,
 	logger *zap.Logger,
 ) ThreadUsecaseInterface {
 	return &ThreadUsecase{
 		threadRepo: threadRepo,
 		wsRepo:     wsRepo,
+		userRepo:   userRepo,
 		tokenTTL:   tokenTTL,
 		logger:     logger,
 	}
@@ -124,30 +128,37 @@ func (u *ThreadUsecase) CloseThread(ctx context.Context, input CloseThreadInput)
 }
 
 func (u *ThreadUsecase) InviteToThread(ctx context.Context, input InviteToThreadInput) error {
-	// Добавляем пользователя в тред
+	// Добавляем пользователей в тред через репозиторий
 	if err := u.threadRepo.InviteToThread(ctx, input.InviterID, input.InviteeUsernames, input.ThreadID); err != nil {
 		return err
 	}
 
-	// Генерируем канал и токен для приглашённого
 	threadChannel := fmt.Sprintf("thread#%d", input.ThreadID)
-	subToken, err := u.wsRepo.GenerateSubscribeToken(ctx, input.InviteeID, threadChannel, u.tokenTTL)
-	if err != nil {
-		u.logger.Warn("failed to generate subscribe token for invited user", zap.Uint("userID", input.InviteeID), zap.Error(err))
-		return nil // не блокируем приглашение из-за ошибки токена
-	}
 
-	// Отправляем событие приглашения с токеном и каналом
-	payload := event.ThreadSubTokenPayload{
-		Channel: threadChannel,
-		Token:   subToken,
-	}
+	for _, username := range input.InviteeUsernames {
+		user, err := u.userRepo.GetUserByUsername(ctx, username)
+		if err != nil {
+			u.logger.Warn("failed to get user ID by username", zap.String("username", username), zap.Error(err))
+			continue // не блокируем остальных пользователей
+		}
 
-	if err := u.wsRepo.PublishToUser(ctx, input.InviteeID, event.Event{
-		Type:    event.ThreadInvited,
-		Payload: payload,
-	}); err != nil {
-		u.logger.Warn("failed to publish ThreadInvited event", zap.Uint("userID", input.InviteeID), zap.Error(err))
+		subToken, err := u.wsRepo.GenerateSubscribeToken(ctx, user.ID, threadChannel, u.tokenTTL)
+		if err != nil {
+			u.logger.Warn("failed to generate subscribe token for invited user", zap.String("username", username), zap.Error(err))
+			continue
+		}
+
+		payload := event.ThreadSubTokenPayload{
+			Channel: threadChannel,
+			Token:   subToken,
+		}
+
+		if err := u.wsRepo.PublishToUser(ctx, user.ID, event.Event{
+			Type:    event.ThreadInvited,
+			Payload: payload,
+		}); err != nil {
+			u.logger.Warn("failed to publish ThreadInvited event", zap.String("username", username), zap.Error(err))
+		}
 	}
 
 	return nil
