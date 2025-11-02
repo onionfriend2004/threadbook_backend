@@ -1,6 +1,8 @@
 package config
 
 import (
+	"time"
+
 	"github.com/spf13/viper"
 )
 
@@ -71,7 +73,7 @@ type Config struct {
 	} `mapstructure:"user_session"`
 
 	VerifyCode struct {
-		TTL uint32 `mapstructure:"ttl"` // TTL Жизни кода для подтверждения почты
+		TTL uint32 `mapstructure:"ttl"` // TTL Жизни кода для подтверждения почты (10 минут советую)
 	} `mapstructure:"verify_code"`
 
 	Cookie struct {
@@ -126,6 +128,11 @@ type Config struct {
 		AllowCredentials bool     `mapstructure:"allow_credentials"` // true
 		MaxAge           int      `mapstructure:"max_age"`           // в секундах, например 86400
 	} `mapstructure:"cors"`
+
+	AttemptsResend struct {
+		MaxResendAttempts int           `mapstructure:"max_resend_attempts"` // Максимальное количество попыток переотправки кода подтверждения на проде - 3, dev - можно 5-10
+		ResendTTL         time.Duration `mapstructure:"resend_ttl"`          // TTL для счётчика попыток (например, 1h)
+	} `mapstructure:"attempts_resend"`
 }
 
 // LoadConfig загружает конфигурацию из файла YAML и переменных среды.

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/onionfriend2004/threadbook_backend/internal/apperrors"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib/middleware/auth"
 	"github.com/onionfriend2004/threadbook_backend/internal/spool/delivery/dto"
@@ -20,7 +21,7 @@ func (h *SpoolHandler) LeaveFromSpool(w http.ResponseWriter, r *http.Request) {
 
 	var req dto.LeaveFromSpoolRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		lib.WriteError(w, "invalid JSON", lib.StatusBadRequest)
 		return
 	}
 
@@ -29,8 +30,9 @@ func (h *SpoolHandler) LeaveFromSpool(w http.ResponseWriter, r *http.Request) {
 		SpoolID: req.SpoolID,
 	})
 	if err != nil {
-		h.logger.Error("failed to leave spool", zap.Error(err))
-		http.Error(w, "failed to leave spool", http.StatusInternalServerError)
+		code, clientErr := apperrors.GetErrAndCodeToSend(err)
+		h.logger.Warn("failed to leave spool", zap.Error(err))
+		lib.WriteError(w, clientErr.Error(), code)
 		return
 	}
 

@@ -1,12 +1,12 @@
 package deliveryHTTP
 
 import (
-	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/goccy/go-json"
+	"github.com/onionfriend2004/threadbook_backend/internal/apperrors"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib/middleware/auth"
 	"github.com/onionfriend2004/threadbook_backend/internal/spool/delivery/dto"
@@ -20,25 +20,24 @@ func (h *SpoolHandler) GetSpoolInfoById(w http.ResponseWriter, r *http.Request) 
 		lib.WriteError(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
+
 	spoolIDStr := chi.URLParam(r, "spoolID")
 	spoolIDInt, err := strconv.Atoi(spoolIDStr)
-	if err != nil || spoolIDInt < 0 {
+	if err != nil || spoolIDInt <= 0 {
 		lib.WriteError(w, "invalid spool_id", http.StatusBadRequest)
 		return
 	}
 	spoolID := uint(spoolIDInt)
 
-	spool, err := h.usecase.GetSpoolInfoById(r.Context(), usecase.GetSpoolInfoByIdInput{UserID: userID, SpoolID: spoolID})
+	spool, err := h.usecase.GetSpoolInfoById(r.Context(), usecase.GetSpoolInfoByIdInput{
+		UserID:  userID,
+		SpoolID: spoolID,
+	})
 	if err != nil {
-		if errors.Is(err, usecase.ErrForbidden) {
-			lib.WriteError(w, "forbidden", http.StatusForbidden)
-			return
-		}
-		if errors.Is(err, usecase.ErrNotFound) {
-			lib.WriteError(w, "spool not found", http.StatusNotFound)
-			return
-		}
-		lib.WriteError(w, "internal error", http.StatusInternalServerError)
+		code, clientErr := apperrors.GetErrAndCodeToSend(err)
+		h.logger.Warn("failed to get spool info", zap.Error(err))
+		lib.WriteError(w, clientErr.Error(), code)
+		return
 	}
 
 	resp := dto.GetSpoolInfoByIdResponse{
@@ -53,6 +52,5 @@ func (h *SpoolHandler) GetSpoolInfoById(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(lib.StatusOK)
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		h.logger.Warn("failed to encode response", zap.Error(err))
-		return
 	}
 }

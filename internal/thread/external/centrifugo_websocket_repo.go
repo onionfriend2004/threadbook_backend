@@ -12,7 +12,7 @@ import (
 
 type websocketRepo struct {
 	client      *gocent.Client
-	secret      string // JWT secret
+	secret      string
 	tokenIssuer string
 }
 
@@ -24,12 +24,10 @@ func NewWebsocketRepo(client *gocent.Client, secret, tokenIssuer string) Websock
 	}
 }
 
-// user channel: "user#{id}"
 func (r *websocketRepo) userChannel(userID uint) string {
 	return fmt.Sprintf("user#%d", userID)
 }
 
-// thread channel: "thread#{id}"
 func (r *websocketRepo) threadChannel(threadID uint) string {
 	return fmt.Sprintf("thread#%d", threadID)
 }
@@ -39,17 +37,31 @@ func (r *websocketRepo) PublishToUser(ctx context.Context, userID uint, data any
 
 	payload, err := json.Marshal(data)
 	if err != nil {
-		return fmt.Errorf("marshal publish data: %w", err)
+		return ErrMarshalPublishData
 	}
 
 	if _, err := r.client.Publish(ctx, channel, payload); err != nil {
-		return fmt.Errorf("centrifugo publish failed: %w", err)
+		return ErrCentrifugoPublish
 	}
 
 	return nil
 }
 
-// CONNECT JWT
+func (r *websocketRepo) PublishToThread(ctx context.Context, threadID uint, data any) error {
+	channel := r.threadChannel(threadID)
+
+	payload, err := json.Marshal(data)
+	if err != nil {
+		return ErrMarshalPublishData
+	}
+
+	if _, err := r.client.Publish(ctx, channel, payload); err != nil {
+		return ErrCentrifugoPublish
+	}
+
+	return nil
+}
+
 func (r *websocketRepo) GenerateConnectToken(ctx context.Context, userID uint, ttl time.Duration) (string, error) {
 	now := time.Now()
 	claims := jwt.MapClaims{
@@ -62,36 +74,15 @@ func (r *websocketRepo) GenerateConnectToken(ctx context.Context, userID uint, t
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(r.secret))
-}
-
-// SUBSCRIBE JWT tokens for all user channels
-func (r *websocketRepo) GenerateSubscribeTokens(ctx context.Context, userID uint, threadIDs []uint, ttl time.Duration) (map[string]string, error) {
-	tokens := make(map[string]string)
-
-	// user channel
-	userCh := r.userChannel(userID)
-	userToken, err := r.generateChannelToken(userID, userCh, ttl)
+	signed, err := token.SignedString([]byte(r.secret))
 	if err != nil {
-		return nil, err
-	}
-	tokens[userCh] = userToken
-
-	// thread channels
-	for _, threadID := range threadIDs {
-		threadCh := r.threadChannel(threadID)
-		token, err := r.generateChannelToken(userID, threadCh, ttl)
-		if err != nil {
-			return nil, err
-		}
-		tokens[threadCh] = token
+		return "", ErrGenerateConnectToken
 	}
 
-	return tokens, nil
+	return signed, nil
 }
 
-// private helper to generate SUB JWT
-func (r *websocketRepo) generateChannelToken(userID uint, channel string, ttl time.Duration) (string, error) {
+func (r *websocketRepo) GenerateSubscribeToken(ctx context.Context, userID uint, channel string, ttl time.Duration) (string, error) {
 	now := time.Now()
 	claims := jwt.MapClaims{
 		"sub":     fmt.Sprintf("%d", userID),
@@ -105,5 +96,10 @@ func (r *websocketRepo) generateChannelToken(userID uint, channel string, ttl ti
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(r.secret))
+	signed, err := token.SignedString([]byte(r.secret))
+	if err != nil {
+		return "", ErrGenerateSubscribeToken
+	}
+
+	return signed, nil
 }

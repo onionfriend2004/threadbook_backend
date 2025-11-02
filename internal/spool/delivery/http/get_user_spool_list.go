@@ -30,6 +30,7 @@ func (h *SpoolHandler) GetUserSpoolList(w http.ResponseWriter, r *http.Request) 
 		resp.Spools = append(resp.Spools, dto.SpoolShortInfo{
 			SpoolID:    s.ID,
 			Name:       s.Name,
+			IsCreator:  s.IsCreator,
 			BannerLink: s.BannerLink,
 		})
 	}

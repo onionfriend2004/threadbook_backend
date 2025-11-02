@@ -41,10 +41,32 @@ func (r *spoolRepo) WithTx(ctx context.Context, fn func(txCtx context.Context) e
 	return tx.Commit().Error
 }
 
+// Проверка существования пользователя по ID
+func (r *spoolRepo) UserExistsByID(ctx context.Context, userID uint) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&gdomain.User{}).
+		Where("id = ?", userID).
+		Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
 // Создание Spool + связь с владельцем
 func (r *spoolRepo) CreateSpool(ctx context.Context, spool *gdomain.Spool, ownerID uint) (*gdomain.Spool, error) {
 	if spool.Name == "" {
 		return nil, ErrInvalidSpool
+	}
+
+	// Проверяем, существует ли владелец
+	exists, err := r.UserExistsByID(ctx, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, ErrUserNotFound
 	}
 
 	tx := r.db.WithContext(ctx).Begin()
@@ -152,18 +174,36 @@ func (r *spoolRepo) AddUserToSpoolByUsername(ctx context.Context, username strin
 }
 
 func (r *spoolRepo) RemoveUserFromSpool(ctx context.Context, userID, spoolID uint) error {
+	// Проверяем, существует ли пользователь
+	exists, err := r.UserExistsByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return ErrUserNotFound
+	}
+
 	return r.db.WithContext(ctx).
 		Where("user_id = ? AND spool_id = ?", userID, spoolID).
 		Delete(&gdomain.UserSpool{}).Error
 }
 
-func (r *spoolRepo) GetSpoolsByUser(ctx context.Context, userID uint) ([]gdomain.Spool, error) {
-	var spools []gdomain.Spool
+func (r *spoolRepo) GetSpoolsByUser(ctx context.Context, userID uint) ([]gdomain.SpoolWithCreator, error) {
+	var result []gdomain.SpoolWithCreator
+
 	err := r.db.WithContext(ctx).
+		Table("spools").
+		Select(`
+			spools.id,
+			spools.name,
+			spools.banner_link,
+			CASE WHEN spools.creator_id = ? THEN TRUE ELSE FALSE END AS is_creator
+		`, userID).
 		Joins("JOIN user_spools us ON us.spool_id = spools.id").
 		Where("us.user_id = ?", userID).
-		Find(&spools).Error
-	return spools, err
+		Scan(&result).Error
+
+	return result, err
 }
 
 func (r *spoolRepo) GetMembersBySpoolID(ctx context.Context, spoolID uint) ([]gdomain.User, error) {
@@ -176,8 +216,17 @@ func (r *spoolRepo) GetMembersBySpoolID(ctx context.Context, spoolID uint) ([]gd
 }
 
 func (r *spoolRepo) IsUserInSpool(ctx context.Context, userID uint, spoolID uint) (bool, error) {
+	// Проверяем, существует ли пользователь
+	exists, err := r.UserExistsByID(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+	if !exists {
+		return false, ErrUserNotFound
+	}
+
 	var count int64
-	err := r.db.WithContext(ctx).
+	err = r.db.WithContext(ctx).
 		Table("user_spools").
 		Where("user_id = ? AND spool_id = ?", userID, spoolID).
 		Count(&count).Error

@@ -62,7 +62,7 @@ func (u *RoomUsecase) GetVoiceToken(ctx context.Context, input GetVoiceTokenInpu
 	roomName := fmt.Sprintf("thread_%d", input.ThreadID)
 
 	if err := u.liveKitRepo.EnsureRoom(ctx, roomName); err != nil {
-		return "", ErrFaildToEnsureRoom
+		return "", ErrFailedToEnsureRoom
 	}
 
 	token := liveKitAuth.NewAccessToken(u.apiKey, u.apiSecret)

@@ -19,15 +19,18 @@ type AuthUsecaseInterface interface {
 	CreateSessionForUser(ctx context.Context, user *gdomain.User) (*domain.Session, error)
 
 	VerifyUserEmail(ctx context.Context, userID int, code int) error
+	ResendVerifyCode(ctx context.Context, userID int) error
 }
 
 type authUsecase struct {
-	userRepo       external.UserRepoInterface
-	sessionRepo    external.SessionRepoInterface
-	sendCodeRepo   external.SendCodeRepoInterface
-	verifyCodeRepo external.VerifyCodeRepoInterface
-	hasher         hasher.HasherInterface
-	logger         *zap.Logger
+	userRepo            external.UserRepoInterface
+	sessionRepo         external.SessionRepoInterface
+	sendCodeRepo        external.SendCodeRepoInterface
+	verifyCodeRepo      external.VerifyCodeRepoInterface
+	hasher              hasher.HasherInterface
+	logger              *zap.Logger
+	attemptSendCodeRepo external.AttemptSendCodeRepoInterface
+	maxResendAttempts   int
 }
 
 func NewAuthUsecase(
@@ -37,14 +40,18 @@ func NewAuthUsecase(
 	verifyCodeRepo external.VerifyCodeRepoInterface,
 	hasher hasher.HasherInterface,
 	logger *zap.Logger,
+	attemptSendCodeRepo external.AttemptSendCodeRepoInterface,
+	maxResendAttempts int,
 ) AuthUsecaseInterface {
 	return &authUsecase{
-		userRepo:       userRepo,
-		sessionRepo:    sessionRepo,
-		sendCodeRepo:   sendCodeRepo,
-		verifyCodeRepo: verifyCodeRepo,
-		hasher:         hasher,
-		logger:         logger,
+		userRepo:            userRepo,
+		sessionRepo:         sessionRepo,
+		sendCodeRepo:        sendCodeRepo,
+		verifyCodeRepo:      verifyCodeRepo,
+		hasher:              hasher,
+		logger:              logger,
+		attemptSendCodeRepo: attemptSendCodeRepo,
+		maxResendAttempts:   maxResendAttempts,
 	}
 }
 
@@ -209,7 +216,78 @@ func (u *authUsecase) VerifyUserEmail(ctx context.Context, userID int, code int)
 		return err
 	}
 
+	if err := u.attemptSendCodeRepo.ResetSendAttempts(ctx, uint(userID)); err != nil {
+		u.logger.Warn("failed to reset send attempts after successful verification",
+			zap.Int("user_id", userID),
+			zap.Error(err))
+		// Не прерываем — верификация успешна, сброс вторичен
+	}
+
 	u.logger.Info("user email verified successfully", zap.Int("user_id", userID))
+	return nil
+}
+
+func (u *authUsecase) ResendVerifyCode(ctx context.Context, userID int) error {
+	if userID <= 0 {
+		return ErrInvalidInput
+	}
+
+	// Проверяем, существует ли пользователь и не подтверждён ли уже email
+	user, err := u.userRepo.GetUserByID(ctx, uint(userID))
+	if err != nil {
+		if errors.Is(err, external.ErrUserNotFound) {
+			return ErrUserNotFound
+		}
+		u.logger.Error("failed to get user by ID during resend", zap.Error(err), zap.Int("user_id", userID))
+		return err
+	}
+
+	if user.EmailVerify {
+		// Email уже подтверждён — переотправка не нужна
+		return ErrAlreadyConfirmed
+	}
+
+	// Проверяем количество попыток отправки
+	attempts, err := u.attemptSendCodeRepo.GetSendAttempts(ctx, uint(userID))
+	if err != nil {
+		u.logger.Error("failed to get send attempts", zap.Error(err), zap.Int("user_id", userID))
+		return err
+	}
+
+	if attempts >= u.maxResendAttempts {
+		return ErrTooManyAttempts
+	}
+
+	// Генерируем новый код
+	newCode, err := u.verifyCodeRepo.GenerateCode()
+	if err != nil {
+		u.logger.Error("failed to generate new verification code", zap.Error(err), zap.Int("user_id", userID))
+		return err
+	}
+
+	// Сохраняем новый код (старый перезаписывается)
+	if err := u.verifyCodeRepo.SaveCode(ctx, uint(userID), newCode); err != nil {
+		u.logger.Error("failed to save new verification code", zap.Error(err), zap.Int("user_id", userID))
+		return err
+	}
+
+	// Отправляем код (в очередь)
+	if err := u.sendCodeRepo.SendVerifyCodeForUser(newCode, user); err != nil {
+		u.logger.Error("failed to send verification code via broker", zap.Error(err), zap.Int("user_id", userID))
+		return err
+	}
+
+	// Увеличиваем счётчик попыток отправки
+	if err := u.attemptSendCodeRepo.IncrementSendAttempts(ctx, uint(userID)); err != nil {
+		u.logger.Warn("failed to increment send attempts", zap.Error(err), zap.Int("user_id", userID))
+		// Не прерываем — код отправлен, счётчик вторичен
+	}
+
+	u.logger.Info("verification code resent successfully",
+		zap.Int("user_id", userID),
+		zap.Int("attempts", attempts+1),
+		zap.Int("max_attempts", u.maxResendAttempts))
+
 	return nil
 }
 

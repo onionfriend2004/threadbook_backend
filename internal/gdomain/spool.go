@@ -6,16 +6,17 @@ import (
 )
 
 type Spool struct {
-	ID         uint   `gorm:"primaryKey;autoIncrement" json:"id"`
-	Name       string `gorm:"type:text;not null" json:"name"`
+	ID         uint   `gorm:"primaryKey;autoIncrement"`
+	Name       string `gorm:"type:text;not null"`
+	CreatorID  uint   `gorm:"column:creator_id;not null"`
 	BannerLink string `gorm:"type:text" json:"banner_link,omitempty"`
 
 	// связи
-	Threads []Thread `gorm:"foreignKey:SpoolID;constraint:OnDelete:CASCADE;" json:"threads,omitempty"`
-	Members []User   `gorm:"many2many:user_spools;constraint:OnDelete:CASCADE;" json:"members,omitempty"`
+	Threads []Thread `gorm:"foreignKey:SpoolID;constraint:OnDelete:CASCADE;"`
+	Members []User   `gorm:"many2many:user_spool;constraint:OnDelete:CASCADE;"`
 
-	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+	CreatedAt time.Time `gorm:"autoCreateTime"`
+	UpdatedAt time.Time `gorm:"autoUpdateTime"`
 }
 
 // UserSpool — join таблица пользователь <-> спул
@@ -31,7 +32,7 @@ func NormalizeName(name string) string {
 }
 
 // NewSpool конструктор для Spool
-func NewSpool(name, bannerLink string) (*Spool, error) {
+func NewSpool(name, bannerLink string, creatorID uint) (*Spool, error) {
 	normName := NormalizeName(name)
 	if normName == "" {
 		return nil, ErrEmptyName
@@ -40,5 +41,13 @@ func NewSpool(name, bannerLink string) (*Spool, error) {
 	return &Spool{
 		Name:       normName,
 		BannerLink: strings.TrimSpace(bannerLink),
+		CreatorID:  creatorID,
 	}, nil
+}
+
+type SpoolWithCreator struct {
+	ID         uint
+	Name       string
+	BannerLink string
+	IsCreator  bool
 }

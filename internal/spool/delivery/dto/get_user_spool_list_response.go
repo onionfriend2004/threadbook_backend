@@ -7,5 +7,6 @@ type GetUserSpoolListResponse struct {
 type SpoolShortInfo struct {
 	SpoolID    uint   `json:"id"`
 	Name       string `json:"name"`
+	IsCreator  bool   `json:"is_creator"`
 	BannerLink string `json:"banner_link,omitempty"`
 }

@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/goccy/go-json"
+	"github.com/onionfriend2004/threadbook_backend/internal/apperrors"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib/middleware/auth"
 	"github.com/onionfriend2004/threadbook_backend/internal/thread/delivery/dto"
@@ -14,7 +15,7 @@ import (
 func (h *ThreadHandler) Update(w http.ResponseWriter, r *http.Request) {
 	userID, err := auth.GetUserIDFromContext(r.Context())
 	if err != nil {
-		lib.WriteError(w, "unauthorized", http.StatusUnauthorized)
+		lib.WriteError(w, "unauthorized", lib.StatusUnauthorized)
 		return
 	}
 
@@ -33,8 +34,9 @@ func (h *ThreadHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	updatedThread, err := h.threadUsecase.UpdateThread(r.Context(), input)
 	if err != nil {
+		code, clientErr := apperrors.GetErrAndCodeToSend(err)
 		h.logger.Warn("failed to update thread", zap.Error(err))
-		lib.WriteError(w, "failed to update thread", lib.StatusInternalServerError)
+		lib.WriteError(w, clientErr.Error(), code)
 		return
 	}
 

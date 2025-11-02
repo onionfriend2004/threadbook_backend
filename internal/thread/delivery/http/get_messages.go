@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/goccy/go-json"
+	"github.com/onionfriend2004/threadbook_backend/internal/apperrors"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib"
 	"github.com/onionfriend2004/threadbook_backend/internal/thread/delivery/dto"
 	"github.com/onionfriend2004/threadbook_backend/internal/thread/usecase"
@@ -21,10 +22,19 @@ func (h *ThreadHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 	}
 	threadID := uint(threadID64)
 
-	limitStr := r.URL.Query().Get("limit")
-	offsetStr := r.URL.Query().Get("offset")
-	limit, _ := strconv.Atoi(limitStr)
-	offset, _ := strconv.Atoi(offsetStr)
+	limit := 50 // default limit
+	offset := 0 // default offset
+
+	if lStr := r.URL.Query().Get("limit"); lStr != "" {
+		if l, err := strconv.Atoi(lStr); err == nil && l > 0 {
+			limit = l
+		}
+	}
+	if oStr := r.URL.Query().Get("offset"); oStr != "" {
+		if o, err := strconv.Atoi(oStr); err == nil && o >= 0 {
+			offset = o
+		}
+	}
 
 	input := usecase.GetMessagesInput{
 		ThreadID: threadID,
@@ -34,11 +44,13 @@ func (h *ThreadHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 
 	msgs, err := h.messageUsecase.GetMessages(r.Context(), input)
 	if err != nil {
+		code, clientErr := apperrors.GetErrAndCodeToSend(err)
 		h.logger.Warn("failed to get messages", zap.Error(err))
-		lib.WriteError(w, "failed to get messages", lib.StatusInternalServerError)
+		lib.WriteError(w, clientErr.Error(), code)
 		return
 	}
-	var resp []dto.MessageResponse
+
+	resp := make([]dto.MessageResponse, 0, len(msgs))
 	for _, m := range msgs {
 		resp = append(resp, dto.MessageResponse{
 			ID:        m.ID,
@@ -52,5 +64,7 @@ func (h *ThreadHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(lib.StatusOK)
-	_ = json.NewEncoder(w).Encode(resp)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		h.logger.Warn("failed to encode response", zap.Error(err))
+	}
 }

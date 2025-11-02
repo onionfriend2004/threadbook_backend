@@ -155,6 +155,7 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 	sessionRepo := authExternal.NewSessionRepo(redis, time.Duration(cfg.UserSession.TTL)*time.Minute)
 	sendCodeRepo := authExternal.NewSendCodeRepo(nts, cfg.Nats.VerifyCodeSubject)
 	verifyCodeRepo := authExternal.NewVerifyCodeRepo(redis, time.Duration(cfg.VerifyCode.TTL)*time.Minute)
+	attemptSendCodeRepo := authExternal.NewAttemptSendCodeRedisRepo(redis, cfg.AttemptsResend.ResendTTL)
 
 	// utils
 	hasher, err := hasher.NewArgon2HasherFromConfig(*cfg)
@@ -164,23 +165,16 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 	cookieConfig := config.NewCookieConfig(cfg)
 	fileConfig := config.NewFileConfig(cfg)
 	// usecase
-	authauthUsecase := authUsecase.NewAuthUsecase(userRepo, sessionRepo, sendCodeRepo, verifyCodeRepo, hasher, logger)
+	authauthUsecase := authUsecase.NewAuthUsecase(userRepo, sessionRepo, sendCodeRepo, verifyCodeRepo, hasher, logger, attemptSendCodeRepo, cfg.AttemptsResend.MaxResendAttempts)
 
 	// handler
 	authHandler := authDeliveryHTTP.NewAuthHandler(authauthUsecase, logger.With(zap.String("component", "auth")), cookieConfig)
 	authHandler.Routes(r)
-
-	// ===================== Spool =====================
-
-	spoolFileRepo := fileExternal.NewFileRepo(minio, "uploads")
-	spoolFileUC := fileUsecase.NewFileUsecase(spoolFileRepo, logger)
-	spoolFileHandler := fileDeliveryHTTP.NewFileHandler(spoolFileUC, logger)
-	spoolFileHandler.Routes(r)
-
-	spoolRepo := spoolExternal.NewSpoolRepo(db)
-	spoolUC := spoolUsecase.NewSpoolUsecase(spoolRepo, spoolFileUC, logger)
-	spoolHandler := spoolDeliveryHTTP.NewSpoolHandler(spoolUC, logger, fileConfig)
-	spoolHandler.Routes(r, authenticator)
+	// ===================== File =====================
+	fileRepo := fileExternal.NewFileRepo(minio, cfg.Minio.Bucket)
+	fileUC := fileUsecase.NewFileUsecase(fileRepo, logger)
+	fileHandler := fileDeliveryHTTP.NewFileHandler(fileUC, logger)
+	fileHandler.Routes(r)
 
 	// ===================== Thread =====================
 	// external repos
@@ -195,7 +189,7 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 	messageRepo := threadExternal.NewMessageRepo(db)
 
 	// usecases
-	threadUC := threadUsecase.NewThreadUsecase(threadRepo, logger)
+	threadUC := threadUsecase.NewThreadUsecase(threadRepo, websocketRepo, userRepo, time.Duration(cfg.Centrifugo.TTL)*time.Second, logger)
 	messageUC := threadUsecase.NewMessageUsecase(messageRepo, websocketRepo, threadRepo, time.Duration(cfg.Centrifugo.TTL)*time.Second, logger)
 	roomUC := threadUsecase.NewRoomUsecase(threadRepo, liveKitRepo, cfg.LiveKit.URL, cfg.LiveKit.APIKey, cfg.LiveKit.APISecret, logger)
 
@@ -214,6 +208,17 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 	profileHandler := profileDeliveryHTTP.NewProfileHandler(profileUC, logger, fileConfig)
 	profileHandler.Routes(r, authenticator)
 
+	// ===================== Spool =====================
+
+	spoolFileRepo := fileExternal.NewFileRepo(minio, "uploads")
+	spoolFileUC := fileUsecase.NewFileUsecase(spoolFileRepo, logger)
+	spoolFileHandler := fileDeliveryHTTP.NewFileHandler(spoolFileUC, logger)
+	spoolFileHandler.Routes(r)
+
+	spoolRepo := spoolExternal.NewSpoolRepo(db)
+	spoolUC := spoolUsecase.NewSpoolUsecase(spoolRepo, websocketRepo, spoolFileUC, logger)
+	spoolHandler := spoolDeliveryHTTP.NewSpoolHandler(spoolUC, logger, fileConfig)
+	spoolHandler.Routes(r, authenticator)
 	// ===================== Other =====================
 
 	return r, nil

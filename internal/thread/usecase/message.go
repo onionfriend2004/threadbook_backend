@@ -2,12 +2,11 @@ package usecase
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/onionfriend2004/threadbook_backend/internal/gdomain"
-	"github.com/onionfriend2004/threadbook_backend/internal/thread/delivery/dto"
+	"github.com/onionfriend2004/threadbook_backend/internal/lib/event"
 	"github.com/onionfriend2004/threadbook_backend/internal/thread/external"
 	"go.uber.org/zap"
 )
@@ -36,25 +35,22 @@ func NewMessageUsecase(
 }
 
 func (uc *MessageUsecase) SendMessage(ctx context.Context, input SendMessageInput) (*gdomain.Message, error) {
-	// Проверяем права пользователя на тред
 	hasRights, err := uc.threadRepo.CheckRightsUserOnThreadRoom(ctx, input.ThreadID, input.UserID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check rights: %w", err)
+		return nil, err
 	}
 	if !hasRights {
-		return nil, errors.New("user has no access to this thread")
+		return nil, ErrNoAccessToThread
 	}
 
-	// Проверяем, что тред не закрыт
 	thread, err := uc.threadRepo.GetThreadByID(ctx, input.ThreadID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get thread: %w", err)
+		return nil, ErrFailedToGetThread
 	}
 	if thread.IsClosed {
-		return nil, errors.New("cannot send message: thread is closed")
+		return nil, ErrThreadIsClosed
 	}
 
-	// Создаём сообщение
 	msg := &gdomain.Message{
 		ThreadID: input.ThreadID,
 		UserID:   input.UserID,
@@ -62,26 +58,31 @@ func (uc *MessageUsecase) SendMessage(ctx context.Context, input SendMessageInpu
 		Payloads: input.Payloads,
 	}
 
-	// Сохраняем сообщение
 	if err := uc.msgRepo.CreateWithPayloads(ctx, msg); err != nil {
-		return nil, fmt.Errorf("failed to save message: %w", err)
+		return nil, ErrFailedToSaveMsg
 	}
 
-	// Получаем участников треда
 	members, err := uc.threadRepo.GetThreadMembers(ctx, input.ThreadID)
 	if err != nil {
-		return msg, fmt.Errorf("failed to get thread members: %w", err)
+		return msg, err
 	}
-	// TODO: подумать, как лучше эту структуру впихнуть сюда
-	msgResp := &dto.MessageResponse{
-		ThreadID: input.ThreadID,
-		Username: input.Username,
-		Content:  input.Content,
+
+	ev := event.Event{
+		Type: event.MessageCreated,
+		Payload: event.MessageCreatedPayload{
+			MessageID: msg.ID,
+			ThreadID:  input.ThreadID,
+			Content:   input.Content,
+			Username:  input.Username,
+			CreatedAt: time.Now().Unix(),
+		},
 	}
-	// Рассылаем сообщение всем участникам
+
 	for _, member := range members {
-		if err := uc.wsRepo.PublishToUser(ctx, member.UserID, msgResp); err != nil {
-			uc.logger.Warn("failed to publish message to user", zap.Uint("userID", member.UserID), zap.Error(err))
+		if err := uc.wsRepo.PublishToThread(ctx, input.ThreadID, ev); err != nil {
+			uc.logger.Warn(ErrFailedToPublish.Error(),
+				zap.Uint("userID", member.UserID),
+				zap.Error(err))
 		}
 	}
 
@@ -89,50 +90,67 @@ func (uc *MessageUsecase) SendMessage(ctx context.Context, input SendMessageInpu
 }
 
 func (uc *MessageUsecase) GetMessages(ctx context.Context, input GetMessagesInput) ([]gdomain.Message, error) {
-	msgs, err := uc.msgRepo.GetByThreadID(ctx, input.ThreadID, input.Limit, input.Offset)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch messages: %w", err)
-	}
-	return msgs, nil
+	return uc.msgRepo.GetByThreadID(ctx, input.ThreadID, input.Limit, input.Offset)
 }
 
 func (uc *MessageUsecase) GetConnectToken(ctx context.Context, userID uint) (string, error) {
-	token, err := uc.wsRepo.GenerateConnectToken(ctx, userID, uc.tokenTTL)
-	if err != nil {
-		return "", fmt.Errorf("failed to generate connect token: %w", err)
-	}
-	return token, nil
+	return uc.wsRepo.GenerateConnectToken(ctx, userID, uc.tokenTTL)
 }
 
-func (uc *MessageUsecase) GetSubscribeTokens(ctx context.Context, userID uint) (map[string]string, error) {
-	// Получаем список доступных тредов
-	threadIDs, err := uc.threadRepo.GetAccessibleThreadIDs(ctx, userID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch accessible threads: %w", err)
-	}
-
-	// Генерируем токены на каналы
-	tokens, err := uc.wsRepo.GenerateSubscribeTokens(ctx, userID, threadIDs, uc.tokenTTL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate channel tokens: %w", err)
-	}
-
-	return tokens, nil
-}
-
-func (uc *MessageUsecase) GetConnectAndSubscribeTokens(ctx context.Context, userID uint) (ConnectAndSubscribeTokens, error) {
-	connectToken, err := uc.GetConnectToken(ctx, userID)
+func (uc *MessageUsecase) GetUserOnlyTokens(ctx context.Context, userID uint) (ConnectAndSubscribeTokens, error) {
+	connectToken, err := uc.wsRepo.GenerateConnectToken(ctx, userID, uc.tokenTTL)
 	if err != nil {
 		return ConnectAndSubscribeTokens{}, err
 	}
 
-	channelTokens, err := uc.GetSubscribeTokens(ctx, userID)
+	userChannel := "user#" + fmt.Sprint(userID)
+	subToken, err := uc.wsRepo.GenerateSubscribeToken(ctx, userID, userChannel, uc.tokenTTL)
 	if err != nil {
 		return ConnectAndSubscribeTokens{}, err
 	}
 
 	return ConnectAndSubscribeTokens{
+		ConnectToken: connectToken,
+		ChannelTokens: map[string]string{
+			userChannel: subToken,
+		},
+	}, nil
+}
+
+func (uc *MessageUsecase) GetTokensBySpool(ctx context.Context, userID, spoolID uint) (ConnectAndSubscribeTokens, error) {
+	threads, err := uc.threadRepo.GetAccessibleThreadIDsBySpool(ctx, userID, spoolID)
+	if err != nil {
+		return ConnectAndSubscribeTokens{}, err
+	}
+
+	channels := make(map[string]string)
+	userChannel := "user#" + fmt.Sprint(userID)
+
+	connectToken, err := uc.wsRepo.GenerateConnectToken(ctx, userID, uc.tokenTTL)
+	if err != nil {
+		return ConnectAndSubscribeTokens{}, err
+	}
+
+	userSub, err := uc.wsRepo.GenerateSubscribeToken(ctx, userID, userChannel, uc.tokenTTL)
+	if err != nil {
+		return ConnectAndSubscribeTokens{}, err
+	}
+	channels[userChannel] = userSub
+
+	for _, id := range threads {
+		channel := "thread#" + fmt.Sprint(id)
+		token, err := uc.wsRepo.GenerateSubscribeToken(ctx, userID, channel, uc.tokenTTL)
+		if err != nil {
+			uc.logger.Warn(ErrFailedToPublish.Error(),
+				zap.Uint("threadID", id),
+				zap.Error(err))
+			continue
+		}
+		channels[channel] = token
+	}
+
+	return ConnectAndSubscribeTokens{
 		ConnectToken:  connectToken,
-		ChannelTokens: channelTokens,
+		ChannelTokens: channels,
 	}, nil
 }

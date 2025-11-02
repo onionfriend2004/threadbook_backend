@@ -15,7 +15,7 @@ type SpoolRepoInterface interface {
 	// join-таблицы spool <-> user
 	AddUserToSpoolByUsername(ctx context.Context, username string, spoolID uint) error
 	RemoveUserFromSpool(ctx context.Context, userID, spoolID uint) error
-	GetSpoolsByUser(ctx context.Context, userID uint) ([]gdomain.Spool, error)
+	GetSpoolsByUser(ctx context.Context, userID uint) ([]gdomain.SpoolWithCreator, error)
 	GetMembersBySpoolID(ctx context.Context, spoolID uint) ([]gdomain.User, error)
 
 	IsUserInSpool(ctx context.Context, userID uint, spoolID uint) (bool, error)
