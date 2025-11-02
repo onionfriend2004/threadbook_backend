@@ -47,9 +47,11 @@ func (h *ThreadHandler) GetBySpoolID(w http.ResponseWriter, r *http.Request) {
 
 	var resp []dto.ThreadCreateResponse
 	for _, t := range threads {
+		is_creator := (userID == t.CreatorID)
 		resp = append(resp, dto.ThreadCreateResponse{
 			ID:        t.ID,
 			SpoolID:   t.SpoolID,
+			IsCreator: is_creator,
 			Title:     t.Title,
 			Type:      t.Type,
 			IsClosed:  t.IsClosed,
