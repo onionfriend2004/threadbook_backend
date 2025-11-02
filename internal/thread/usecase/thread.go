@@ -47,7 +47,7 @@ func NewThreadUsecase(
 
 func (u *ThreadUsecase) CreateThread(ctx context.Context, input CreateThreadInput) (*gdomain.Thread, error) {
 	if !(input.TypeThread == "private" || input.TypeThread == "public") {
-		return nil, ErrWrognTypeThread
+		return nil, ErrWrongTypeThread
 	}
 
 	newThread, err := u.threadRepo.Create(ctx, input.OwnerID, input.SpoolID, input.Title, input.TypeThread)

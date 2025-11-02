@@ -12,7 +12,7 @@ import (
 
 type websocketRepo struct {
 	client      *gocent.Client
-	secret      string // JWT secret
+	secret      string
 	tokenIssuer string
 }
 
@@ -24,12 +24,10 @@ func NewWebsocketRepo(client *gocent.Client, secret, tokenIssuer string) Websock
 	}
 }
 
-// user channel: "user#{id}"
 func (r *websocketRepo) userChannel(userID uint) string {
 	return fmt.Sprintf("user#%d", userID)
 }
 
-// thread channel: "thread#{id}"
 func (r *websocketRepo) threadChannel(threadID uint) string {
 	return fmt.Sprintf("thread#%d", threadID)
 }
@@ -39,11 +37,11 @@ func (r *websocketRepo) PublishToUser(ctx context.Context, userID uint, data any
 
 	payload, err := json.Marshal(data)
 	if err != nil {
-		return fmt.Errorf("marshal publish data: %w", err)
+		return ErrMarshalPublishData
 	}
 
 	if _, err := r.client.Publish(ctx, channel, payload); err != nil {
-		return fmt.Errorf("centrifugo publish failed: %w", err)
+		return ErrCentrifugoPublish
 	}
 
 	return nil
@@ -54,17 +52,16 @@ func (r *websocketRepo) PublishToThread(ctx context.Context, threadID uint, data
 
 	payload, err := json.Marshal(data)
 	if err != nil {
-		return fmt.Errorf("marshal publish data: %w", err)
+		return ErrMarshalPublishData
 	}
 
 	if _, err := r.client.Publish(ctx, channel, payload); err != nil {
-		return fmt.Errorf("centrifugo publish failed: %w", err)
+		return ErrCentrifugoPublish
 	}
 
 	return nil
 }
 
-// CONNECT JWT
 func (r *websocketRepo) GenerateConnectToken(ctx context.Context, userID uint, ttl time.Duration) (string, error) {
 	now := time.Now()
 	claims := jwt.MapClaims{
@@ -77,7 +74,12 @@ func (r *websocketRepo) GenerateConnectToken(ctx context.Context, userID uint, t
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(r.secret))
+	signed, err := token.SignedString([]byte(r.secret))
+	if err != nil {
+		return "", ErrGenerateConnectToken
+	}
+
+	return signed, nil
 }
 
 func (r *websocketRepo) GenerateSubscribeToken(ctx context.Context, userID uint, channel string, ttl time.Duration) (string, error) {
@@ -94,5 +96,10 @@ func (r *websocketRepo) GenerateSubscribeToken(ctx context.Context, userID uint,
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(r.secret))
+	signed, err := token.SignedString([]byte(r.secret))
+	if err != nil {
+		return "", ErrGenerateSubscribeToken
+	}
+
+	return signed, nil
 }

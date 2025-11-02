@@ -32,14 +32,13 @@ func (r *ThreadRepo) Create(ctx context.Context, creatorID, spoolID uint, title,
 			Table("user_spools").
 			Where("user_id = ? AND spool_id = ?", creatorID, spoolID).
 			Count(&count).Error; err != nil {
-			return err
+			return ErrCreateThread
 		}
 
 		if count == 0 {
 			return ErrUserNotInSpool
 		}
 
-		// Создаём тред
 		thread = gdomain.Thread{
 			CreatorID: creatorID,
 			SpoolID:   spoolID,
@@ -51,7 +50,7 @@ func (r *ThreadRepo) Create(ctx context.Context, creatorID, spoolID uint, title,
 		}
 
 		if err := tx.Create(&thread).Error; err != nil {
-			return err
+			return ErrCreateThread
 		}
 
 		if threadType == "public" {
@@ -61,7 +60,7 @@ func (r *ThreadRepo) Create(ctx context.Context, creatorID, spoolID uint, title,
 				Select("user_id").
 				Where("spool_id = ?", spoolID).
 				Pluck("user_id", &userIDs).Error; err != nil {
-				return err
+				return ErrCreateThread
 			}
 
 			if len(userIDs) > 0 {
@@ -74,16 +73,15 @@ func (r *ThreadRepo) Create(ctx context.Context, creatorID, spoolID uint, title,
 				}
 
 				if err := tx.Table("thread_users").Create(&records).Error; err != nil {
-					return err
+					return ErrCreateThread
 				}
 			}
 		} else {
-			// Иначе добавляем только создателя
 			if err := tx.Table("thread_users").Create(map[string]interface{}{
 				"user_id":   creatorID,
 				"thread_id": thread.ID,
 			}).Error; err != nil {
-				return err
+				return ErrCreateThread
 			}
 		}
 
@@ -93,13 +91,11 @@ func (r *ThreadRepo) Create(ctx context.Context, creatorID, spoolID uint, title,
 	if err != nil {
 		return nil, err
 	}
-
 	return &thread, nil
 }
 
 func (r *ThreadRepo) GetBySpoolID(ctx context.Context, userID, spoolID uint) ([]*gdomain.Thread, error) {
 	var threads []*gdomain.Thread
-	const op = "ThreadRepo.GetBySpoolID"
 
 	err := r.Db.
 		Table("threads AS t").
@@ -108,45 +104,40 @@ func (r *ThreadRepo) GetBySpoolID(ctx context.Context, userID, spoolID uint) ([]
 		Find(&threads).Error
 
 	if err != nil {
-		return nil, err
+		return nil, ErrGetThreads
 	}
-
 	return threads, nil
 }
 
 func (r *ThreadRepo) CloseThread(id uint, userID uint) (*gdomain.Thread, error) {
 	var thread gdomain.Thread
 	if err := r.Db.First(&thread, id).Error; err != nil {
-		return nil, err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrThreadNotFound
+		}
+		return nil, ErrCloseThread
 	}
 	if thread.CreatorID == userID {
 		thread.IsClosed = true
 		if err := r.Db.Save(&thread).Error; err != nil {
-			return nil, err
+			return nil, ErrCloseThread
 		}
 		return &thread, nil
 	}
 	return nil, ErrUserNoAccess
 }
 
-// DONT CHANGE THIS METHOD!!!
 func (r *ThreadRepo) GetThreadByID(ctx context.Context, threadID uint) (*gdomain.Thread, error) {
 	var thread gdomain.Thread
 	if err := r.Db.WithContext(ctx).First(&thread, threadID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrThreadNotFound
 		}
-		return nil, err
+		return nil, ErrThreadNotFound
 	}
 	return &thread, nil
 }
 
-// DONT CHANGE THIS METHOD!!!
-
-// TODO: OPTIMIZE INDEX SEARCH
-// CREATE INDEX idx_thread_users_user_thread_member
-// ON thread_users (user_id, thread_id)
-// WHERE is_member = true;
 func (r *ThreadRepo) CheckRightsUserOnThreadRoom(ctx context.Context, threadID uint, userID uint) (bool, error) {
 	var count int64
 	err := r.Db.WithContext(ctx).
@@ -154,7 +145,7 @@ func (r *ThreadRepo) CheckRightsUserOnThreadRoom(ctx context.Context, threadID u
 		Where("user_id = ? AND thread_id = ? AND is_member = ?", userID, threadID, true).
 		Count(&count).Error
 	if err != nil {
-		return false, err
+		return false, ErrRightsCheck
 	}
 	return count > 0, nil
 }
@@ -169,17 +160,14 @@ func (r *ThreadRepo) Update(
 	var thread gdomain.Thread
 
 	err := r.Db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// Проверяем, существует ли тред
 		if err := tx.First(&thread, "id = ?", id).Error; err != nil {
-			return err
+			return ErrThreadNotFound
 		}
 
-		// Проверяем права
 		if thread.CreatorID != editorID {
 			return ErrPermissionDenied
 		}
 
-		// Собираем обновляемые поля
 		updates := map[string]interface{}{
 			"updated_at": time.Now(),
 		}
@@ -191,12 +179,10 @@ func (r *ThreadRepo) Update(
 			updates["type"] = *threadType
 		}
 
-		// Выполняем обновление
 		if err := tx.Model(&thread).Updates(updates).Error; err != nil {
-			return err
+			return ErrUpdateThread
 		}
 
-		// Возвращаем актуальные данные
 		return tx.First(&thread, "id = ?", id).Error
 	})
 
@@ -213,7 +199,7 @@ func (r *ThreadRepo) GetThreadMembers(ctx context.Context, threadID uint) ([]gdo
 		Table("thread_users").
 		Where("thread_id = ? AND is_member = ?", threadID, true).
 		Find(&members).Error; err != nil {
-		return nil, err
+		return nil, ErrGetMembers
 	}
 	return members, nil
 }
@@ -225,7 +211,7 @@ func (r *ThreadRepo) GetAccessibleThreadIDs(ctx context.Context, userID uint) ([
 		Where("user_id = ? AND is_member = ?", userID, true).
 		Pluck("thread_id", &threadIDs).Error
 	if err != nil {
-		return nil, err
+		return nil, ErrGetAccessibleIDs
 	}
 	return threadIDs, nil
 }
@@ -237,15 +223,13 @@ func (r *ThreadRepo) InviteToThread(ctx context.Context, inviterID uint, invitee
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return ErrThreadNotFound
 			}
-			return err
+			return ErrInviteFailed
 		}
 
-		// Разрешаем инвайты только в приватные треды
 		if thread.Type != "private" {
-			return ErrUserNoAccess
+			return ErrInvalidThreadType
 		}
 
-		// Проверяем, что приглашает создатель
 		if inviterID != thread.CreatorID {
 			return ErrUserNoAccess
 		}
@@ -256,21 +240,19 @@ func (r *ThreadRepo) InviteToThread(ctx context.Context, inviterID uint, invitee
 				if errors.Is(err, gorm.ErrRecordNotFound) {
 					return ErrUserNotFound
 				}
-				return err
+				return ErrInviteFailed
 			}
 
-			// Проверяем, что юзер в спуле
 			var inSpool int64
 			if err := tx.Table("user_spools").
 				Where("user_id = ? AND spool_id = ?", invitee.ID, thread.SpoolID).
 				Count(&inSpool).Error; err != nil {
-				return err
+				return ErrInviteFailed
 			}
 			if inSpool == 0 {
 				return ErrUserNotInSpool
 			}
 
-			// Добавляем пользователя в поток, если его там ещё нет
 			threadUser := gdomain.ThreadUser{
 				UserID:   invitee.ID,
 				ThreadID: thread.ID,
@@ -278,7 +260,7 @@ func (r *ThreadRepo) InviteToThread(ctx context.Context, inviterID uint, invitee
 			}
 
 			if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&threadUser).Error; err != nil {
-				return err
+				return ErrInviteFailed
 			}
 		}
 
@@ -297,7 +279,7 @@ func (r *ThreadRepo) GetAccessibleThreadIDsBySpool(ctx context.Context, userID, 
 		Pluck("tu.thread_id", &threadIDs).Error
 
 	if err != nil {
-		return nil, err
+		return nil, ErrGetAccessibleIDs
 	}
 
 	return threadIDs, nil

@@ -2,7 +2,6 @@ package usecase
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -36,25 +35,22 @@ func NewMessageUsecase(
 }
 
 func (uc *MessageUsecase) SendMessage(ctx context.Context, input SendMessageInput) (*gdomain.Message, error) {
-	// Проверяем права пользователя на тред
 	hasRights, err := uc.threadRepo.CheckRightsUserOnThreadRoom(ctx, input.ThreadID, input.UserID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check rights: %w", err)
+		return nil, err
 	}
 	if !hasRights {
-		return nil, errors.New("user has no access to this thread")
+		return nil, ErrNoAccessToThread
 	}
 
-	// Проверяем, что тред не закрыт
 	thread, err := uc.threadRepo.GetThreadByID(ctx, input.ThreadID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get thread: %w", err)
+		return nil, ErrFailedToGetThread
 	}
 	if thread.IsClosed {
-		return nil, errors.New("cannot send message: thread is closed")
+		return nil, ErrThreadIsClosed
 	}
 
-	// Создаём сообщение
 	msg := &gdomain.Message{
 		ThreadID: input.ThreadID,
 		UserID:   input.UserID,
@@ -62,18 +58,15 @@ func (uc *MessageUsecase) SendMessage(ctx context.Context, input SendMessageInpu
 		Payloads: input.Payloads,
 	}
 
-	// Сохраняем сообщение
 	if err := uc.msgRepo.CreateWithPayloads(ctx, msg); err != nil {
-		return nil, fmt.Errorf("failed to save message: %w", err)
+		return nil, ErrFailedToSaveMsg
 	}
 
-	// Получаем участников треда
 	members, err := uc.threadRepo.GetThreadMembers(ctx, input.ThreadID)
 	if err != nil {
-		return msg, fmt.Errorf("failed to get thread members: %w", err)
+		return msg, err
 	}
 
-	// Готовим событие
 	ev := event.Event{
 		Type: event.MessageCreated,
 		Payload: event.MessageCreatedPayload{
@@ -85,10 +78,9 @@ func (uc *MessageUsecase) SendMessage(ctx context.Context, input SendMessageInpu
 		},
 	}
 
-	// Рассылаем событие всем участникам
 	for _, member := range members {
 		if err := uc.wsRepo.PublishToThread(ctx, input.ThreadID, ev); err != nil {
-			uc.logger.Warn("failed to publish message event to user",
+			uc.logger.Warn(ErrFailedToPublish.Error(),
 				zap.Uint("userID", member.UserID),
 				zap.Error(err))
 		}
@@ -98,19 +90,11 @@ func (uc *MessageUsecase) SendMessage(ctx context.Context, input SendMessageInpu
 }
 
 func (uc *MessageUsecase) GetMessages(ctx context.Context, input GetMessagesInput) ([]gdomain.Message, error) {
-	msgs, err := uc.msgRepo.GetByThreadID(ctx, input.ThreadID, input.Limit, input.Offset)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch messages: %w", err)
-	}
-	return msgs, nil
+	return uc.msgRepo.GetByThreadID(ctx, input.ThreadID, input.Limit, input.Offset)
 }
 
 func (uc *MessageUsecase) GetConnectToken(ctx context.Context, userID uint) (string, error) {
-	token, err := uc.wsRepo.GenerateConnectToken(ctx, userID, uc.tokenTTL)
-	if err != nil {
-		return "", fmt.Errorf("failed to generate connect token: %w", err)
-	}
-	return token, nil
+	return uc.wsRepo.GenerateConnectToken(ctx, userID, uc.tokenTTL)
 }
 
 func (uc *MessageUsecase) GetUserOnlyTokens(ctx context.Context, userID uint) (ConnectAndSubscribeTokens, error) {
@@ -119,7 +103,7 @@ func (uc *MessageUsecase) GetUserOnlyTokens(ctx context.Context, userID uint) (C
 		return ConnectAndSubscribeTokens{}, err
 	}
 
-	userChannel := fmt.Sprintf("user#%d", userID)
+	userChannel := "user#" + fmt.Sprint(userID)
 	subToken, err := uc.wsRepo.GenerateSubscribeToken(ctx, userID, userChannel, uc.tokenTTL)
 	if err != nil {
 		return ConnectAndSubscribeTokens{}, err
@@ -140,26 +124,26 @@ func (uc *MessageUsecase) GetTokensBySpool(ctx context.Context, userID, spoolID 
 	}
 
 	channels := make(map[string]string)
-	userChannel := fmt.Sprintf("user#%d", userID)
+	userChannel := "user#" + fmt.Sprint(userID)
 
 	connectToken, err := uc.wsRepo.GenerateConnectToken(ctx, userID, uc.tokenTTL)
 	if err != nil {
 		return ConnectAndSubscribeTokens{}, err
 	}
 
-	// user channel
 	userSub, err := uc.wsRepo.GenerateSubscribeToken(ctx, userID, userChannel, uc.tokenTTL)
 	if err != nil {
 		return ConnectAndSubscribeTokens{}, err
 	}
 	channels[userChannel] = userSub
 
-	// thread channels in this spool
 	for _, id := range threads {
-		channel := fmt.Sprintf("thread#%d", id)
+		channel := "thread#" + fmt.Sprint(id)
 		token, err := uc.wsRepo.GenerateSubscribeToken(ctx, userID, channel, uc.tokenTTL)
 		if err != nil {
-			uc.logger.Warn("failed gen spool thread sub token", zap.Uint("threadID", id), zap.Error(err))
+			uc.logger.Warn(ErrFailedToPublish.Error(),
+				zap.Uint("threadID", id),
+				zap.Error(err))
 			continue
 		}
 		channels[channel] = token
