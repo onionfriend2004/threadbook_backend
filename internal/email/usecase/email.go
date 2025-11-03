@@ -32,7 +32,7 @@ func (e *emailUseCase) SendMessageOnEmail(emailEvent *gdomain.EmailEvent) error 
 
 	var subject, body string
 	switch emailEvent.Type {
-	case event.SendVerificationCode:
+	case event.UserRegistered:
 		subject = "Verification Code"
 		body = fmt.Sprintf("<p>Your verification code is: <strong>%d</strong></p>", emailEvent.Code)
 	default:

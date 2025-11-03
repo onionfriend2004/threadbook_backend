@@ -1,7 +1,7 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { createClient, RedisClientType } from 'redis';
 
-type RedisPipeline = ReturnType<RedisClientType['multi']>;
+export type RedisPipeline = ReturnType<RedisClientType['multi']>;
 
 @Injectable()
 export class RedisService implements OnModuleInit, OnModuleDestroy {

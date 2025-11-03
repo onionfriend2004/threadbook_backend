@@ -22,18 +22,18 @@ func NewSendCodeRepo(nc *nats.Conn, subject string) SendCodeRepoInterface {
 	}
 }
 
-func (r *sendCodeRepo) SendVerifyCodeForUser(code int, user *gdomain.User) error {
+func (r *sendCodeRepo) SendVerifyCodeForUser(eventType int, code int, user *gdomain.User) error {
 	if user == nil || user.Email == "" {
 		return ErrInvalidUser
 	}
 
-	event := gdomain.EmailEvent{
-		Type:  event.SendVerificationCode,
+	message := gdomain.EmailEvent{
+		Type:  event.UserRegistered,
 		Code:  code,
 		Email: user.Email,
 	}
 
-	data, err := json.Marshal(event)
+	data, err := json.Marshal(message)
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrFailedToSendCode, err)
 	}
