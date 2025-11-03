@@ -18,4 +18,6 @@ type UserRepoInterface interface {
 
 	VerifyUserEmail(ctx context.Context, userID uint) error
 	// TODO: ExistsUsername Yes/No
+
+	GetUserProfileByUserID(ctx context.Context, userID uint) (*gdomain.Profile, error)
 }

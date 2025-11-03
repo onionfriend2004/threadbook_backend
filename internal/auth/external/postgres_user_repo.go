@@ -98,4 +98,22 @@ func (r *userRepo) VerifyUserEmail(ctx context.Context, userID uint) error {
 	return nil
 }
 
+func (r *userRepo) GetUserProfileByUserID(ctx context.Context, userID uint) (*gdomain.Profile, error) {
+	var profile gdomain.Profile
+
+	err := r.db.WithContext(ctx).
+		Model(&gdomain.Profile{}).
+		Where("user_id = ?", userID).
+		First(&profile).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+
+	return &profile, nil
+}
+
 var _ UserRepoInterface = (*userRepo)(nil)
