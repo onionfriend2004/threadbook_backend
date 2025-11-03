@@ -11,7 +11,9 @@ import (
 )
 
 type EmailUsecaseInterface interface {
-	SendMessageOnEmail(emailEvent *gdomain.EmailEvent) error
+	SendWelcomeEmail(userRegisteredEvent *gdomain.UserRegisteredEvent) error
+	SendCodeResendEmail(userRegisteredEvent *gdomain.UserRegisteredEvent) error
+	// SendMessageOnEmail(userRegisteredEvent *gdomain.UserRegisteredEvent) error // !!!deprecated!!!
 }
 
 type emailUseCase struct {
@@ -23,36 +25,68 @@ func NewEmailUsecase(emailRepo external.MailRepositoryInterface, logger *zap.Log
 	return &emailUseCase{emailRepo: emailRepo, logger: logger}
 }
 
-func (e *emailUseCase) SendMessageOnEmail(emailEvent *gdomain.EmailEvent) error {
-	if emailEvent.Email == "" {
+func (e *emailUseCase) SendWelcomeEmail(userRegisteredEvent *gdomain.UserRegisteredEvent) error {
+	if userRegisteredEvent.Email == "" {
 		return ErrEmptyEmail
 	}
 
-	safeEmail := sanitizeHeader(emailEvent.Email)
-
-	var subject, body string
-	switch emailEvent.Type {
-	case event.UserRegistered:
-		subject = "Verification Code"
-		body = fmt.Sprintf("<p>Your verification code is: <strong>%d</strong></p>", emailEvent.Code)
-	default:
-		return fmt.Errorf("%w: %d", ErrUnsupportedEmailType, emailEvent.Type)
+	if userRegisteredEvent.Type != event.UserRegistered {
+		return fmt.Errorf("%w: expected %d, got %d", ErrUnsupportedEmailType, event.UserRegistered, userRegisteredEvent.Type)
 	}
+
+	safeEmail := sanitizeHeader(userRegisteredEvent.Email)
+	subject := "Welcome to ThreadBook - Verify Your Email"
+	body := fmt.Sprintf(`
+		<h1>Welcome to ThreadBook, %s!</h1>
+		<p>Your verification code is: <strong>%d</strong></p>
+		<p>Use this code to complete your registration.</p>
+	`, userRegisteredEvent.Username, userRegisteredEvent.Code)
 
 	safeSubject := sanitizeHeader(subject)
 	msg := formatMessage(safeEmail, safeSubject, body)
 
-	if err := e.emailRepo.Send(emailEvent.Email, msg); err != nil {
-		e.logger.Error("failed to send email",
-			zap.Int("operation", emailEvent.Type),
-			zap.String("email", emailEvent.Email),
+	if err := e.emailRepo.Send(userRegisteredEvent.Email, msg); err != nil {
+		e.logger.Error("failed to send welcome email",
+			zap.String("email", userRegisteredEvent.Email),
 			zap.Error(err))
 		return fmt.Errorf("%w: %v", ErrFailedToSendEmail, err)
 	}
 
-	e.logger.Info("email sent successfully",
-		zap.Int("operation", emailEvent.Type),
-		zap.String("email", emailEvent.Email))
+	e.logger.Info("welcome email sent successfully",
+		zap.String("email", userRegisteredEvent.Email))
+
+	return nil
+}
+
+func (e *emailUseCase) SendCodeResendEmail(userRegisteredEvent *gdomain.UserRegisteredEvent) error {
+	if userRegisteredEvent.Email == "" {
+		return ErrEmptyEmail
+	}
+
+	if userRegisteredEvent.Type != event.UserRequestResendVerifyCode {
+		return fmt.Errorf("%w: expected %d, got %d", ErrUnsupportedEmailType, event.UserRequestResendVerifyCode, userRegisteredEvent.Type)
+	}
+
+	safeEmail := sanitizeHeader(userRegisteredEvent.Email)
+	subject := "ThreadBook - Your Verification Code"
+	body := fmt.Sprintf(`
+		<h1>Your Verification Code</h1>
+		<p>Your verification code is: <strong>%d</strong></p>
+		<p>If you didn't request this code, please ignore this email.</p>
+	`, userRegisteredEvent.Code)
+
+	safeSubject := sanitizeHeader(subject)
+	msg := formatMessage(safeEmail, safeSubject, body)
+
+	if err := e.emailRepo.Send(userRegisteredEvent.Email, msg); err != nil {
+		e.logger.Error("failed to send code resend email",
+			zap.String("email", userRegisteredEvent.Email),
+			zap.Error(err))
+		return fmt.Errorf("%w: %v", ErrFailedToSendEmail, err)
+	}
+
+	e.logger.Info("code resend email sent successfully",
+		zap.String("email", userRegisteredEvent.Email))
 
 	return nil
 }

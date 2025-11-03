@@ -82,7 +82,7 @@ func Run(config *config.Config, logger *zap.Logger) error {
 	}
 
 	// ===================== Email Consumer =====================
-	emailConsumer := initEmailConsumer(config, natsConn, logger)
+	emailConsumer, err := initEmailConsumer(config, natsConn, logger, config.Nats.EmailConsumerName)
 
 	// Создаём общий контекст для всего приложения
 	ctx, cancel := context.WithCancel(context.Background())
@@ -153,7 +153,7 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 	// external
 	userRepo := authExternal.NewUserRepo(db)
 	sessionRepo := authExternal.NewSessionRepo(redis, time.Duration(cfg.UserSession.TTL)*time.Minute)
-	sendCodeRepo := authExternal.NewSendCodeRepo(nts, cfg.Nats.VerifyCodeSubject)
+	sendCodeRepo := authExternal.NewSendCodeRepo(nts)
 	verifyCodeRepo := authExternal.NewVerifyCodeRepo(redis, time.Duration(cfg.VerifyCode.TTL)*time.Minute)
 	attemptSendCodeRepo := authExternal.NewAttemptSendCodeRedisRepo(redis, cfg.AttemptsResend.ResendTTL)
 

@@ -1,3 +1,4 @@
+// src/main.ts
 import { ValidationPipe } from '@nestjs/common';
 import { fastifyCookie } from '@fastify/cookie';
 import { NestFactory } from '@nestjs/core';
@@ -6,6 +7,7 @@ import {
   NestFastifyApplication,
   FastifyAdapter,
 } from '@nestjs/platform-fastify';
+import { NatsService } from './shared/nats/nats.service';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -24,6 +26,10 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }),
   );
+
+  // NATS
+  const natsService = app.get(NatsService);
+  await natsService.connect();
 
   await app.listen(3000, '0.0.0.0');
 }

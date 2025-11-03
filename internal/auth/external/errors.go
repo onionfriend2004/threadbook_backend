@@ -22,5 +22,6 @@ var (
 
 // SEND_CODE_REPO ERRORS
 var (
-	ErrFailedToSendCode = errors.New("failed to send verification code")
+	ErrFailedToSendCode     = errors.New("failed to send verification code")
+	ErrUnsupportedEventType = errors.New("unsupported event type")
 )

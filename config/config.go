@@ -37,7 +37,7 @@ type Config struct {
 		Timeout           int    `mapstructure:"timeout"`             // таймаут подключения в секундах
 		MaxReconnects     int    `mapstructure:"max_reconnects"`      // -1 = бесконечно
 		ReconnectWait     int    `mapstructure:"reconnect_wait_ms"`   // задержка между попытками в миллисекундах
-		VerifyCodeSubject string `mapstructure:"verify_code_subject"` // топик для отправки событий верификации кода (куда срать)
+		EmailConsumerName string `mapstructure:"email_consumer_name"` // Название обработчика события на отправку почты
 	} `mapstructure:"nats"`
 
 	Argon2 struct {

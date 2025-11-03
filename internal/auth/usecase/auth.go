@@ -8,7 +8,6 @@ import (
 	"github.com/onionfriend2004/threadbook_backend/internal/auth/external"
 	"github.com/onionfriend2004/threadbook_backend/internal/auth/hasher"
 	"github.com/onionfriend2004/threadbook_backend/internal/gdomain"
-	"github.com/onionfriend2004/threadbook_backend/internal/lib/event"
 	"go.uber.org/zap"
 )
 
@@ -114,7 +113,7 @@ func (u *authUsecase) SignUpUser(ctx context.Context, input SignUpInput) (*gdoma
 		return createdUser, nil
 	}
 
-	err = u.sendCodeRepo.SendVerifyCodeForUser(event.UserRegistered, verifyCode, createdUser)
+	err = u.sendCodeRepo.SendWelcomeEmail(verifyCode, createdUser)
 	if err != nil {
 		u.logger.Error("failed to send verify code in broker", zap.Error(err))
 		return createdUser, nil
@@ -275,7 +274,7 @@ func (u *authUsecase) ResendVerifyCode(ctx context.Context, userID int) error {
 	}
 
 	// Отправляем код (в очередь)
-	if err := u.sendCodeRepo.SendVerifyCodeForUser(newCode, user); err != nil {
+	if err := u.sendCodeRepo.SendCodeResend(newCode, user); err != nil {
 		u.logger.Error("failed to send verification code via broker", zap.Error(err), zap.Int("user_id", userID))
 		return err
 	}
