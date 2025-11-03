@@ -47,9 +47,9 @@ func (h *AuthHandler) WhoIAm(w http.ResponseWriter, r *http.Request) {
 		code, clientErr := apperrors.GetErrAndCodeToSend(err)
 
 		if code >= 500 {
-			h.logger.Error("failed to search profile of success fond user", zap.Error(err))
+			h.logger.Error("failed to search profile of success found user", zap.Error(err))
 		} else {
-			h.logger.Warn("failed to search profile of success fond user", zap.Error(err))
+			h.logger.Warn("failed to search profile of success found user", zap.Error(err))
 		}
 
 		lib.WriteError(w, clientErr.Error(), code)
