@@ -1,5 +1,6 @@
 package event
 
-var (
-	SendVerificationCode = 1
+const (
+	UserRegistered = iota
+	UserRequestResendVerifyCode
 )

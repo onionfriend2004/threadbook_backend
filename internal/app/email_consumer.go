@@ -11,7 +11,13 @@ import (
 	"go.uber.org/zap"
 )
 
-func initEmailConsumer(cfg *config.Config, nc *nats.Conn, logger *zap.Logger) emailDeliveryNATS.EmailConsumerInterface {
+func initEmailConsumer(
+	cfg *config.Config,
+	nc *nats.Conn,
+	logger *zap.Logger,
+	consumerName string,
+) (emailDeliveryNATS.EmailConsumerInterface, error) {
+
 	emailRepo := emailExternal.NewMailRepository(
 		cfg.Smtp.Server,
 		cfg.Smtp.Port,
@@ -20,9 +26,12 @@ func initEmailConsumer(cfg *config.Config, nc *nats.Conn, logger *zap.Logger) em
 		cfg.Smtp.Sender,
 	)
 	emailUsecase := emailUsecase.NewEmailUsecase(emailRepo, logger.With(zap.String("service", "email")))
+
 	return emailDeliveryNATS.NewEmailConsumer(
 		nc,
-		cfg.Nats.VerifyCodeSubject,
+		"user.*",             // Wildcard subject для всех user событий
+		"user-events-stream", // stream name
+		consumerName,         // уникальное имя консюмера
 		emailUsecase,
 		logger.With(zap.String("component", "email_consumer")),
 	)
