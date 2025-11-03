@@ -1,11 +1,10 @@
-import { Module } from '@nestjs/common';
 import { StatusModule } from './status/status.module';
-import { PostgresModule } from './shared/postgres/postgres.module';
+import { PrismaModule } from './shared/prisma/prisma.module';
 import { RedisModule } from './shared/redis/redis.module';
+import { AuthModule } from './auth/auth.module';
+import { Module } from '@nestjs/common';
 
 @Module({
-  imports: [StatusModule, PostgresModule, RedisModule],
-  controllers: [],
-  providers: [],
+  imports: [StatusModule, PrismaModule, RedisModule, AuthModule],
 })
 export class AppModule {}
