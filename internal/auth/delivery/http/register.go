@@ -8,15 +8,13 @@ import (
 	"github.com/onionfriend2004/threadbook_backend/internal/auth/delivery/dto"
 	"github.com/onionfriend2004/threadbook_backend/internal/auth/usecase"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib"
+	"github.com/onionfriend2004/threadbook_backend/internal/lib/middleware/validator"
 	"go.uber.org/zap"
 )
 
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
-	var req dto.RegisterRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		lib.WriteError(w, "invalid JSON", lib.StatusBadRequest)
-		return
-	}
+
+	req := validator.GetValidatedBody[dto.RegisterRequest](r)
 
 	user, err := h.usecase.SignUpUser(r.Context(), usecase.SignUpInput{
 		Email:    req.Email,

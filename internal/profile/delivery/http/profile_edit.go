@@ -33,8 +33,8 @@ func (h *ProfileHandler) EditProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	nickname := strings.TrimSpace(r.FormValue("nickname"))
-	if len(nickname) > 32 {
-		lib.WriteError(w, "nickname too long (max 32 chars)", http.StatusBadRequest)
+	if len(nickname) > 16 || len(nickname) < 3 {
+		lib.WriteError(w, "nickname must be between 3 and 16 characters", http.StatusBadRequest)
 		return
 	}
 

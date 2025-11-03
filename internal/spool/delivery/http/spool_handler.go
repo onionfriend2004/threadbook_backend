@@ -4,6 +4,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/onionfriend2004/threadbook_backend/config"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib/middleware/auth"
+	"github.com/onionfriend2004/threadbook_backend/internal/lib/middleware/validator"
+	"github.com/onionfriend2004/threadbook_backend/internal/spool/delivery/dto"
 	"github.com/onionfriend2004/threadbook_backend/internal/spool/usecase"
 	"go.uber.org/zap"
 )
@@ -25,12 +27,18 @@ func NewSpoolHandler(u usecase.SpoolUsecaseInterface, logger *zap.Logger, fileCo
 func (h *SpoolHandler) Routes(r chi.Router, authenticator auth.AuthenticatorInterface) {
 	r.Route("/spool", func(r chi.Router) {
 		r.Use(auth.AuthMiddleware(authenticator))
-		r.Post("/", h.CreateSpool)
-		r.Post("/leave", h.LeaveFromSpool)
-		r.Get("/user", h.GetUserSpoolList)
-		r.Post("/invite", h.InviteMemberInSpool)
-		r.Put("/", h.UpdateSpool)
 		r.Get("/{spoolID}", h.GetSpoolInfoById)
 		r.Get("/{spoolID}/members", h.GetSpoolMembers)
+		r.Get("/user", h.GetUserSpoolList)
+
+		r.Post("/", h.CreateSpool)
+
+		r.With(validator.ValidateJSONMiddleware(dto.LeaveFromSpoolRequest{})).
+			Post("/leave", h.LeaveFromSpool)
+
+		r.With(validator.ValidateJSONMiddleware(dto.InviteMemberInSpoolRequest{})).
+			Post("/invite", h.InviteMemberInSpool)
+
+		r.Put("/", h.UpdateSpool)
 	})
 }

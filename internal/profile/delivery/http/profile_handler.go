@@ -31,6 +31,7 @@ func (h *ProfileHandler) Routes(r chi.Router, authenticator auth.AuthenticatorIn
 		r.Use(auth.AuthMiddleware(authenticator))
 
 		r.Post("/edit", h.EditProfile)
+
 		r.Post("/get", h.GetProfiles)
 	})
 }

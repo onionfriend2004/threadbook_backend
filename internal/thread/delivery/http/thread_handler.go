@@ -34,21 +34,27 @@ func (h *ThreadHandler) Routes(r chi.Router, authenticator auth.AuthenticatorInt
 	r.Route("/thread", func(r chi.Router) {
 		r.Use(auth.AuthMiddleware(authenticator))
 
-		r.With(validator.ValidateJSONMiddleware(dto.ThreadCreateRequest{})).
-			Post("/create", h.Create)
 		r.Put("/close", h.Close)
 		r.Get("/", h.GetBySpoolID)
+		r.Get("/ws/token", h.GetSubscribeToken)
+
+		r.With(validator.ValidateJSONMiddleware(dto.ThreadCreateRequest{})).
+			Post("/create", h.Create)
+
 		r.With(validator.ValidateJSONMiddleware(dto.InviteRequest{})).
 			Post("/invite", h.InviteToThread)
+
 		r.With(validator.ValidateJSONMiddleware(dto.GetVoiceTokenRequest{})).
 			Post("/sfu/token", h.GetVoiceToken)
+
 		r.With(validator.ValidateJSONMiddleware(dto.UpdateThreadRequest{})).
 			Put("/update", h.Update)
+
 		r.Route("/{id}", func(r chi.Router) {
 			r.Get("/messages", h.GetMessages)
+
 			r.With(validator.ValidateJSONMiddleware(dto.SendMessageRequest{})).
 				Post("/{id}/messages", h.SendMessage)
 		})
-		r.Get("/ws/token", h.GetSubscribeToken)
 	})
 }
