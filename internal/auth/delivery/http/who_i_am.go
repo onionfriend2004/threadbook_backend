@@ -42,9 +42,25 @@ func (h *AuthHandler) WhoIAm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	profile, err := h.usecase.GetProfileByUserID(r.Context(), user.ID)
+	if err != nil {
+		code, clientErr := apperrors.GetErrAndCodeToSend(err)
+
+		if code >= 500 {
+			h.logger.Error("failed to search profile of success fond user", zap.Error(err))
+		} else {
+			h.logger.Warn("failed to search profile of success fond user", zap.Error(err))
+		}
+
+		lib.WriteError(w, clientErr.Error(), code)
+		return
+	}
+
 	resp := dto.AuthenticateResponse{
-		Email:    user.Email,
-		Username: user.Username,
+		Email:      user.Email,
+		Username:   user.Username,
+		Nickname:   profile.Nickname,
+		AvatarLink: profile.AvatarLink,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
