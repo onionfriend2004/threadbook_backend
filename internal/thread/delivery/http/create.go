@@ -7,19 +7,14 @@ import (
 	"github.com/onionfriend2004/threadbook_backend/internal/apperrors"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib/middleware/auth"
+	"github.com/onionfriend2004/threadbook_backend/internal/lib/middleware/validator"
 	"github.com/onionfriend2004/threadbook_backend/internal/thread/delivery/dto"
 	"github.com/onionfriend2004/threadbook_backend/internal/thread/usecase"
 	"go.uber.org/zap"
 )
 
 func (h *ThreadHandler) Create(w http.ResponseWriter, r *http.Request) {
-	var req dto.ThreadCreateRequest
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		lib.WriteError(w, "invalid JSON", lib.StatusBadRequest)
-		return
-	}
-
+	req := validator.GetValidatedBody[dto.ThreadCreateRequest](r)
 	userID, err := auth.GetUserIDFromContext(r.Context())
 	if err != nil {
 		lib.WriteError(w, "unauthorized", lib.StatusUnauthorized)

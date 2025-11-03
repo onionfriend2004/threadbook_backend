@@ -7,6 +7,7 @@ import (
 	"github.com/onionfriend2004/threadbook_backend/internal/apperrors"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib/middleware/auth"
+	"github.com/onionfriend2004/threadbook_backend/internal/lib/middleware/validator"
 	"github.com/onionfriend2004/threadbook_backend/internal/thread/delivery/dto"
 	"github.com/onionfriend2004/threadbook_backend/internal/thread/usecase"
 	"go.uber.org/zap"
@@ -19,11 +20,7 @@ func (h *ThreadHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req dto.UpdateThreadRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		lib.WriteError(w, "invalid request body", lib.StatusBadRequest)
-		return
-	}
+	req := validator.GetValidatedBody[dto.UpdateThreadRequest](r)
 
 	input := usecase.UpdateThreadInput{
 		ID:         req.ID,

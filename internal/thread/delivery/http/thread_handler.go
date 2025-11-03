@@ -3,6 +3,8 @@ package deliveryHTTP
 import (
 	"github.com/go-chi/chi/v5"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib/middleware/auth"
+	"github.com/onionfriend2004/threadbook_backend/internal/lib/middleware/validator"
+	"github.com/onionfriend2004/threadbook_backend/internal/thread/delivery/dto"
 	"github.com/onionfriend2004/threadbook_backend/internal/thread/usecase"
 	"go.uber.org/zap"
 )
@@ -32,15 +34,20 @@ func (h *ThreadHandler) Routes(r chi.Router, authenticator auth.AuthenticatorInt
 	r.Route("/thread", func(r chi.Router) {
 		r.Use(auth.AuthMiddleware(authenticator))
 
-		r.Post("/create", h.Create)
+		r.With(validator.ValidateJSONMiddleware(dto.ThreadCreateRequest{})).
+			Post("/create", h.Create)
 		r.Put("/close", h.Close)
 		r.Get("/", h.GetBySpoolID)
-		r.Post("/invite", h.InviteToThread)
-		r.Post("/sfu/token", h.GetVoiceToken)
-		r.Put("/update", h.Update)
+		r.With(validator.ValidateJSONMiddleware(dto.InviteRequest{})).
+			Post("/invite", h.InviteToThread)
+		r.With(validator.ValidateJSONMiddleware(dto.GetVoiceTokenRequest{})).
+			Post("/sfu/token", h.GetVoiceToken)
+		r.With(validator.ValidateJSONMiddleware(dto.UpdateThreadRequest{})).
+			Put("/update", h.Update)
 		r.Route("/{id}", func(r chi.Router) {
 			r.Get("/messages", h.GetMessages)
-			r.Post("/messages", h.SendMessage)
+			r.With(validator.ValidateJSONMiddleware(dto.SendMessageRequest{})).
+				Post("/{id}/messages", h.SendMessage)
 		})
 		r.Get("/ws/token", h.GetSubscribeToken)
 	})

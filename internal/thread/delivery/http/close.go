@@ -47,6 +47,7 @@ func (h *ThreadHandler) Close(w http.ResponseWriter, r *http.Request) {
 		Title:     closedThread.Title,
 		Type:      closedThread.Type,
 		IsClosed:  closedThread.IsClosed,
+		IsCreator: true,
 		CreatedAt: closedThread.CreatedAt,
 		UpdatedAt: closedThread.UpdatedAt,
 	}

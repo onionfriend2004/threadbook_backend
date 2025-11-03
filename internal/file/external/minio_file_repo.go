@@ -55,7 +55,7 @@ func (r *FileRepo) GetFile(ctx context.Context, bucket, filename string) ([]byte
 		return nil, "", fmt.Errorf("%s: %w", ErrReadObject, err)
 	}
 
-	info, err := r.client.StatObject(ctx, r.BucketName, filename, minio.StatObjectOptions{})
+	info, err := r.client.StatObject(ctx, bucket, filename, minio.StatObjectOptions{})
 	if err != nil {
 		return nil, "", fmt.Errorf("%s: %w", ErrStatObject, err)
 	}
