@@ -54,7 +54,7 @@ func (h *ThreadHandler) Routes(r chi.Router, authenticator auth.AuthenticatorInt
 			r.Get("/messages", h.GetMessages)
 
 			r.With(validator.ValidateJSONMiddleware(dto.SendMessageRequest{})).
-				Post("/{id}/messages", h.SendMessage)
+				Post("/messages", h.SendMessage)
 		})
 	})
 }
