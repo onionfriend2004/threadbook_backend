@@ -1,8 +1,8 @@
+import { RedisService, RedisPipeline } from 'src/shared/redis/redis.service';
 import { Injectable, Logger } from '@nestjs/common';
 import { UpdateStatusDto } from './dto/update-status.dto';
 import { PrismaService } from '../shared/prisma/prisma.service';
 import { OnlineStatus } from '@prisma/client';
-import { RedisService } from 'src/shared/redis/redis.service';
 import { UserStatus } from './schemas/user-status.schema';
 
 @Injectable()
@@ -18,7 +18,7 @@ export class StatusService {
 
   async markOnline(userId: number): Promise<void> {
     try {
-      const pipeline = this.redis.multi();
+      const pipeline: RedisPipeline = this.redis.multi();
       pipeline.set(`online-status:user:${userId}`, '1', { EX: 70 });
       pipeline.set(`last-seen:user:${userId}`, Date.now().toString(), {
         EX: 30 * 24 * 3600 * 12, // +- год
@@ -32,7 +32,7 @@ export class StatusService {
 
   async markOffline(userId: number): Promise<void> {
     try {
-      const pipeline = this.redis.multi();
+      const pipeline: RedisPipeline = this.redis.multi();
       pipeline.del(`online-status:user:${userId}`);
       pipeline.set(`last-seen:user:${userId}`, Date.now().toString(), {
         EX: 30 * 24 * 3600,

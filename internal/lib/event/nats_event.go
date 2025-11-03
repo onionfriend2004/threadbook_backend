@@ -1,5 +1,5 @@
 package event
 
 var (
-	SendVerificationCode = 1
+	UserRegistered = 1
 )
