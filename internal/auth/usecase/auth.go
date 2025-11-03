@@ -20,6 +20,8 @@ type AuthUsecaseInterface interface {
 
 	VerifyUserEmail(ctx context.Context, userID int, code int) error
 	ResendVerifyCode(ctx context.Context, userID int) error
+
+	GetProfileByUserID(ctx context.Context, userID uint) (*gdomain.Profile, error)
 }
 
 type authUsecase struct {
@@ -289,6 +291,10 @@ func (u *authUsecase) ResendVerifyCode(ctx context.Context, userID int) error {
 		zap.Int("max_attempts", u.maxResendAttempts))
 
 	return nil
+}
+
+func (u *authUsecase) GetProfileByUserID(ctx context.Context, userID uint) (*gdomain.Profile, error) {
+	return u.userRepo.GetUserProfileByUserID(ctx, userID)
 }
 
 var _ AuthUsecaseInterface = (*authUsecase)(nil)
