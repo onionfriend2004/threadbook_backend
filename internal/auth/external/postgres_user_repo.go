@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/rand"
 	"time"
 
 	"gorm.io/gorm"
@@ -12,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/onionfriend2004/threadbook_backend/internal/gdomain"
+	gen "github.com/onionfriend2004/threadbook_backend/internal/lib/username_generator"
 )
 
 type userRepo struct {
@@ -43,31 +43,10 @@ func (r *userRepo) CreateUser(ctx context.Context, user gdomain.User) (*gdomain.
 }
 
 // ============= NoAuth ===============
-var adjectives = []string{
-	"happy", "clever", "swift", "brave", "calm", "proud", "witty", "gentle",
-	"bright", "fierce", "lucky", "magic", "noble", "quick", "royal", "sharp",
-	"super", "tough", "vivid", "wild", "zesty", "alpha", "beta", "cosmic",
-	"digital", "epic", "fusion", "hyper", "quantum", "stealth",
-}
-
-var animals = []string{
-	"panda", "tiger", "eagle", "shark", "wolf", "fox", "bear", "owl",
-	"lion", "falcon", "hawk", "bison", "cobra", "dragon", "fox", "gecko",
-	"hound", "jaguar", "koala", "lynx", "mouse", "otter", "panther", "quail",
-	"raven", "sloth", "turtle", "viper", "whale", "zebra",
-}
-
-func generateRandomUsername() string {
-	rand.Seed(time.Now().UnixNano())
-	adj := adjectives[rand.Intn(len(adjectives))]
-	animal := animals[rand.Intn(len(animals))]
-	digits := rand.Intn(100000)
-	return fmt.Sprintf("%s_%s_%05d", adj, animal, digits)
-}
 
 func (r *userRepo) generateUniqueCredentials(ctx context.Context) (string, string, error) {
 	for i := 0; i < 5; i++ {
-		username := generateRandomUsername()
+		username := gen.GenerateRandomUsername()
 		email := fmt.Sprintf("guest.%s@noauth.temp", uuid.New().String())
 
 		var count int64
