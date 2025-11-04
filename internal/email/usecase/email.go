@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -16,6 +17,12 @@ type EmailUsecaseInterface interface {
 	// SendMessageOnEmail(userRegisteredEvent *gdomain.UserRegisteredEvent) error // !!!deprecated!!!
 }
 
+func isPermanentError(err error) bool {
+	return errors.Is(err, external.ErrInvalidEmail) ||
+		errors.Is(err, external.ErrNoMXRecords) ||
+		errors.Is(err, external.ErrVerificationRcptFailed)
+}
+
 type emailUseCase struct {
 	emailRepo external.MailRepositoryInterface
 	logger    *zap.Logger
@@ -24,14 +31,13 @@ type emailUseCase struct {
 func NewEmailUsecase(emailRepo external.MailRepositoryInterface, logger *zap.Logger) EmailUsecaseInterface {
 	return &emailUseCase{emailRepo: emailRepo, logger: logger}
 }
-
 func (e *emailUseCase) SendWelcomeEmail(userRegisteredEvent *gdomain.UserRegisteredEvent) error {
 	if userRegisteredEvent.Email == "" {
-		return ErrEmptyEmail
+		return ErrPermanentEmailError
 	}
 
 	if userRegisteredEvent.Type != event.UserRegistered {
-		return fmt.Errorf("%w: expected %d, got %d", ErrUnsupportedEmailType, event.UserRegistered, userRegisteredEvent.Type)
+		return ErrPermanentEmailError
 	}
 
 	safeEmail := sanitizeHeader(userRegisteredEvent.Email)
@@ -46,7 +52,14 @@ func (e *emailUseCase) SendWelcomeEmail(userRegisteredEvent *gdomain.UserRegiste
 	msg := formatMessage(safeEmail, safeSubject, body)
 
 	if err := e.emailRepo.Send(userRegisteredEvent.Email, msg); err != nil {
-		e.logger.Error("failed to send welcome email",
+		if isPermanentError(err) {
+			e.logger.Warn("permanent email failure, will not retry",
+				zap.String("email", userRegisteredEvent.Email),
+				zap.Error(err))
+			return ErrPermanentEmailError
+		}
+
+		e.logger.Error("temporary email failure, will retry",
 			zap.String("email", userRegisteredEvent.Email),
 			zap.Error(err))
 		return fmt.Errorf("%w: %v", ErrFailedToSendEmail, err)
@@ -54,17 +67,16 @@ func (e *emailUseCase) SendWelcomeEmail(userRegisteredEvent *gdomain.UserRegiste
 
 	e.logger.Info("welcome email sent successfully",
 		zap.String("email", userRegisteredEvent.Email))
-
 	return nil
 }
 
 func (e *emailUseCase) SendCodeResendEmail(userRegisteredEvent *gdomain.UserRegisteredEvent) error {
 	if userRegisteredEvent.Email == "" {
-		return ErrEmptyEmail
+		return ErrPermanentEmailError
 	}
 
 	if userRegisteredEvent.Type != event.UserRequestResendVerifyCode {
-		return fmt.Errorf("%w: expected %d, got %d", ErrUnsupportedEmailType, event.UserRequestResendVerifyCode, userRegisteredEvent.Type)
+		return ErrPermanentEmailError
 	}
 
 	safeEmail := sanitizeHeader(userRegisteredEvent.Email)
@@ -79,7 +91,14 @@ func (e *emailUseCase) SendCodeResendEmail(userRegisteredEvent *gdomain.UserRegi
 	msg := formatMessage(safeEmail, safeSubject, body)
 
 	if err := e.emailRepo.Send(userRegisteredEvent.Email, msg); err != nil {
-		e.logger.Error("failed to send code resend email",
+		if isPermanentError(err) {
+			e.logger.Warn("permanent email failure in resend, will not retry",
+				zap.String("email", userRegisteredEvent.Email),
+				zap.Error(err))
+			return ErrPermanentEmailError
+		}
+
+		e.logger.Error("temporary email failure in resend, will retry",
 			zap.String("email", userRegisteredEvent.Email),
 			zap.Error(err))
 		return fmt.Errorf("%w: %v", ErrFailedToSendEmail, err)
@@ -87,7 +106,6 @@ func (e *emailUseCase) SendCodeResendEmail(userRegisteredEvent *gdomain.UserRegi
 
 	e.logger.Info("code resend email sent successfully",
 		zap.String("email", userRegisteredEvent.Email))
-
 	return nil
 }
 

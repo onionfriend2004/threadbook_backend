@@ -34,6 +34,7 @@ var errToCode = map[error]int{
 	threadUsecase.ErrWrongTypeThread:    http.StatusBadRequest,
 	authUsecase.ErrInvalidInput:         http.StatusBadRequest,
 	authExternal.ErrInvalidSessionData:  http.StatusBadRequest,
+	authUsecase.ErrInvalidEmail:         http.StatusAccepted,
 
 	// --- Ошибки 401 Unauthorized ---
 	gdomain.ErrUnauthorized:           http.StatusUnauthorized,

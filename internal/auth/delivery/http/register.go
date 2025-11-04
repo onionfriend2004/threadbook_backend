@@ -16,8 +16,6 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	req := validator.GetValidatedBody[dto.RegisterRequest](r)
 
-	// gRPC post online status
-
 	user, err := h.usecase.SignUpUser(r.Context(), usecase.SignUpInput{
 		Email:    req.Email,
 		Username: req.Username,

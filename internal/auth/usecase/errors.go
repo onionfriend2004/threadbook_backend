@@ -11,4 +11,5 @@ var (
 	ErrCodeIncorrect      = errors.New("invalid verify code")
 	ErrTooManyAttempts    = errors.New("too many attempts to send")
 	ErrAlreadyConfirmed   = errors.New("user email already verified")
+	ErrInvalidEmail       = errors.New("invalid email address")
 )
