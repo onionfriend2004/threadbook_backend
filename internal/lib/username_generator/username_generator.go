@@ -45,5 +45,5 @@ func GenerateRandomUsername() string {
 	adj := Adjectives[rand.Intn(len(Adjectives))]
 	animal := Animals[rand.Intn(len(Animals))]
 	digits := rand.Intn(100000)
-	return fmt.Sprintf("%s_%s_%05d", adj, animal, digits)
+	return fmt.Sprintf("%s%s%05d", adj, animal, digits)
 }
