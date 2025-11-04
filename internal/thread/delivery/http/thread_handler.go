@@ -32,29 +32,35 @@ func NewThreadHandler(
 
 func (h *ThreadHandler) Routes(r chi.Router, authenticator auth.AuthenticatorInterface) {
 	r.Route("/thread", func(r chi.Router) {
-		r.Use(auth.AuthMiddleware(authenticator))
 
-		r.Put("/close", h.Close)
-		r.Get("/", h.GetBySpoolID)
-		r.Get("/ws/token", h.GetSubscribeToken)
+		r.With(validator.ValidateJSONMiddleware(dto.JoinNoAuthSessionRequest{})).
+			Post("/join/{no_auth_session}", h.JoinNoAuthSession)
 
-		r.With(validator.ValidateJSONMiddleware(dto.ThreadCreateRequest{})).
-			Post("/create", h.Create)
+		// r.Use(auth.AuthMiddleware(authenticator))
+		r.With(auth.AuthMiddleware(authenticator)).Group(func(r chi.Router) {
+			r.Put("/close", h.Close)
+			r.Get("/", h.GetBySpoolID)
+			r.Get("/ws/token", h.GetSubscribeToken)
 
-		r.With(validator.ValidateJSONMiddleware(dto.InviteRequest{})).
-			Post("/invite", h.InviteToThread)
+			r.Get("/create_link", h.CreateNoAuthSession)
+			r.With(validator.ValidateJSONMiddleware(dto.ThreadCreateRequest{})).
+				Post("/create", h.Create)
 
-		r.With(validator.ValidateJSONMiddleware(dto.GetVoiceTokenRequest{})).
-			Post("/sfu/token", h.GetVoiceToken)
+			r.With(validator.ValidateJSONMiddleware(dto.InviteRequest{})).
+				Post("/invite", h.InviteToThread)
 
-		r.With(validator.ValidateJSONMiddleware(dto.UpdateThreadRequest{})).
-			Put("/update", h.Update)
+			r.With(validator.ValidateJSONMiddleware(dto.GetVoiceTokenRequest{})).
+				Post("/sfu/token", h.GetVoiceToken)
 
-		r.Route("/{id}", func(r chi.Router) {
-			r.Get("/messages", h.GetMessages)
+			r.With(validator.ValidateJSONMiddleware(dto.UpdateThreadRequest{})).
+				Put("/update", h.Update)
 
-			r.With(validator.ValidateJSONMiddleware(dto.SendMessageRequest{})).
-				Post("/messages", h.SendMessage)
+			r.Route("/{id}", func(r chi.Router) {
+				r.Get("/messages", h.GetMessages)
+
+				r.With(validator.ValidateJSONMiddleware(dto.SendMessageRequest{})).
+					Post("/messages", h.SendMessage)
+			})
 		})
 	})
 }

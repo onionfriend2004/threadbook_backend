@@ -103,6 +103,9 @@ var errToCode = map[error]int{
 	threadUsecase.ErrFailedToSaveMsg:        http.StatusInternalServerError,
 	threadUsecase.ErrFailedToPublish:        http.StatusInternalServerError,
 
+	threadUsecase.ErrThreadClosed:   http.StatusForbidden,
+	threadUsecase.ErrSessionExpired: http.StatusForbidden,
+
 	authExternal.ErrFailedToSendCode: http.StatusInternalServerError,
 
 	lib.ErrInternalServer: http.StatusInternalServerError,

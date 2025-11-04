@@ -18,4 +18,6 @@ type ThreadRepoInterface interface {
 	GetThreadMembers(ctx context.Context, threadID uint) ([]gdomain.ThreadUser, error)
 	GetAccessibleThreadIDs(ctx context.Context, userID uint) ([]uint, error)
 	GetAccessibleThreadIDsBySpool(ctx context.Context, userID, spoolID uint) ([]uint, error)
+
+	IsThreadOwner(ctx context.Context, userID uint, threadID uint) (bool, error)
 }

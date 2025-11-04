@@ -71,3 +71,13 @@ type ConnectAndSubscribeTokens struct {
 	ConnectToken  string
 	ChannelTokens map[string]string
 }
+
+type CreateNoAuthSessionInput struct {
+	UserID   uint
+	ThreadID uint
+}
+
+type GetNoAuthVoiceTokenInput struct {
+	Nickname      string
+	NoAuthSession string
+}

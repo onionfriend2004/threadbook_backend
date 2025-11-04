@@ -20,4 +20,7 @@ var (
 	ErrFailedToSaveMsg   = errors.New("failed to save message")
 	ErrFailedToGetThread = errors.New("failed to get thread")
 	ErrFailedToPublish   = errors.New("failed to publish message event")
+
+	ErrThreadClosed   = errors.New("thread is closed")
+	ErrSessionExpired = errors.New("session expired")
 )

@@ -3,6 +3,7 @@ package external
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/onionfriend2004/threadbook_backend/internal/gdomain"
@@ -283,4 +284,21 @@ func (r *ThreadRepo) GetAccessibleThreadIDsBySpool(ctx context.Context, userID, 
 	}
 
 	return threadIDs, nil
+}
+
+func (r *ThreadRepo) IsThreadOwner(ctx context.Context, userID uint, threadID uint) (bool, error) {
+	var thread gdomain.Thread
+	err := r.Db.WithContext(ctx).
+		Select("creator_id").
+		Where("id = ?", threadID).
+		First(&thread).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, fmt.Errorf("thread not found")
+		}
+		return false, err
+	}
+
+	return thread.CreatorID == userID, nil
 }
