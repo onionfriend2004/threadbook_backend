@@ -1,7 +1,7 @@
 package dto
 
 type GetProfilesRequest struct {
-	Usernames []string `json:"usernames"` // или Usernames []string `json:"usernames"`
+	Usernames []string `json:"usernames" validate:"required,min=1,max=100,dive,required,alphanum,max=32"`
 }
 
 type GetProfilesResponseItem struct {
