@@ -1,8 +1,9 @@
 package usernamegenerator
 
 import (
+	"crypto/rand"
 	"fmt"
-	"math/rand"
+	"math/big"
 )
 
 var Adjectives = []string{
@@ -40,10 +41,15 @@ var Animals = []string{
 	"Zebu", "Armadillo", "Butterfly", "Crab", "Duck", "Emu", "Finch", "Gull",
 }
 
+func secureRandInt(n int) int {
+	max := big.NewInt(int64(n))
+	num, _ := rand.Int(rand.Reader, max)
+	return int(num.Int64())
+}
+
 func GenerateRandomUsername() string {
-	// rand.Seed(time.Now().UnixNano())
-	adj := Adjectives[rand.Intn(len(Adjectives))]
-	animal := Animals[rand.Intn(len(Animals))]
-	digits := rand.Intn(100000)
+	adj := Adjectives[secureRandInt(len(Adjectives))]
+	animal := Animals[secureRandInt(len(Animals))]
+	digits := secureRandInt(100000)
 	return fmt.Sprintf("%s%s%05d", adj, animal, digits)
 }

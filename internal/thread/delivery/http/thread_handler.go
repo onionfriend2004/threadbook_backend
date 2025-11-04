@@ -50,13 +50,12 @@ func (h *ThreadHandler) Routes(r chi.Router, authenticator auth.AuthenticatorInt
 			r.Delete("/invite_link", h.DeleteInviteLink)
 			r.Get("/invite_link/{thread_id}", h.GetThreadInviteLinks)
 
-			r.Get("/ws/token", h.GetSubscribeToken)
-
 			r.With(validator.ValidateJSONMiddleware(dto.InviteRequest{})).
 				Post("/invite", h.InviteToThread)
 
 		})
 
+		r.Get("/ws/token", h.GetSubscribeToken)
 		r.Get("/", h.GetBySpoolID)
 		r.Get("/invite_link/join/{thread_link}", h.JoinToThread)
 
