@@ -148,7 +148,7 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 	r := chi.NewRouter()
 	// ===================== Auth =====================
 
-	authenticator := auth.NewAuthenticator(redis)
+	authenticator := auth.NewAuthenticator(redis, db)
 
 	// external
 	userRepo := authExternal.NewUserRepo(db)
@@ -187,15 +187,15 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 	)
 	// messages repo
 	messageRepo := threadExternal.NewMessageRepo(db)
-	noAuthRepo := threadExternal.NewNoAuthRepo(redis)
+	noAuthRepo := threadExternal.NewInviteLinkRepo(redis)
 
 	// usecases
-	threadUC := threadUsecase.NewThreadUsecase(threadRepo, websocketRepo, userRepo, time.Duration(cfg.Centrifugo.TTL)*time.Second, logger)
+	threadUC := threadUsecase.NewThreadUsecase(threadRepo, noAuthRepo, websocketRepo, userRepo, time.Duration(cfg.Centrifugo.TTL)*time.Second, logger)
 	messageUC := threadUsecase.NewMessageUsecase(messageRepo, websocketRepo, threadRepo, time.Duration(cfg.Centrifugo.TTL)*time.Second, logger)
-	roomUC := threadUsecase.NewRoomUsecase(threadRepo, noAuthRepo, liveKitRepo, cfg.LiveKit.URL, cfg.LiveKit.APIKey, cfg.LiveKit.APISecret, logger)
+	roomUC := threadUsecase.NewRoomUsecase(threadRepo, liveKitRepo, cfg.LiveKit.URL, cfg.LiveKit.APIKey, cfg.LiveKit.APISecret, logger)
 
 	// handler
-	threadHandler := threadDeliveryHTTP.NewThreadHandler(threadUC, messageUC, roomUC, logger)
+	threadHandler := threadDeliveryHTTP.NewThreadHandler(threadUC, messageUC, roomUC, cookieConfig, logger)
 	threadHandler.Routes(r, authenticator)
 
 	// ===================== Profile =====================

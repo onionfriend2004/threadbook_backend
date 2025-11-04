@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func (h *ThreadHandler) CreateNoAuthSession(w http.ResponseWriter, r *http.Request) {
+func (h *ThreadHandler) CreateInviteLink(w http.ResponseWriter, r *http.Request) {
 	threadIDStr := r.URL.Query().Get("thread_id")
 	if threadIDStr == "" {
 		lib.WriteError(w, "missing thread_id", lib.StatusBadRequest)
@@ -33,12 +33,12 @@ func (h *ThreadHandler) CreateNoAuthSession(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	input := usecase.CreateNoAuthSessionInput{
+	input := usecase.CreateInviteLinkInput{
 		UserID:   userID,
 		ThreadID: threadID,
 	}
 
-	session, err := h.roomUsecase.CreateNoAuthSession(r.Context(), input)
+	session, err := h.threadUsecase.CreateInviteLink(r.Context(), input)
 	if err != nil {
 		code, clientErr := apperrors.GetErrAndCodeToSend(err)
 		h.logger.Warn("failed to create session", zap.Error(err))

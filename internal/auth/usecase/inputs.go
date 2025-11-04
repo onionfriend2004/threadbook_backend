@@ -12,3 +12,10 @@ type SignInInput struct {
 	Email    string
 	Password string
 }
+
+type UpgradeGuestToUserInput struct {
+	UserID   uint
+	Email    string
+	Username string
+	Password string
+}

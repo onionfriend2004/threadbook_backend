@@ -20,4 +20,9 @@ type UserRepoInterface interface {
 	// TODO: ExistsUsername Yes/No
 
 	GetUserProfileByUserID(ctx context.Context, userID uint) (*gdomain.Profile, error)
+
+	// NoAuth
+	CreateNoAuthUser(ctx context.Context) (*gdomain.User, error)
+	generateUniqueCredentials(ctx context.Context) (string, string, error)
+	UpgradeGuestToUser(ctx context.Context, user gdomain.User) (*gdomain.User, error)
 }

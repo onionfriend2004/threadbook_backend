@@ -22,6 +22,9 @@ type AuthUsecaseInterface interface {
 	ResendVerifyCode(ctx context.Context, userID int) error
 
 	GetProfileByUserID(ctx context.Context, userID uint) (*gdomain.Profile, error)
+
+	NoAuthSignUp(ctx context.Context) (*gdomain.User, error)
+	UpgradeGuestToUser(ctx context.Context, input UpgradeGuestToUserInput) (*gdomain.User, error)
 }
 
 type authUsecase struct {
@@ -96,6 +99,81 @@ func (u *authUsecase) SignUpUser(ctx context.Context, input SignUpInput) (*gdoma
 	}
 
 	createdUser, err := u.userRepo.CreateUser(ctx, newUser)
+	if err != nil {
+		u.logger.Error("failed to create user", zap.Error(err))
+		return nil, err
+	}
+
+	verifyCode, err := u.verifyCodeRepo.GenerateCode()
+	if err != nil {
+		u.logger.Error("failed to generate verify code", zap.Error(err))
+		return createdUser, nil
+	}
+
+	err = u.verifyCodeRepo.SaveCode(ctx, createdUser.ID, verifyCode)
+	if err != nil {
+		u.logger.Error("failed to save verify code", zap.Error(err))
+		return createdUser, nil
+	}
+
+	err = u.sendCodeRepo.SendWelcomeEmail(verifyCode, createdUser)
+	if err != nil {
+		u.logger.Error("failed to send verify code in broker", zap.Error(err))
+		return createdUser, nil
+	}
+
+	return createdUser, nil
+}
+
+func (u *authUsecase) NoAuthSignUp(ctx context.Context) (*gdomain.User, error) {
+	createdUser, err := u.userRepo.CreateNoAuthUser(ctx)
+	if err != nil {
+		u.logger.Error("failed to create user", zap.Error(err))
+		return nil, err
+	}
+	return createdUser, nil
+}
+
+func (u *authUsecase) UpgradeGuestToUser(ctx context.Context, input UpgradeGuestToUserInput) (*gdomain.User, error) {
+	if input.Email == "" || input.Username == "" || input.Password == "" {
+		return nil, ErrInvalidInput
+	}
+
+	email := gdomain.NormalizeEmail(input.Email)
+	username := gdomain.NormalizeUsername(input.Username)
+
+	emailExists, err := u.userRepo.ExistsByEmail(ctx, email)
+	if err != nil {
+		u.logger.Error("failed to check email existence", zap.Error(err), zap.String("email", email))
+		return nil, err
+	}
+	if emailExists {
+		return nil, ErrUserAlreadyExists
+	}
+
+	usernameExists, err := u.userRepo.ExistsByUsername(ctx, username)
+	if err != nil {
+		u.logger.Error("failed to check username existence", zap.Error(err), zap.String("username", username))
+		return nil, err
+	}
+	if usernameExists {
+		return nil, ErrUserAlreadyExists
+	}
+
+	hashedPassword, err := u.hasher.Hash(input.Password)
+	if err != nil {
+		u.logger.Error("failed to hash password", zap.Error(err))
+		return nil, err
+	}
+
+	newUser := gdomain.User{
+		ID:           input.UserID,
+		Email:        email,
+		Username:     username,
+		PasswordHash: hashedPassword,
+	}
+
+	createdUser, err := u.userRepo.UpgradeGuestToUser(ctx, newUser)
 	if err != nil {
 		u.logger.Error("failed to create user", zap.Error(err))
 		return nil, err

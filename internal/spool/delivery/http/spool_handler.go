@@ -27,18 +27,18 @@ func NewSpoolHandler(u usecase.SpoolUsecaseInterface, logger *zap.Logger, fileCo
 func (h *SpoolHandler) Routes(r chi.Router, authenticator auth.AuthenticatorInterface) {
 	r.Route("/spool", func(r chi.Router) {
 		r.Use(auth.AuthMiddleware(authenticator))
+		r.With(auth.GuestMiddleware(authenticator)).Group(func(r chi.Router) {
+			r.Post("/", h.CreateSpool)
+			r.Put("/", h.UpdateSpool)
+
+			r.With(validator.ValidateJSONMiddleware(dto.LeaveFromSpoolRequest{})).
+				Post("/leave", h.LeaveFromSpool)
+
+			r.With(validator.ValidateJSONMiddleware(dto.InviteMemberInSpoolRequest{})).
+				Post("/invite", h.InviteMemberInSpool)
+		})
 		r.Get("/{spoolID}", h.GetSpoolInfoById)
 		r.Get("/{spoolID}/members", h.GetSpoolMembers)
 		r.Get("/user", h.GetUserSpoolList)
-
-		r.Post("/", h.CreateSpool)
-
-		r.With(validator.ValidateJSONMiddleware(dto.LeaveFromSpoolRequest{})).
-			Post("/leave", h.LeaveFromSpool)
-
-		r.With(validator.ValidateJSONMiddleware(dto.InviteMemberInSpoolRequest{})).
-			Post("/invite", h.InviteMemberInSpool)
-
-		r.Put("/", h.UpdateSpool)
 	})
 }

@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/onionfriend2004/threadbook_backend/internal/gdomain"
 	"github.com/redis/go-redis/v9"
+	"gorm.io/gorm"
 )
 
 type SessionData struct {
@@ -15,14 +17,16 @@ type SessionData struct {
 
 type AuthenticatorInterface interface {
 	Authenticate(cookie string) (userID uint, username string, err error)
+	GetUserByID(userID uint) (*gdomain.User, error)
 }
 
 type Authenticator struct {
 	redisClient *redis.Client
+	Db          *gorm.DB
 }
 
-func NewAuthenticator(redisClient *redis.Client) *Authenticator {
-	return &Authenticator{redisClient: redisClient}
+func NewAuthenticator(redisClient *redis.Client, Db *gorm.DB) *Authenticator {
+	return &Authenticator{redisClient: redisClient, Db: Db}
 }
 
 func (a *Authenticator) Authenticate(cookie string) (uint, string, error) {
@@ -42,4 +46,13 @@ func (a *Authenticator) Authenticate(cookie string) (uint, string, error) {
 	}
 
 	return session.UserID, session.Username, nil
+}
+
+func (a *Authenticator) GetUserByID(userID uint) (*gdomain.User, error) {
+	var user gdomain.User
+	err := a.Db.First(&user, userID).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
 }

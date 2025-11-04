@@ -302,3 +302,47 @@ func (r *ThreadRepo) IsThreadOwner(ctx context.Context, userID uint, threadID ui
 
 	return thread.CreatorID == userID, nil
 }
+
+func (r *ThreadRepo) AddUserToThread(ctx context.Context, userID, threadID uint) error {
+	var thread gdomain.Thread
+	if err := r.Db.WithContext(ctx).
+		Select("spool_id").
+		Where("id = ?", threadID).
+		First(&thread).Error; err != nil {
+		return err
+	}
+
+	return r.Db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 1. Добавляем в спул если нет
+		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).
+			Create(&gdomain.UserSpool{
+				UserID:  userID,
+				SpoolID: thread.SpoolID,
+			}).Error; err != nil {
+			return err
+		}
+
+		// 2. Находим ВСЕ публичные треды этого спула
+		var publicThreads []gdomain.Thread
+		if err := tx.Where("spool_id = ? AND type = ? AND is_closed = false",
+			thread.SpoolID, "public"). // предполагаем что тип "public" для публичных
+			Find(&publicThreads).Error; err != nil {
+			return err
+		}
+
+		// 3. Добавляем юзера во все публичные треды
+		for _, publicThread := range publicThreads {
+			threadUser := gdomain.ThreadUser{
+				UserID:   userID,
+				ThreadID: publicThread.ID,
+				IsMember: true,
+			}
+			if err := tx.Clauses(clause.OnConflict{DoNothing: true}).
+				Create(&threadUser).Error; err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+}

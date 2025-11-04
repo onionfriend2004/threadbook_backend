@@ -19,5 +19,6 @@ type ThreadRepoInterface interface {
 	GetAccessibleThreadIDs(ctx context.Context, userID uint) ([]uint, error)
 	GetAccessibleThreadIDsBySpool(ctx context.Context, userID, spoolID uint) ([]uint, error)
 
-	IsThreadOwner(ctx context.Context, userID uint, threadID uint) (bool, error)
+	IsThreadOwner(ctx context.Context, userID, threadID uint) (bool, error)
+	AddUserToThread(ctx context.Context, userID, threadID uint) error
 }

@@ -34,6 +34,11 @@ func (h *AuthHandler) Routes(r chi.Router) {
 		r.With(validator.ValidateJSONMiddleware(dto.RegisterRequest{})).
 			Post("/user/register", h.Register)
 
+		r.Get("/user/noauth-register", h.NoAuthRegister)
+
+		r.With(validator.ValidateJSONMiddleware(dto.RegisterRequest{})).
+			Post("/user/upgrade-guest-to-user", h.UpgradeGuestToUser)
+
 		r.With(validator.ValidateJSONMiddleware(dto.LoginRequest{})).
 			Post("/user/login", h.Login)
 

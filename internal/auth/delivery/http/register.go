@@ -58,3 +58,42 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		h.logger.Warn("failed to encode response", zap.Error(err))
 	}
 }
+
+func (h *AuthHandler) NoAuthRegister(w http.ResponseWriter, r *http.Request) {
+
+	user, err := h.usecase.NoAuthSignUp(r.Context())
+	if err != nil {
+		code, clientErr := apperrors.GetErrAndCodeToSend(err)
+
+		// Логируем Warn для 4xx, Error для 5xx
+		if code >= 500 {
+			h.logger.Error("failed to register user", zap.Error(err))
+		} else {
+			h.logger.Warn("failed to register user", zap.Error(err))
+		}
+
+		lib.WriteError(w, clientErr.Error(), code)
+		return
+	}
+
+	session, err := h.usecase.CreateSessionForUser(r.Context(), user)
+	if err != nil {
+		code, clientErr := apperrors.GetErrAndCodeToSend(err)
+		h.logger.Error("failed to create session", zap.Error(err))
+		lib.WriteError(w, clientErr.Error(), code)
+		return
+	}
+
+	http.SetCookie(w, h.cookieConfig.ToHTTPCookie(session.ID, 0))
+
+	resp := dto.RegisterResponse{
+		Email:    user.Email,
+		Username: user.Username,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(lib.StatusCreated)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		h.logger.Warn("failed to encode response", zap.Error(err))
+	}
+}
