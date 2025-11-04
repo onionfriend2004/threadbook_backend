@@ -23,6 +23,9 @@ type AuthUsecaseInterface interface {
 
 	GetProfileByUserID(ctx context.Context, userID uint) (*gdomain.Profile, error)
 
+	CheckUsername(ctx context.Context, userID string) (bool, error)
+	CheckEmail(ctx context.Context, userID string) (bool, error)
+
 	NoAuthSignUp(ctx context.Context) (*gdomain.User, error)
 	UpgradeGuestToUser(ctx context.Context, input UpgradeGuestToUserInput) (*gdomain.User, error)
 }
@@ -369,6 +372,16 @@ func (u *authUsecase) ResendVerifyCode(ctx context.Context, userID int) error {
 		zap.Int("max_attempts", u.maxResendAttempts))
 
 	return nil
+}
+
+func (u *authUsecase) CheckUsername(ctx context.Context, username string) (bool, error) {
+	usernameNormalized := gdomain.NormalizeUsername(username)
+	return u.userRepo.ExistsByUsername(ctx, usernameNormalized)
+}
+
+func (u *authUsecase) CheckEmail(ctx context.Context, email string) (bool, error) {
+	emailNormalized := gdomain.NormalizeEmail(email)
+	return u.userRepo.ExistsByEmail(ctx, emailNormalized)
 }
 
 func (u *authUsecase) GetProfileByUserID(ctx context.Context, userID uint) (*gdomain.Profile, error) {

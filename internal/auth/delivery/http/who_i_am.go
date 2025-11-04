@@ -61,6 +61,7 @@ func (h *AuthHandler) WhoIAm(w http.ResponseWriter, r *http.Request) {
 		Username:   user.Username,
 		Nickname:   profile.Nickname,
 		AvatarLink: profile.AvatarLink,
+		IsGuest:    user.IsGuest,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
