@@ -1,13 +1,26 @@
-// src/status/nats.consumer.ts
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
-import { NatsService } from '../shared/nats/nats.service';
 import { StatusService } from './status.service';
-import { UserRegisteredEventDto } from './dto/nats-event.dto';
+import { NatsService } from '../shared/nats/nats.service';
+import {
+  JetStreamManager,
+  JetStreamClient,
+  RetentionPolicy,
+  DeliverPolicy,
+  consumerOpts,
+  AckPolicy,
+  JsMsg,
+} from 'nats';
+import {
+  OnModuleDestroy,
+  OnModuleInit,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 
 @Injectable()
 export class NatsConsumer implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(NatsConsumer.name);
-  private subscription: any = null;
+  private consumer: any = null; // тип Consumer не экспортируется явно
+  private running = false;
 
   constructor(
     private readonly natsService: NatsService,
@@ -24,108 +37,92 @@ export class NatsConsumer implements OnModuleInit, OnModuleDestroy {
 
   private async startConsumer() {
     try {
-      const js = this.natsService.getJetStreamClient();
-      
-      // Создаем/проверяем stream
-      const jsm = await js.jetstreamManager();
+      const js: JetStreamClient = this.natsService.getJetStream();
+      const jsm: JetStreamManager = await js.jetstreamManager();
+
       try {
         await jsm.streams.add({
-          name: 'user-events-stream',
+          name: 'user_events',
           subjects: ['user.registered'],
-          retention: 'limits',
-          max_msgs: 10000,
+          retention: RetentionPolicy.Workqueue,
+          max_age: 7 * 24 * 3600 * 1_000_000_000,
         });
-      } catch (error) {
-        // Stream уже существует - это нормально
-        if (!error.message?.includes('stream name already in use')) {
-          this.logger.warn('Stream creation warning', error);
+      } catch (err: any) {
+        if (!err.message?.includes('already exists')) {
+          this.logger.warn('Stream issue', err);
         }
       }
 
-      // Подписываемся только на user.registered
-      this.subscription = await js.subscribe('user.registered', {
-        config: {
-          durable_name: 'status-service', // Уникальное имя для этого сервиса
-          deliver_policy: 'all',
-        },
+      this.consumer = await jsm.consumers.add('user_events', {
+        durable_name: 'status-service-consumer',
+        ack_policy: AckPolicy.Explicit,
+        deliver_policy: DeliverPolicy.New,
       });
-
-      this.logger.log('NATS consumer started for user.registered events');
-      this.processMessages();
-
+      this.running = true;
+      this.logger.log('Started NATS JetStream consumer');
+      this.consumeMessages();
     } catch (error) {
       this.logger.error('Failed to start NATS consumer', error);
     }
   }
 
-  private async processMessages() {
-    for await (const message of this.subscription) {
-      try {
-        await this.handleUserRegistered(message);
-      } catch (error) {
-        this.logger.error('Error processing user.registered event', error);
-        message.nak();
+  private async consumeMessages() {
+    if (!this.consumer || !this.running) return;
+
+    try {
+      const msgs: JsMsg[] = await this.consumer.pull({
+        batch: 1,
+        expires: 5000,
+      });
+      for (const msg of msgs) {
+        await this.processMessage(msg);
+      }
+    } catch (err) {
+      if (this.running) {
+        this.logger.debug('Pull timeout or no messages');
+      }
+    } finally {
+      if (this.running) {
+        setImmediate(() => this.consumeMessages());
       }
     }
   }
 
-  private async handleUserRegistered(message: any) {
-    const data = this.natsService.getJsonCodec().decode(message.data);
-    
-    const event = this.validateEvent(data);
-    if (!event) {
-      this.logger.warn('Invalid user.registered event data', { data });
-      message.term();
-      return;
-    }
+  private async processMessage(msg: JsMsg) {
+    try {
+      const data = this.natsService.getJsonCodec().decode(msg.data);
 
-    this.logger.log('Processing user registration', {
-      userId: event.user_id,
-      username: event.username,
-    });
+      if (
+        !data ||
+        typeof (data as any).user_id !== 'number' ||
+        typeof (data as any).username !== 'string' ||
+        (data as any).user_id <= 0 ||
+        !(data as any).username.trim()
+      ) {
+        this.logger.warn('Invalid user.registered event', { data });
+        msg.term();
+        return;
+      }
 
-    // Создаем запись статуса для нового пользователя
-    await this.statusService.updateCustomStatus(
-      event.user_id,
-      event.username,
-      {
+      const userId = (data as any).user_id;
+      const username = (data as any).username;
+
+      await this.statusService.updateCustomStatus(userId, username, {
         customStatus: 'Новый пользователь',
         isPrivate: false,
-      },
-    );
+      });
 
-    this.logger.log('User status record created successfully', {
-      userId: event.user_id,
-      username: event.username,
-    });
-
-    message.ack();
-  }
-
-  private validateEvent(data: any): UserRegisteredEventDto | null {
-    try {
-      if (!data || typeof data !== 'object') return null;
-      
-      // Проверяем обязательные поля для регистрации
-      if (typeof data.user_id !== 'number' || data.user_id <= 0) return null;
-      if (typeof data.username !== 'string' || !data.username.trim()) return null;
-      if (typeof data.email !== 'string' || !data.email.trim()) return null;
-
-      return {
-        type: data.type || 0,
-        code: data.code || 0,
-        email: data.email,
-        username: data.username,
-        user_id: data.user_id,
-      };
-    } catch {
-      return null;
+      msg.ack();
+    } catch (error) {
+      this.logger.error('Error processing message', error);
+      msg.nak();
     }
   }
 
   private async stopConsumer() {
-    if (this.subscription) {
-      await this.subscription.destroy();
+    this.running = false;
+    if (this.consumer) {
+      await this.consumer.delete();
       this.logger.log('NATS consumer stopped');
     }
   }

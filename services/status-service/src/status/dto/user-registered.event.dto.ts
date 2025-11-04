@@ -1,18 +1,18 @@
-import { IsInt, IsString, IsEmail, IsOptional } from 'class-validator';
+import { IsInt, IsString, IsEmail } from 'class-validator';
 
 export class UserRegisteredEventDto {
   @IsInt()
-  type: number;
+  type!: number;
 
   @IsInt()
-  code: number;
+  code!: number;
 
   @IsEmail()
-  email: string;
+  email!: string;
 
   @IsString()
-  username: string;
+  username!: string;
 
   @IsInt()
-  userId: number;
+  userId!: number;
 }

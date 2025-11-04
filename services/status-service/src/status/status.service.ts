@@ -1,9 +1,12 @@
 import { RedisService, RedisPipeline } from 'src/shared/redis/redis.service';
 import { Injectable, Logger } from '@nestjs/common';
 import { UpdateStatusDto } from './dto/update-status.dto';
+import { UpsertStatusDto } from './dto/upsert-status.dto';
 import { PrismaService } from '../shared/prisma/prisma.service';
 import { OnlineStatus } from '@prisma/client';
 import { UserStatus } from './schemas/user-status.schema';
+
+const LAST_SEEN_TTL = 90 * 24 * 3600; // 90 дней
 
 @Injectable()
 export class StatusService {
@@ -21,7 +24,7 @@ export class StatusService {
       const pipeline: RedisPipeline = this.redis.multi();
       pipeline.set(`online-status:user:${userId}`, '1', { EX: 70 });
       pipeline.set(`last-seen:user:${userId}`, Date.now().toString(), {
-        EX: 30 * 24 * 3600 * 12, // +- год
+        EX: LAST_SEEN_TTL,
       });
       await pipeline.exec();
     } catch (error) {
@@ -35,7 +38,7 @@ export class StatusService {
       const pipeline: RedisPipeline = this.redis.multi();
       pipeline.del(`online-status:user:${userId}`);
       pipeline.set(`last-seen:user:${userId}`, Date.now().toString(), {
-        EX: 30 * 24 * 3600,
+        EX: LAST_SEEN_TTL,
       });
       await pipeline.exec();
     } catch (error) {
@@ -62,7 +65,7 @@ export class StatusService {
   async updateCustomStatus(
     userId: number,
     username: string,
-    dto: UpdateStatusDto,
+    dto: UpsertStatusDto,
   ): Promise<void> {
     try {
       await this.prisma.onlineStatus.upsert({

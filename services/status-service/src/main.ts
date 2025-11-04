@@ -2,12 +2,12 @@
 import { ValidationPipe } from '@nestjs/common';
 import { fastifyCookie } from '@fastify/cookie';
 import { NestFactory } from '@nestjs/core';
+import { NatsService } from './shared/nats/nats.service';
 import { AppModule } from './app.module';
 import {
   NestFastifyApplication,
   FastifyAdapter,
 } from '@nestjs/platform-fastify';
-import { NatsService } from './shared/nats/nats.service';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(

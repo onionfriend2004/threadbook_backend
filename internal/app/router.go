@@ -83,6 +83,10 @@ func Run(config *config.Config, logger *zap.Logger) error {
 
 	// ===================== Email Consumer =====================
 	emailConsumer, err := initEmailConsumer(config, natsConn, logger, config.Nats.EmailConsumerName)
+	if err != nil {
+		logger.Error("failed to start NATS JetStream consumer", zap.Error(err))
+		return err
+	}
 
 	// Создаём общий контекст для всего приложения
 	ctx, cancel := context.WithCancel(context.Background())
