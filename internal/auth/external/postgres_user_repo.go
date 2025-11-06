@@ -65,7 +65,7 @@ func (r *userRepo) generateUniqueCredentials(ctx context.Context) (string, strin
 	return "", "", fmt.Errorf("failed to generate unique credentials")
 }
 
-func (r *userRepo) CreateNoAuthUser(ctx context.Context) (*gdomain.User, error) {
+func (r *userRepo) CreateGuest(ctx context.Context) (*gdomain.User, error) {
 	username, email, err := r.generateUniqueCredentials(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate username: %w", err)

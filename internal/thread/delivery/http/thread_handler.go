@@ -46,9 +46,9 @@ func (h *ThreadHandler) Routes(r chi.Router, authenticator auth.AuthenticatorInt
 			r.With(validator.ValidateJSONMiddleware(dto.ThreadCreateRequest{})).
 				Post("/create", h.Create)
 
-			r.Get("/invite_link/create", h.CreateInviteLink)
-			r.Delete("/invite_link", h.DeleteInviteLink)
-			r.Get("/invite_link/{thread_id}", h.GetThreadInviteLinks)
+			r.Get("/invite-link/create", h.CreateInviteLink)
+			r.Delete("/invite-link", h.DeleteInviteLink)
+			r.Get("/invite-link/{thread_id}", h.GetThreadInviteLinks)
 
 			r.With(validator.ValidateJSONMiddleware(dto.InviteRequest{})).
 				Post("/invite", h.InviteToThread)
@@ -57,7 +57,7 @@ func (h *ThreadHandler) Routes(r chi.Router, authenticator auth.AuthenticatorInt
 
 		r.Get("/ws/token", h.GetSubscribeToken)
 		r.Get("/", h.GetBySpoolID)
-		r.Get("/invite_link/join/{thread_link}", h.JoinToThread)
+		r.Get("/invite-link/join/{thread_link}", h.JoinToThread)
 
 		r.With(validator.ValidateJSONMiddleware(dto.GetVoiceTokenRequest{})).
 			Post("/sfu/token", h.GetVoiceToken)
