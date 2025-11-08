@@ -3,8 +3,10 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
+	"github.com/onionfriend2004/threadbook_backend/internal/file/usecase"
 	"github.com/onionfriend2004/threadbook_backend/internal/gdomain"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib/event"
 	"github.com/onionfriend2004/threadbook_backend/internal/thread/external"
@@ -14,6 +16,7 @@ import (
 type MessageUsecase struct {
 	msgRepo    external.MessageRepoInterface
 	wsRepo     external.WebsocketRepoInterface
+	fileUC     usecase.FileUsecaseInterface
 	threadRepo external.ThreadRepoInterface
 	tokenTTL   time.Duration
 	logger     *zap.Logger
@@ -22,12 +25,14 @@ type MessageUsecase struct {
 func NewMessageUsecase(
 	msgRepo external.MessageRepoInterface,
 	wsRepo external.WebsocketRepoInterface,
+	fileUC usecase.FileUsecaseInterface,
 	threadRepo external.ThreadRepoInterface,
 	tokenTTL time.Duration,
 	logger *zap.Logger) *MessageUsecase {
 	return &MessageUsecase{
 		msgRepo:    msgRepo,
 		wsRepo:     wsRepo,
+		fileUC:     fileUC,
 		threadRepo: threadRepo,
 		tokenTTL:   tokenTTL,
 		logger:     logger,
@@ -35,6 +40,7 @@ func NewMessageUsecase(
 }
 
 func (uc *MessageUsecase) SendMessage(ctx context.Context, input SendMessageInput) (*gdomain.Message, error) {
+	// --- 1. Проверяем права пользователя ---
 	hasRights, err := uc.threadRepo.CheckRightsUserOnThreadRoom(ctx, input.ThreadID, input.UserID)
 	if err != nil {
 		return nil, err
@@ -51,46 +57,106 @@ func (uc *MessageUsecase) SendMessage(ctx context.Context, input SendMessageInpu
 		return nil, ErrThreadIsClosed
 	}
 
-	msg := &gdomain.Message{
-		ThreadID: input.ThreadID,
-		UserID:   input.UserID,
-		Content:  input.Content,
-		Payloads: input.Payloads,
+	// --- 2. Загружаем файлы (payloads) ---
+	var uploadedFiles []string
+	filesSaved := false
+
+	for _, payload := range input.Payloads {
+		fileInput := usecase.SaveFile{
+			File:        payload.File,
+			Size:        payload.Size,
+			Filename:    payload.Filename,
+			ContentType: payload.ContentType,
+			UserID:      strconv.FormatUint(uint64(input.UserID), 10),
+			FileType:    "message_payload",
+		}
+
+		fileLink, err := uc.fileUC.SaveFile(ctx, fileInput)
+		if err != nil {
+			// rollback всех загруженных файлов
+			for _, saved := range uploadedFiles {
+				if delErr := uc.fileUC.DeleteFile(ctx, usecase.DeleteFileInput{Filename: saved}); delErr != nil {
+					uc.logger.Error("failed to rollback uploaded file", zap.Error(delErr), zap.String("filename", saved))
+				}
+			}
+			return nil, ErrFailedToSaveMessageFiles
+		}
+		uploadedFiles = append(uploadedFiles, fileLink)
+	}
+	filesSaved = true
+
+	defer func(uploaded []string, saved bool) {
+		if !saved {
+			for _, fileLink := range uploaded {
+				if delErr := uc.fileUC.DeleteFile(ctx, usecase.DeleteFileInput{Filename: fileLink}); delErr != nil {
+					uc.logger.Error("failed to cleanup message file after error", zap.Error(delErr), zap.String("file_link", fileLink))
+				}
+			}
+		}
+	}(uploadedFiles, filesSaved)
+
+	// --- 3. Формируем gdomain.Message с payloads ---
+	newMsg := &gdomain.Message{
+		ThreadID:  input.ThreadID,
+		UserID:    input.UserID,
+		Content:   input.Content,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
 
-	if err := uc.msgRepo.CreateWithPayloads(ctx, msg); err != nil {
+	for _, link := range uploadedFiles {
+		newMsg.Payloads = append(newMsg.Payloads, gdomain.MessagePayload{
+			FileLink:  link,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		})
+	}
+
+	// --- 4. Сохраняем сообщение в транзакции ---
+	err = uc.msgRepo.WithTx(ctx, func(txCtx context.Context) error {
+		return uc.msgRepo.CreateWithPayloads(txCtx, newMsg)
+	})
+	if err != nil {
+		uc.logger.Error("failed to create message in database", zap.Error(err), zap.Uint("user_id", input.UserID), zap.Uint("thread_id", input.ThreadID))
 		return nil, ErrFailedToSaveMsg
 	}
 
+	uc.logger.Info("message created successfully", zap.Uint("message_id", newMsg.ID), zap.Int("payload_count", len(uploadedFiles)))
+
+	// --- 5. Публикуем событие через WebSocket ---
 	members, err := uc.threadRepo.GetThreadMembers(ctx, input.ThreadID)
 	if err != nil {
-		return msg, err
-	}
+		uc.logger.Warn("failed to get thread members for WS publish", zap.Error(err))
+	} else {
+		payloadLinks := make([]string, len(newMsg.Payloads))
+		for i, p := range newMsg.Payloads {
+			payloadLinks[i] = p.FileLink
+		}
 
-	ev := event.Event{
-		Type: event.MessageCreated,
-		Payload: event.MessageCreatedPayload{
-			MessageID: msg.ID,
-			ThreadID:  input.ThreadID,
-			Content:   input.Content,
-			Username:  input.Username,
-			CreatedAt: time.Now().Unix(),
-		},
-	}
+		ev := event.Event{
+			Type: event.MessageCreated,
+			Payload: event.MessageCreatedPayload{
+				MessageID: newMsg.ID,
+				ThreadID:  newMsg.ThreadID,
+				Content:   newMsg.Content,
+				Username:  input.Username,
+				Payloads:  payloadLinks,
+				CreatedAt: newMsg.CreatedAt.Unix(),
+			},
+		}
 
-	for _, member := range members {
-		if err := uc.wsRepo.PublishToThread(ctx, input.ThreadID, ev); err != nil {
-			uc.logger.Warn(ErrFailedToPublish.Error(),
-				zap.Uint("userID", member.UserID),
-				zap.Error(err))
+		for _, member := range members {
+			if err := uc.wsRepo.PublishToThread(ctx, input.ThreadID, ev); err != nil {
+				uc.logger.Warn("failed to publish message event to WS", zap.Uint("userID", member.UserID), zap.Error(err))
+			}
 		}
 	}
 
-	return msg, nil
+	return newMsg, nil
 }
 
 func (uc *MessageUsecase) GetMessages(ctx context.Context, input GetMessagesInput) ([]gdomain.Message, error) {
-	return uc.msgRepo.GetByThreadID(ctx, input.ThreadID, input.Limit, input.Offset)
+	return uc.msgRepo.GetByThreadCursor(ctx, input.ThreadID, input.CursorID, input.Limit, input.Forward)
 }
 
 func (uc *MessageUsecase) GetConnectToken(ctx context.Context, userID uint) (string, error) {

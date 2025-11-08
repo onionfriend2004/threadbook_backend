@@ -15,6 +15,14 @@ func NewMessageRepo(db *gorm.DB) MessageRepoInterface {
 	return &messageRepo{db: db}
 }
 
+func (r *messageRepo) WithTx(ctx context.Context, fn func(txCtx context.Context) error) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// создаем новый контекст с tx
+		txRepoCtx := context.WithValue(ctx, "tx", tx)
+		return fn(txRepoCtx)
+	})
+}
+
 func (r *messageRepo) Create(ctx context.Context, m *gdomain.Message) error {
 	if m == nil {
 		return ErrMessageNil
@@ -30,40 +38,63 @@ func (r *messageRepo) CreateWithPayloads(ctx context.Context, m *gdomain.Message
 		return ErrMessageNil
 	}
 
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(m).Error; err != nil {
-			return ErrCreateMessage
+	tx := ctx.Value("tx")
+	var gormTx *gorm.DB
+	if tx != nil {
+		gormTx = tx.(*gorm.DB)
+	} else {
+		gormTx = r.db.WithContext(ctx)
+	}
+
+	// создаём сообщение
+	if err := gormTx.Omit("Payloads").Create(m).Error; err != nil {
+		return ErrCreateMessage
+	}
+
+	// создаём payloads
+	if len(m.Payloads) > 0 {
+		for i := range m.Payloads {
+			m.Payloads[i].MessageID = m.ID
+			m.Payloads[i].ID = 0 // сбрасываем ID чтобы избежать duplicate key
 		}
-		if len(m.Payloads) > 0 {
-			for i := range m.Payloads {
-				m.Payloads[i].MessageID = m.ID
-			}
-			if err := tx.Create(&m.Payloads).Error; err != nil {
-				return ErrCreatePayloads
-			}
+		if err := gormTx.Create(&m.Payloads).Error; err != nil {
+			return ErrCreatePayloads
 		}
-		return nil
-	})
+	}
+
+	return nil
 }
 
-func (r *messageRepo) GetByThreadID(ctx context.Context, threadID uint, limit, offset int) ([]gdomain.Message, error) {
+func (r *messageRepo) GetByThreadCursor(ctx context.Context, threadID uint, cursorID uint, limit int, forward bool) ([]gdomain.Message, error) {
 	var msgs []gdomain.Message
 	q := r.db.WithContext(ctx).
 		Preload("User").
-		Preload("Payloads").
-		Where("thread_id = ?", threadID).
-		Order("created_at ASC")
+		Preload("Payloads"). // обязательно
+		Where("thread_id = ?", threadID)
 
-	if limit > 0 {
-		q = q.Limit(limit)
+	if cursorID > 0 {
+		if forward {
+			q = q.Where("id > ?", cursorID) // новые сообщения
+		} else {
+			q = q.Where("id < ?", cursorID) // старые сообщения
+		}
 	}
-	if offset > 0 {
-		q = q.Offset(offset)
+
+	q = q.Order("id DESC")
+
+	if limit <= 0 {
+		limit = 15
 	}
+	q = q.Limit(limit)
 
 	if err := q.Find(&msgs).Error; err != nil {
 		return nil, ErrGetMessages
 	}
+
+	for i, j := 0, len(msgs)-1; i < j; i, j = i+1, j-1 {
+		msgs[i], msgs[j] = msgs[j], msgs[i]
+	}
+
 	return msgs, nil
 }
 

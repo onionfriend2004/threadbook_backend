@@ -82,13 +82,13 @@ func Run(config *config.Config, logger *zap.Logger) error {
 	}
 
 	// ===================== Email Consumer =====================
-	emailConsumer, err := initEmailConsumer(config, natsConn, logger, config.Nats.EmailConsumerName)
+	// emailConsumer, err := initEmailConsumer(config, natsConn, logger, config.Nats.EmailConsumerName)
 
 	// Создаём общий контекст для всего приложения
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	// ctx, cancel := context.WithCancel(context.Background())
+	// defer cancel()
 
-	go startEmailConsumer(ctx, emailConsumer, logger)
+	// go startEmailConsumer(ctx, emailConsumer, logger)
 
 	// ===================== HTTP Server =====================
 	r := chi.NewRouter()
@@ -132,7 +132,7 @@ func Run(config *config.Config, logger *zap.Logger) error {
 	<-quit
 	logger.Info("shutting down gracefully...")
 
-	cancel()
+	// cancel()
 
 	ctxShutdown, cancelShutdown := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancelShutdown()
@@ -188,14 +188,16 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 	// messages repo
 	messageRepo := threadExternal.NewMessageRepo(db)
 	noAuthRepo := threadExternal.NewInviteLinkRepo(redis)
+	messageFileRepo := fileExternal.NewFileRepo(minio, "files")
 
 	// usecases
+	messageFileUC := fileUsecase.NewFileUsecase(messageFileRepo, logger)
 	threadUC := threadUsecase.NewThreadUsecase(threadRepo, noAuthRepo, websocketRepo, userRepo, time.Duration(cfg.Centrifugo.TTL)*time.Second, logger)
-	messageUC := threadUsecase.NewMessageUsecase(messageRepo, websocketRepo, threadRepo, time.Duration(cfg.Centrifugo.TTL)*time.Second, logger)
+	messageUC := threadUsecase.NewMessageUsecase(messageRepo, websocketRepo, messageFileUC, threadRepo, time.Duration(cfg.Centrifugo.TTL)*time.Second, logger)
 	roomUC := threadUsecase.NewRoomUsecase(threadRepo, liveKitRepo, cfg.LiveKit.URL, cfg.LiveKit.APIKey, cfg.LiveKit.APISecret, logger)
 
 	// handler
-	threadHandler := threadDeliveryHTTP.NewThreadHandler(threadUC, messageUC, roomUC, cookieConfig, logger)
+	threadHandler := threadDeliveryHTTP.NewThreadHandler(threadUC, messageUC, roomUC, cookieConfig, fileConfig, logger)
 	threadHandler.Routes(r, authenticator)
 
 	// ===================== Profile =====================
@@ -211,7 +213,7 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 
 	// ===================== Spool =====================
 
-	spoolFileRepo := fileExternal.NewFileRepo(minio, "uploads")
+	spoolFileRepo := fileExternal.NewFileRepo(minio, "spools")
 	spoolFileUC := fileUsecase.NewFileUsecase(spoolFileRepo, logger)
 	spoolFileHandler := fileDeliveryHTTP.NewFileHandler(spoolFileUC, logger)
 	spoolFileHandler.Routes(r)
