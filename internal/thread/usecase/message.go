@@ -144,7 +144,6 @@ func (uc *MessageUsecase) SendMessage(ctx context.Context, input SendMessageInpu
 				CreatedAt: newMsg.CreatedAt.Unix(),
 			},
 		}
-
 		for _, member := range members {
 			if err := uc.wsRepo.PublishToThread(ctx, input.ThreadID, ev); err != nil {
 				uc.logger.Warn("failed to publish message event to WS", zap.Uint("userID", member.UserID), zap.Error(err))
@@ -249,7 +248,7 @@ func (uc *MessageUsecase) UpdateMessage(ctx context.Context, input UpdateMessage
 }
 
 func (uc *MessageUsecase) DeleteMessage(ctx context.Context, input DeleteMessageInput) error {
-	// Проверяем права пользователя на поток
+	// Проверка прав
 	hasRights, err := uc.threadRepo.CheckRightsUserOnThreadRoom(ctx, input.ThreadID, input.UserID)
 	if err != nil {
 		return err
@@ -266,28 +265,42 @@ func (uc *MessageUsecase) DeleteMessage(ctx context.Context, input DeleteMessage
 		return ErrThreadIsClosed
 	}
 
-	// Получаем сообщение
 	msg, err := uc.msgRepo.GetByID(ctx, input.MessageID)
 	if err != nil {
 		return err
 	}
 
-	// Проверка, что сообщение принадлежит потоку
 	if msg.ThreadID != input.ThreadID {
 		return ErrMessageNotFound
 	}
-
-	// Проверка, что пользователь — автор сообщения
 	if msg.UserID != input.UserID {
 		return ErrNoAccessToMessage
 	}
 
-	// Удаляем сообщение
-	if err := uc.msgRepo.DeleteByID(ctx, input.MessageID); err != nil {
+	// Транзакция на удаление сообщения
+	err = uc.msgRepo.WithTx(ctx, func(txCtx context.Context) error {
+		// Удаляем сообщение в БД
+		if err := uc.msgRepo.DeleteByID(txCtx, input.MessageID); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
 		return err
 	}
 
-	// Публикуем событие через WS
+	// Удаляем payload файлы уже после успешного удаления записи
+	for _, p := range msg.Payloads {
+		if delErr := uc.fileUC.DeleteFile(ctx, usecase.DeleteFileInput{
+			Filename: p.FileLink,
+		}); delErr != nil {
+			uc.logger.Warn("failed to delete file from MinIO",
+				zap.String("filename", p.FileLink),
+				zap.Error(delErr))
+		}
+	}
+
+	// WS событие
 	ev := event.Event{
 		Type: event.MessageDeleted,
 		Payload: event.MessageDeletedPayload{
