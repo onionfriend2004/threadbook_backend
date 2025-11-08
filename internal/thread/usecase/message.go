@@ -117,6 +117,133 @@ func (uc *MessageUsecase) GetUserOnlyTokens(ctx context.Context, userID uint) (C
 	}, nil
 }
 
+func (uc *MessageUsecase) UpdateMessage(ctx context.Context, input UpdateMessageInput) (*gdomain.Message, error) {
+	// Проверяем права пользователя на поток
+	hasRights, err := uc.threadRepo.CheckRightsUserOnThreadRoom(ctx, input.ThreadID, input.UserID)
+	if err != nil {
+		return nil, err
+	}
+	if !hasRights {
+		return nil, ErrNoAccessToThread
+	}
+
+	thread, err := uc.threadRepo.GetThreadByID(ctx, input.ThreadID)
+	if err != nil {
+		return nil, ErrFailedToGetThread
+	}
+	if thread.IsClosed {
+		return nil, ErrThreadIsClosed
+	}
+
+	// Получаем сообщение
+	msg, err := uc.msgRepo.GetByID(ctx, input.MessageID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Проверка, что сообщение принадлежит потоку
+	if msg.ThreadID != input.ThreadID {
+		return nil, ErrMessageNotFound
+	}
+
+	// Проверка, что пользователь — автор сообщения
+	if msg.UserID != input.UserID {
+		return nil, ErrNoAccessToMessage
+	}
+
+	// Обновляем контент
+	msg.Content = input.Content
+	if err := uc.msgRepo.Update(ctx, msg); err != nil {
+		return nil, err
+	}
+
+	// Публикуем событие через WS
+	ev := event.Event{
+		Type: event.MessageUpdated,
+		Payload: event.MessageUpdatedPayload{
+			MessageID: msg.ID,
+			ThreadID:  msg.ThreadID,
+			Content:   msg.Content,
+			UpdatedAt: msg.UpdatedAt.Unix(),
+		},
+	}
+
+	members, err := uc.threadRepo.GetThreadMembers(ctx, input.ThreadID)
+	if err == nil {
+		for _, member := range members {
+			if err := uc.wsRepo.PublishToThread(ctx, input.ThreadID, ev); err != nil {
+				uc.logger.Warn("failed to publish updated message",
+					zap.Uint("userID", member.UserID),
+					zap.Error(err))
+			}
+		}
+	}
+
+	return msg, nil
+}
+
+func (uc *MessageUsecase) DeleteMessage(ctx context.Context, input DeleteMessageInput) error {
+	// Проверяем права пользователя на поток
+	hasRights, err := uc.threadRepo.CheckRightsUserOnThreadRoom(ctx, input.ThreadID, input.UserID)
+	if err != nil {
+		return err
+	}
+	if !hasRights {
+		return ErrNoAccessToThread
+	}
+
+	thread, err := uc.threadRepo.GetThreadByID(ctx, input.ThreadID)
+	if err != nil {
+		return ErrFailedToGetThread
+	}
+	if thread.IsClosed {
+		return ErrThreadIsClosed
+	}
+
+	// Получаем сообщение
+	msg, err := uc.msgRepo.GetByID(ctx, input.MessageID)
+	if err != nil {
+		return err
+	}
+
+	// Проверка, что сообщение принадлежит потоку
+	if msg.ThreadID != input.ThreadID {
+		return ErrMessageNotFound
+	}
+
+	// Проверка, что пользователь — автор сообщения
+	if msg.UserID != input.UserID {
+		return ErrNoAccessToMessage
+	}
+
+	// Удаляем сообщение
+	if err := uc.msgRepo.DeleteByID(ctx, input.MessageID); err != nil {
+		return err
+	}
+
+	// Публикуем событие через WS
+	ev := event.Event{
+		Type: event.MessageDeleted,
+		Payload: event.MessageDeletedPayload{
+			MessageID: msg.ID,
+			ThreadID:  msg.ThreadID,
+		},
+	}
+
+	members, err := uc.threadRepo.GetThreadMembers(ctx, input.ThreadID)
+	if err == nil {
+		for _, member := range members {
+			if err := uc.wsRepo.PublishToThread(ctx, input.ThreadID, ev); err != nil {
+				uc.logger.Warn("failed to publish deleted message",
+					zap.Uint("userID", member.UserID),
+					zap.Error(err))
+			}
+		}
+	}
+
+	return nil
+}
+
 func (uc *MessageUsecase) GetTokensBySpool(ctx context.Context, userID, spoolID uint) (ConnectAndSubscribeTokens, error) {
 	threads, err := uc.threadRepo.GetAccessibleThreadIDsBySpool(ctx, userID, spoolID)
 	if err != nil {

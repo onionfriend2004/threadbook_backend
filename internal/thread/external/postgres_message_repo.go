@@ -88,6 +88,16 @@ func (r *messageRepo) DeleteByID(ctx context.Context, id uint) error {
 	return nil
 }
 
+func (r *messageRepo) Update(ctx context.Context, m *gdomain.Message) error {
+	if m == nil {
+		return ErrMessageNil
+	}
+	if err := r.db.WithContext(ctx).Save(m).Error; err != nil {
+		return ErrUpdateMessage
+	}
+	return nil
+}
+
 func (r *messageRepo) CountByThreadID(ctx context.Context, threadID uint) (int64, error) {
 	var cnt int64
 	if err := r.db.WithContext(ctx).

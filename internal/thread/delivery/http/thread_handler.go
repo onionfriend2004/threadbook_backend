@@ -67,6 +67,10 @@ func (h *ThreadHandler) Routes(r chi.Router, authenticator auth.AuthenticatorInt
 
 			r.With(validator.ValidateJSONMiddleware(dto.SendMessageRequest{})).
 				Post("/messages", h.SendMessage)
+			r.With(validator.ValidateJSONMiddleware(dto.UpdateMessageRequest{})).
+				Put("/messages/{message_id}", h.UpdateMessage)
+
+			r.Delete("/messages/{message_id}", h.DeleteMessage)
 		})
 
 	})

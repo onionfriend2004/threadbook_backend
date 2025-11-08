@@ -60,6 +60,19 @@ type GetMessagesInput struct {
 	Offset   int
 }
 
+type UpdateMessageInput struct {
+	ThreadID  uint
+	MessageID uint
+	UserID    uint
+	Content   string
+}
+
+type DeleteMessageInput struct {
+	ThreadID  uint
+	MessageID uint
+	UserID    uint
+}
+
 // ---------- GetSubscribeToken ----------
 type GetSubscribeTokenInput struct {
 	UserID   uint

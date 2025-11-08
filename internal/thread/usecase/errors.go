@@ -16,10 +16,14 @@ var (
 
 	// Ошибки сообщений
 	ErrNoAccessToThread  = errors.New("user has no access to this thread")
+	ErrNoAccessToMessage = errors.New("user has no access to this message")
 	ErrThreadIsClosed    = errors.New("cannot send message: thread is closed")
 	ErrFailedToSaveMsg   = errors.New("failed to save message")
 	ErrFailedToGetThread = errors.New("failed to get thread")
 	ErrFailedToPublish   = errors.New("failed to publish message event")
+	ErrMessageNotFound   = errors.New("message not found")
+	ErrFailedToUpdateMsg = errors.New("failed to update message")
+	ErrFailedToDeleteMsg = errors.New("failed to delete message")
 
 	ErrThreadClosed   = errors.New("thread is closed")
 	ErrSessionExpired = errors.New("session expired")
