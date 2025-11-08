@@ -40,5 +40,11 @@ func (h *SpoolHandler) Routes(r chi.Router, authenticator auth.AuthenticatorInte
 		r.Get("/{spoolID}", h.GetSpoolInfoById)
 		r.Get("/{spoolID}/members", h.GetSpoolMembers)
 		r.Get("/user", h.GetUserSpoolList)
+
+		r.With(validator.ValidateJSONMiddleware(dto.CreateInviteLinkRequest{})).
+			Post("/invite-link/create", h.CreateInviteLink)
+		r.Delete("/invite-link", h.DeleteInviteLink)
+		r.Get("/invite-link/{spool_id}", h.GetSpoolInviteLinks)
+		r.Get("/invite-link/join/{spool_link}", h.JoinToSpool)
 	})
 }

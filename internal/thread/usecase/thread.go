@@ -11,7 +11,6 @@ import (
 	"github.com/onionfriend2004/threadbook_backend/internal/lib/event"
 	"github.com/onionfriend2004/threadbook_backend/internal/thread/external"
 	repo "github.com/onionfriend2004/threadbook_backend/internal/thread/external"
-	"github.com/onionfriend2004/threadbook_backend/internal/thread/external/domain"
 	"go.uber.org/zap"
 )
 
@@ -21,36 +20,36 @@ type ThreadUsecaseInterface interface {
 	CloseThread(ctx context.Context, input CloseThreadInput) (*gdomain.Thread, error)
 	InviteToThread(ctx context.Context, input InviteToThreadInput) error
 	UpdateThread(ctx context.Context, input UpdateThreadInput) (*gdomain.Thread, error)
-	CreateInviteLink(ctx context.Context, input CreateInviteLinkInput) (*domain.InviteLink, error)
+	CreateInviteLink(ctx context.Context, input CreateInviteLinkInput) (*gdomain.InviteLink, error)
 	JoinToThread(ctx context.Context, input JoinToThreadInput) error
 	DeleteInviteLink(ctx context.Context, input DeleteInviteLinkInput) error
-	GetThreadInviteLinks(ctx context.Context, input GetThreadInviteLinksInput) ([]*domain.InviteLink, error)
+	GetThreadInviteLinks(ctx context.Context, input GetThreadInviteLinksInput) ([]*gdomain.InviteLink, error)
 }
 
 type ThreadUsecase struct {
-	threadRepo external.ThreadRepoInterface
-	noAuthRepo repo.InviteLinkRepoInterface
-	wsRepo     external.WebsocketRepoInterface
-	userRepo   userexternal.UserRepoInterface
-	tokenTTL   time.Duration
-	logger     *zap.Logger
+	threadRepo     external.ThreadRepoInterface
+	InviteLinkRepo repo.InviteLinkRepoInterface
+	wsRepo         external.WebsocketRepoInterface
+	userRepo       userexternal.UserRepoInterface
+	tokenTTL       time.Duration
+	logger         *zap.Logger
 }
 
 func NewThreadUsecase(
 	threadRepo external.ThreadRepoInterface,
-	noAuthRepo repo.InviteLinkRepoInterface,
+	InviteLinkRepo repo.InviteLinkRepoInterface,
 	wsRepo external.WebsocketRepoInterface,
 	userRepo userexternal.UserRepoInterface,
 	tokenTTL time.Duration,
 	logger *zap.Logger,
 ) ThreadUsecaseInterface {
 	return &ThreadUsecase{
-		threadRepo: threadRepo,
-		noAuthRepo: noAuthRepo,
-		wsRepo:     wsRepo,
-		userRepo:   userRepo,
-		tokenTTL:   tokenTTL,
-		logger:     logger,
+		threadRepo:     threadRepo,
+		InviteLinkRepo: InviteLinkRepo,
+		wsRepo:         wsRepo,
+		userRepo:       userRepo,
+		tokenTTL:       tokenTTL,
+		logger:         logger,
 	}
 }
 
@@ -213,7 +212,7 @@ func (u *ThreadUsecase) UpdateThread(ctx context.Context, input UpdateThreadInpu
 	return updatedThread, nil
 }
 
-func (u *ThreadUsecase) CreateInviteLink(ctx context.Context, input CreateInviteLinkInput) (*domain.InviteLink, error) {
+func (u *ThreadUsecase) CreateInviteLink(ctx context.Context, input CreateInviteLinkInput) (*gdomain.InviteLink, error) {
 
 	thread, err := u.threadRepo.GetThreadByID(ctx, input.ThreadID)
 	if err != nil {
@@ -226,7 +225,7 @@ func (u *ThreadUsecase) CreateInviteLink(ctx context.Context, input CreateInvite
 		return nil, ErrThreadClosed
 	}
 
-	session, err := u.noAuthRepo.CreateLink(ctx, input.ThreadID)
+	session, err := u.InviteLinkRepo.CreateLink(ctx, "thread", input.ThreadID, input.UserID, input.ExpiresAt, input.MaxUses)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create noauth session: %w", err)
 	}
@@ -239,12 +238,12 @@ func (u *ThreadUsecase) JoinToThread(ctx context.Context, input JoinToThreadInpu
 		return ErrInvalidInput
 	}
 
-	session, err := u.noAuthRepo.GetInviteByID(ctx, input.Link)
+	session, err := u.InviteLinkRepo.GetInviteByID(ctx, input.Link)
 	if err != nil {
 		return ErrThreadNotFound
 	}
 
-	return u.threadRepo.AddUserToThread(ctx, input.UserID, session.ThreadID)
+	return u.threadRepo.AddUserToThread(ctx, input.UserID, session.ResourceID)
 }
 
 func (u *ThreadUsecase) DeleteInviteLink(ctx context.Context, input DeleteInviteLinkInput) error {
@@ -252,24 +251,24 @@ func (u *ThreadUsecase) DeleteInviteLink(ctx context.Context, input DeleteInvite
 		return ErrInvalidInput
 	}
 
-	session, err := u.noAuthRepo.GetInviteByID(ctx, input.Link)
+	session, err := u.InviteLinkRepo.GetInviteByID(ctx, input.Link)
 	if err != nil {
 		return ErrThreadNotFound
 	}
 
-	isOwner, err := u.threadRepo.IsThreadOwner(ctx, input.UserID, session.ThreadID)
+	isOwner, err := u.threadRepo.IsThreadOwner(ctx, input.UserID, session.ResourceID)
 	if err != nil || !isOwner {
 		return ErrThreadNotFound
 	}
 
-	return u.noAuthRepo.DeleteLink(ctx, session.ID)
+	return u.InviteLinkRepo.DeleteLink(ctx, session.ID)
 }
 
-func (u *ThreadUsecase) GetThreadInviteLinks(ctx context.Context, input GetThreadInviteLinksInput) ([]*domain.InviteLink, error) {
+func (u *ThreadUsecase) GetThreadInviteLinks(ctx context.Context, input GetThreadInviteLinksInput) ([]*gdomain.InviteLink, error) {
 	inThread, err := u.threadRepo.CheckRightsUserOnThreadRoom(ctx, input.ThreadID, input.UserID)
 	if err != nil || !inThread {
 		return nil, ErrThreadNotFound
 	}
 
-	return u.noAuthRepo.GetLinksByThread(ctx, input.ThreadID)
+	return u.InviteLinkRepo.GetLinksByResource(ctx, "thread", input.ThreadID)
 }

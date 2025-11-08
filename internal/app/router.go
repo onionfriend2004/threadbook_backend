@@ -187,10 +187,10 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 	)
 	// messages repo
 	messageRepo := threadExternal.NewMessageRepo(db)
-	noAuthRepo := threadExternal.NewInviteLinkRepo(redis)
+	InviteLinkRepo := threadExternal.NewInviteLinkRepo(db)
 
 	// usecases
-	threadUC := threadUsecase.NewThreadUsecase(threadRepo, noAuthRepo, websocketRepo, userRepo, time.Duration(cfg.Centrifugo.TTL)*time.Second, logger)
+	threadUC := threadUsecase.NewThreadUsecase(threadRepo, InviteLinkRepo, websocketRepo, userRepo, time.Duration(cfg.Centrifugo.TTL)*time.Second, logger)
 	messageUC := threadUsecase.NewMessageUsecase(messageRepo, websocketRepo, threadRepo, time.Duration(cfg.Centrifugo.TTL)*time.Second, logger)
 	roomUC := threadUsecase.NewRoomUsecase(threadRepo, liveKitRepo, cfg.LiveKit.URL, cfg.LiveKit.APIKey, cfg.LiveKit.APISecret, logger)
 
@@ -217,7 +217,7 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 	spoolFileHandler.Routes(r)
 
 	spoolRepo := spoolExternal.NewSpoolRepo(db)
-	spoolUC := spoolUsecase.NewSpoolUsecase(spoolRepo, websocketRepo, spoolFileUC, logger)
+	spoolUC := spoolUsecase.NewSpoolUsecase(spoolRepo, InviteLinkRepo, websocketRepo, spoolFileUC, logger)
 	spoolHandler := spoolDeliveryHTTP.NewSpoolHandler(spoolUC, logger, fileConfig)
 	spoolHandler.Routes(r, authenticator)
 	// ===================== Other =====================

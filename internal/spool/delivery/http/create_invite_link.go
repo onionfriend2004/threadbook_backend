@@ -9,12 +9,12 @@ import (
 	"github.com/onionfriend2004/threadbook_backend/internal/lib"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib/middleware/auth"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib/middleware/validator"
-	"github.com/onionfriend2004/threadbook_backend/internal/thread/delivery/dto"
-	"github.com/onionfriend2004/threadbook_backend/internal/thread/usecase"
+	"github.com/onionfriend2004/threadbook_backend/internal/spool/delivery/dto"
+	"github.com/onionfriend2004/threadbook_backend/internal/spool/usecase"
 	"go.uber.org/zap"
 )
 
-func (h *ThreadHandler) CreateInviteLink(w http.ResponseWriter, r *http.Request) {
+func (h *SpoolHandler) CreateInviteLink(w http.ResponseWriter, r *http.Request) {
 	threadIDStr := r.URL.Query().Get("thread_id")
 	if threadIDStr == "" {
 		lib.WriteError(w, "missing thread_id", lib.StatusBadRequest)
@@ -38,12 +38,12 @@ func (h *ThreadHandler) CreateInviteLink(w http.ResponseWriter, r *http.Request)
 
 	input := usecase.CreateInviteLinkInput{
 		UserID:    userID,
-		ThreadID:  threadID,
+		SpoolID:   threadID,
 		MaxUses:   req.MaxUses,
 		ExpiresAt: req.ExpiresAt,
 	}
 
-	session, err := h.threadUsecase.CreateInviteLink(r.Context(), input)
+	session, err := h.usecase.CreateInviteLink(r.Context(), input)
 	if err != nil {
 		code, clientErr := apperrors.GetErrAndCodeToSend(err)
 		h.logger.Warn("failed to create session", zap.Error(err))

@@ -1,6 +1,10 @@
 package usecase
 
-import "github.com/onionfriend2004/threadbook_backend/internal/gdomain"
+import (
+	"time"
+
+	"github.com/onionfriend2004/threadbook_backend/internal/gdomain"
+)
 
 // ---------- CreateThread ----------
 type CreateThreadInput struct {
@@ -73,8 +77,10 @@ type ConnectAndSubscribeTokens struct {
 }
 
 type CreateInviteLinkInput struct {
-	UserID   uint
-	ThreadID uint
+	UserID    uint
+	ThreadID  uint
+	MaxUses   uint
+	ExpiresAt time.Time
 }
 
 type JoinToThreadInput struct {

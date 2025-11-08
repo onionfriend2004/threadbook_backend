@@ -46,7 +46,8 @@ func (h *ThreadHandler) Routes(r chi.Router, authenticator auth.AuthenticatorInt
 			r.With(validator.ValidateJSONMiddleware(dto.ThreadCreateRequest{})).
 				Post("/create", h.Create)
 
-			r.Get("/invite-link/create", h.CreateInviteLink)
+			r.With(validator.ValidateJSONMiddleware(dto.CreateInviteLinkRequest{})).
+				Post("/invite-link/create", h.CreateInviteLink)
 			r.Delete("/invite-link", h.DeleteInviteLink)
 			r.Get("/invite-link/{thread_id}", h.GetThreadInviteLinks)
 

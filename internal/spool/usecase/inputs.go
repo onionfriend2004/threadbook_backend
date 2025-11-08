@@ -1,6 +1,9 @@
 package usecase
 
-import "io"
+import (
+	"io"
+	"time"
+)
 
 // ---------- CreateSpool ----------
 type CreateSpoolInput struct {
@@ -51,6 +54,29 @@ type GetSpoolInfoByIdInput struct {
 
 // ---------- GetSpoolMembers ----------
 type GetSpoolMembersInput struct {
+	UserID  uint
+	SpoolID uint
+}
+
+// ---------- InviteLinks ----------
+type CreateInviteLinkInput struct {
+	UserID    uint
+	SpoolID   uint
+	MaxUses   uint
+	ExpiresAt time.Time
+}
+
+type JoinToSpoolInput struct {
+	Username string
+	Link     string
+}
+
+type DeleteInviteLinkInput struct {
+	UserID uint
+	Link   string
+}
+
+type GetSpoolInviteLinksInput struct {
 	UserID  uint
 	SpoolID uint
 }
