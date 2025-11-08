@@ -15,6 +15,7 @@ type ThreadHandler struct {
 	messageUsecase *usecase.MessageUsecase
 	roomUsecase    usecase.RoomUsecaseInterface
 	cookieConfig   *config.CookieConfig
+	fileConfig     *config.FileConfig
 	logger         *zap.Logger
 }
 
@@ -23,6 +24,7 @@ func NewThreadHandler(
 	messageUC *usecase.MessageUsecase,
 	roomUC usecase.RoomUsecaseInterface,
 	cookieConfig *config.CookieConfig,
+	fileConfig *config.FileConfig,
 	logger *zap.Logger,
 ) *ThreadHandler {
 	return &ThreadHandler{
@@ -30,6 +32,7 @@ func NewThreadHandler(
 		messageUsecase: messageUC,
 		roomUsecase:    roomUC,
 		cookieConfig:   cookieConfig,
+		fileConfig:     fileConfig,
 		logger:         logger,
 	}
 }
@@ -65,8 +68,12 @@ func (h *ThreadHandler) Routes(r chi.Router, authenticator auth.AuthenticatorInt
 		r.Route("/{id}", func(r chi.Router) {
 			r.Get("/messages", h.GetMessages)
 
-			r.With(validator.ValidateJSONMiddleware(dto.SendMessageRequest{})).
-				Post("/messages", h.SendMessage)
+			r.Post("/messages", h.SendMessage)
+
+			r.With(validator.ValidateJSONMiddleware(dto.UpdateMessageRequest{})).
+				Put("/messages/{message_id}", h.UpdateMessage)
+
+			r.Delete("/messages/{message_id}", h.DeleteMessage)
 		})
 
 	})
