@@ -47,13 +47,11 @@ type MessageCreatedPayload struct {
 	CreatedAt int64    `json:"created_at"`
 }
 
-// для единообразия добавим и сюда Payloads — если при апдейте тоже есть файлы (например, после редактирования)
 type MessageUpdatedPayload struct {
 	MessageID uint   `json:"id"`
 	ThreadID  uint   `json:"thread_id"`
 	Content   string `json:"content"`
-	// Payloads  []string `json:"payloads,omitempty"`
-	UpdatedAt int64 `json:"updated_at"`
+	UpdatedAt int64  `json:"updated_at"`
 }
 
 type MessageDeletedPayload struct {
