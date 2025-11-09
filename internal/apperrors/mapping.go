@@ -34,11 +34,11 @@ var errToCode = map[error]int{
 	threadUsecase.ErrWrongTypeThread:    http.StatusBadRequest,
 	authUsecase.ErrInvalidInput:         http.StatusBadRequest,
 	authExternal.ErrInvalidSessionData:  http.StatusBadRequest,
-	authUsecase.ErrInvalidEmail:         http.StatusAccepted,
+	authUsecase.ErrInvalidEmail:         http.StatusBadRequest,
+	authUsecase.ErrInvalidCredentials:   http.StatusBadRequest,
 
 	// --- Ошибки 401 Unauthorized ---
-	gdomain.ErrUnauthorized:           http.StatusUnauthorized,
-	authUsecase.ErrInvalidCredentials: http.StatusUnauthorized,
+	gdomain.ErrUnauthorized: http.StatusUnauthorized,
 
 	// --- Ошибки 403 Forbidden (нет доступа / слишком много попыток) ---
 	spoolUsecase.ErrForbidden:           http.StatusForbidden,

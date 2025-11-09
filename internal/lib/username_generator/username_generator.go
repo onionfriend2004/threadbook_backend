@@ -41,7 +41,6 @@ var Animals = []string{
 }
 
 func GenerateRandomUsername() string {
-	// rand.Seed(time.Now().UnixNano())
 	adj := Adjectives[rand.Intn(len(Adjectives))]
 	animal := Animals[rand.Intn(len(Animals))]
 	digits := rand.Intn(100000)
