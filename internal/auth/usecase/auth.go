@@ -10,6 +10,7 @@ import (
 	"github.com/onionfriend2004/threadbook_backend/internal/auth/external"
 	"github.com/onionfriend2004/threadbook_backend/internal/auth/hasher"
 	"github.com/onionfriend2004/threadbook_backend/internal/gdomain"
+	passwordvalidator "github.com/onionfriend2004/threadbook_backend/internal/lib/password_validator"
 	"go.uber.org/zap"
 )
 
@@ -28,7 +29,7 @@ type AuthUsecaseInterface interface {
 	CheckUsername(ctx context.Context, userID string) (bool, error)
 	CheckEmail(ctx context.Context, userID string) (bool, error)
 
-	NoAuthSignUp(ctx context.Context) (*gdomain.User, error)
+	CreateGuest(ctx context.Context) (*gdomain.User, error)
 	UpgradeGuestToUser(ctx context.Context, input UpgradeGuestToUserInput) (*gdomain.User, error)
 }
 
@@ -107,6 +108,14 @@ func (u *authUsecase) SignUpUser(ctx context.Context, input SignUpInput) (*gdoma
 		return nil, ErrUserAlreadyExists
 	}
 
+	/// пока так, потом надо кастомный валидатор в жысон прикрутить
+	err = passwordvalidator.ValidatePassword(input.Password)
+	if err != nil {
+		u.logger.Error("failed to validate password", zap.Error(err))
+		return nil, err
+	}
+	/// пока так, потом надо кастомный валидатор в жысон прикрутить
+
 	hashedPassword, err := u.hasher.Hash(input.Password)
 	if err != nil {
 		u.logger.Error("failed to hash password", zap.Error(err))
@@ -146,8 +155,8 @@ func (u *authUsecase) SignUpUser(ctx context.Context, input SignUpInput) (*gdoma
 	return createdUser, nil
 }
 
-func (u *authUsecase) NoAuthSignUp(ctx context.Context) (*gdomain.User, error) {
-	createdUser, err := u.userRepo.CreateNoAuthUser(ctx)
+func (u *authUsecase) CreateGuest(ctx context.Context) (*gdomain.User, error) {
+	createdUser, err := u.userRepo.CreateGuest(ctx)
 	if err != nil {
 		u.logger.Error("failed to create user", zap.Error(err))
 		return nil, err
@@ -180,6 +189,14 @@ func (u *authUsecase) UpgradeGuestToUser(ctx context.Context, input UpgradeGuest
 	if usernameExists {
 		return nil, ErrUserAlreadyExists
 	}
+
+	/// пока так, потом надо кастомный валидатор в жысон прикрутить
+	err = passwordvalidator.ValidatePassword(input.Password)
+	if err != nil {
+		u.logger.Error("failed to validate password", zap.Error(err))
+		return nil, err
+	}
+	/// пока так, потом надо кастомный валидатор в жысон прикрутить
 
 	hashedPassword, err := u.hasher.Hash(input.Password)
 	if err != nil {

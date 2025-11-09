@@ -29,4 +29,5 @@ var (
 	ErrGetMembers             = errors.New("failed to get thread members")
 	ErrGetAccessibleIDs       = errors.New("failed to get accessible thread ids")
 	ErrRightsCheck            = errors.New("failed to check user rights on thread room")
+	ErrUpdateMessage          = errors.New("failed to update message")
 )

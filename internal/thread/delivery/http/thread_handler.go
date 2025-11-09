@@ -15,6 +15,7 @@ type ThreadHandler struct {
 	messageUsecase *usecase.MessageUsecase
 	roomUsecase    usecase.RoomUsecaseInterface
 	cookieConfig   *config.CookieConfig
+	fileConfig     *config.FileConfig
 	logger         *zap.Logger
 }
 
@@ -23,6 +24,7 @@ func NewThreadHandler(
 	messageUC *usecase.MessageUsecase,
 	roomUC usecase.RoomUsecaseInterface,
 	cookieConfig *config.CookieConfig,
+	fileConfig *config.FileConfig,
 	logger *zap.Logger,
 ) *ThreadHandler {
 	return &ThreadHandler{
@@ -30,6 +32,7 @@ func NewThreadHandler(
 		messageUsecase: messageUC,
 		roomUsecase:    roomUC,
 		cookieConfig:   cookieConfig,
+		fileConfig:     fileConfig,
 		logger:         logger,
 	}
 }
@@ -46,19 +49,18 @@ func (h *ThreadHandler) Routes(r chi.Router, authenticator auth.AuthenticatorInt
 			r.With(validator.ValidateJSONMiddleware(dto.ThreadCreateRequest{})).
 				Post("/create", h.Create)
 
-			r.Get("/invite_link/create", h.CreateInviteLink)
-			r.Delete("/invite_link", h.DeleteInviteLink)
-			r.Get("/invite_link/{thread_id}", h.GetThreadInviteLinks)
-
-			r.Get("/ws/token", h.GetSubscribeToken)
+			r.Get("/invite-link/create", h.CreateInviteLink)
+			r.Delete("/invite-link", h.DeleteInviteLink)
+			r.Get("/invite-link/{thread_id}", h.GetThreadInviteLinks)
 
 			r.With(validator.ValidateJSONMiddleware(dto.InviteRequest{})).
 				Post("/invite", h.InviteToThread)
 
 		})
 
+		r.Get("/ws/token", h.GetSubscribeToken)
 		r.Get("/", h.GetBySpoolID)
-		r.Get("/invite_link/join/{thread_link}", h.JoinToThread)
+		r.Get("/invite-link/join/{thread_link}", h.JoinToThread)
 
 		r.With(validator.ValidateJSONMiddleware(dto.GetVoiceTokenRequest{})).
 			Post("/sfu/token", h.GetVoiceToken)
@@ -66,8 +68,12 @@ func (h *ThreadHandler) Routes(r chi.Router, authenticator auth.AuthenticatorInt
 		r.Route("/{id}", func(r chi.Router) {
 			r.Get("/messages", h.GetMessages)
 
-			r.With(validator.ValidateJSONMiddleware(dto.SendMessageRequest{})).
-				Post("/messages", h.SendMessage)
+			r.Post("/messages", h.SendMessage)
+
+			r.With(validator.ValidateJSONMiddleware(dto.UpdateMessageRequest{})).
+				Put("/messages/{message_id}", h.UpdateMessage)
+
+			r.Delete("/messages/{message_id}", h.DeleteMessage)
 		})
 
 	})

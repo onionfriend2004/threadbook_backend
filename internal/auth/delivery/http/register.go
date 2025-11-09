@@ -57,9 +57,9 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *AuthHandler) NoAuthRegister(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) CreateGuest(w http.ResponseWriter, r *http.Request) {
 
-	user, err := h.usecase.NoAuthSignUp(r.Context())
+	user, err := h.usecase.CreateGuest(r.Context())
 	if err != nil {
 		code, clientErr := apperrors.GetErrAndCodeToSend(err)
 
