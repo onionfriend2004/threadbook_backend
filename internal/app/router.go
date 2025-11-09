@@ -82,13 +82,13 @@ func Run(config *config.Config, logger *zap.Logger) error {
 	}
 
 	// ===================== Email Consumer =====================
-	// emailConsumer, err := initEmailConsumer(config, natsConn, logger, config.Nats.EmailConsumerName)
+	emailConsumer, err := initEmailConsumer(config, natsConn, logger, config.Nats.EmailConsumerName)
 
 	// Создаём общий контекст для всего приложения
-	// ctx, cancel := context.WithCancel(context.Background())
-	// defer cancel()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	// go startEmailConsumer(ctx, emailConsumer, logger)
+	go startEmailConsumer(ctx, emailConsumer, logger)
 
 	// ===================== HTTP Server =====================
 	r := chi.NewRouter()
@@ -132,7 +132,7 @@ func Run(config *config.Config, logger *zap.Logger) error {
 	<-quit
 	logger.Info("shutting down gracefully...")
 
-	// cancel()
+	cancel()
 
 	ctxShutdown, cancelShutdown := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancelShutdown()
