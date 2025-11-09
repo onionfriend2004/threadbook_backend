@@ -124,31 +124,27 @@ func (uc *MessageUsecase) SendMessage(ctx context.Context, input SendMessageInpu
 	uc.logger.Info("message created successfully", zap.Uint("message_id", newMsg.ID), zap.Int("payload_count", len(uploadedFiles)))
 
 	// --- 5. Публикуем событие через WebSocket ---
-	members, err := uc.threadRepo.GetThreadMembers(ctx, input.ThreadID)
-	if err != nil {
-		uc.logger.Warn("failed to get thread members for WS publish", zap.Error(err))
-	} else {
-		payloadLinks := make([]string, len(newMsg.Payloads))
-		for i, p := range newMsg.Payloads {
-			payloadLinks[i] = p.FileLink
-		}
+	payloadLinks := make([]string, len(newMsg.Payloads))
+	for i, p := range newMsg.Payloads {
+		payloadLinks[i] = p.FileLink
+	}
 
-		ev := event.Event{
-			Type: event.MessageCreated,
-			Payload: event.MessageCreatedPayload{
-				MessageID: newMsg.ID,
-				ThreadID:  newMsg.ThreadID,
-				Content:   newMsg.Content,
-				Username:  input.Username,
-				Payloads:  payloadLinks,
-				CreatedAt: newMsg.CreatedAt.Unix(),
-			},
-		}
-		for _, member := range members {
-			if err := uc.wsRepo.PublishToThread(ctx, input.ThreadID, ev); err != nil {
-				uc.logger.Warn("failed to publish message event to WS", zap.Uint("userID", member.UserID), zap.Error(err))
-			}
-		}
+	ev := event.Event{
+		Type: event.MessageCreated,
+		Payload: event.MessageCreatedPayload{
+			MessageID: newMsg.ID,
+			ThreadID:  newMsg.ThreadID,
+			Content:   newMsg.Content,
+			Username:  input.Username,
+			Payloads:  payloadLinks,
+			CreatedAt: newMsg.CreatedAt.Unix(),
+		},
+	}
+
+	if err := uc.wsRepo.PublishToThread(ctx, input.ThreadID, ev); err != nil {
+		uc.logger.Warn("failed to publish message event to WS",
+			zap.Uint("thread_id", input.ThreadID),
+			zap.Error(err))
 	}
 
 	return newMsg, nil
@@ -233,15 +229,10 @@ func (uc *MessageUsecase) UpdateMessage(ctx context.Context, input UpdateMessage
 		},
 	}
 
-	members, err := uc.threadRepo.GetThreadMembers(ctx, input.ThreadID)
-	if err == nil {
-		for _, member := range members {
-			if err := uc.wsRepo.PublishToThread(ctx, input.ThreadID, ev); err != nil {
-				uc.logger.Warn("failed to publish updated message",
-					zap.Uint("userID", member.UserID),
-					zap.Error(err))
-			}
-		}
+	if err := uc.wsRepo.PublishToThread(ctx, input.ThreadID, ev); err != nil {
+		uc.logger.Warn("failed to publish message event to WS",
+			zap.Uint("thread_id", input.ThreadID),
+			zap.Error(err))
 	}
 
 	return msg, nil
@@ -309,15 +300,10 @@ func (uc *MessageUsecase) DeleteMessage(ctx context.Context, input DeleteMessage
 		},
 	}
 
-	members, err := uc.threadRepo.GetThreadMembers(ctx, input.ThreadID)
-	if err == nil {
-		for _, member := range members {
-			if err := uc.wsRepo.PublishToThread(ctx, input.ThreadID, ev); err != nil {
-				uc.logger.Warn("failed to publish deleted message",
-					zap.Uint("userID", member.UserID),
-					zap.Error(err))
-			}
-		}
+	if err := uc.wsRepo.PublishToThread(ctx, input.ThreadID, ev); err != nil {
+		uc.logger.Warn("failed to publish message event to WS",
+			zap.Uint("thread_id", input.ThreadID),
+			zap.Error(err))
 	}
 
 	return nil
