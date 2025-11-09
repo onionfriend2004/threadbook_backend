@@ -172,6 +172,8 @@ services:
     networks:
       - vibecode_network
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   nginx:
     image: nginx
