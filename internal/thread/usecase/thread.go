@@ -59,6 +59,7 @@ func (u *ThreadUsecase) CreateThread(ctx context.Context, input CreateThreadInpu
 		return nil, ErrWrongTypeThread
 	}
 
+	// Создаём поток в репозитории
 	newThread, err := u.threadRepo.Create(ctx, input.OwnerID, input.SpoolID, input.Title, input.TypeThread)
 	if err != nil {
 		return nil, err
@@ -66,26 +67,29 @@ func (u *ThreadUsecase) CreateThread(ctx context.Context, input CreateThreadInpu
 
 	threadChannel := fmt.Sprintf("thread#%d", newThread.ID)
 
-	subToken, err := u.wsRepo.GenerateSubscribeToken(ctx, input.OwnerID, threadChannel, u.tokenTTL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate subscribe token: %w", err)
-	}
-
+	// Получаем список участников потока
 	members, err := u.threadRepo.GetThreadMembers(ctx, newThread.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get thread members: %w", err)
 	}
 
-	eventPayload := event.ThreadCreatedPayload{
-		ThreadID:  newThread.ID,
-		SpoolID:   newThread.SpoolID,
-		Title:     newThread.Title,
-		CreatedAt: newThread.CreatedAt.Unix(),
-		Channel:   threadChannel,
-		Token:     subToken,
-	}
-
+	// Для каждого участника создаём свой токен и рассылаем событие
 	for _, member := range members {
+		subToken, err := u.wsRepo.GenerateSubscribeToken(ctx, member.UserID, threadChannel, u.tokenTTL)
+		if err != nil {
+			u.logger.Warn("failed to generate subscribe token", zap.Uint("userID", member.UserID), zap.Error(err))
+			continue
+		}
+
+		eventPayload := event.ThreadCreatedPayload{
+			ThreadID:  newThread.ID,
+			SpoolID:   newThread.SpoolID,
+			Title:     newThread.Title,
+			CreatedAt: newThread.CreatedAt.Unix(),
+			Channel:   threadChannel,
+			Token:     subToken,
+		}
+
 		if err := u.wsRepo.PublishToUser(ctx, member.UserID, event.Event{
 			Type:    event.ThreadCreated,
 			Payload: eventPayload,
