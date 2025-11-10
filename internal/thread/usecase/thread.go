@@ -77,13 +77,12 @@ func (u *ThreadUsecase) CreateThread(ctx context.Context, input CreateThreadInpu
 	}
 
 	eventPayload := event.ThreadCreatedPayload{
-		ThreadID:       newThread.ID,
-		SpoolID:        newThread.SpoolID,
-		Title:          newThread.Title,
-		CreatedAt:      newThread.CreatedAt.Unix(),
-		Channel:        threadChannel,
-		Token:          subToken,
-		SubscribeToken: subToken,
+		ThreadID:  newThread.ID,
+		SpoolID:   newThread.SpoolID,
+		Title:     newThread.Title,
+		CreatedAt: newThread.CreatedAt.Unix(),
+		Channel:   threadChannel,
+		Token:     subToken,
 	}
 
 	for _, member := range members {
@@ -168,6 +167,7 @@ func (u *ThreadUsecase) InviteToThread(ctx context.Context, input InviteToThread
 		payload := event.ThreadInvitePayload{
 			ThreadID: thread.ID,
 			SpoolID:  thread.SpoolID,
+			Type:     thread.Type,
 			Title:    thread.Title,
 			Channel:  threadChannel,
 			Token:    subToken,
