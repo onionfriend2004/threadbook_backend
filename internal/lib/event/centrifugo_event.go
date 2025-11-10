@@ -29,11 +29,6 @@ type Event struct {
 	Payload any  `json:"payload"`
 }
 
-type ThreadSubTokenPayload struct {
-	Channel string `json:"channel"`
-	Token   string `json:"token"`
-}
-
 //
 // ---- Message Events ----
 //
@@ -64,6 +59,7 @@ type MessageDeletedPayload struct {
 
 type ThreadCreatedPayload struct {
 	ThreadID       uint   `json:"id"`
+	SpoolID        uint   `json:"spool_id"`
 	Title          string `json:"title"`
 	CreatedAt      int64  `json:"created_at"`
 	Channel        string `json:"channel"`
@@ -73,16 +69,19 @@ type ThreadCreatedPayload struct {
 
 type ThreadUpdatedPayload struct {
 	ThreadID  uint   `json:"id"`
+	SpoolID   uint   `json:"spool_id"`
 	Title     string `json:"title"`
 	UpdatedAt int64  `json:"updated_at"`
 }
 
 type ThreadClosedPayload struct {
 	ThreadID uint `json:"id"`
+	SpoolID  uint `json:"spool_id"`
 }
 
 type ThreadInvitePayload struct {
 	ThreadID uint   `json:"id"`
+	SpoolID  uint   `json:"spool_id"`
 	Title    string `json:"title"`
 	Channel  string `json:"channel"`
 	Token    string `json:"token"`

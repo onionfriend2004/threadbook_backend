@@ -78,6 +78,7 @@ func (u *ThreadUsecase) CreateThread(ctx context.Context, input CreateThreadInpu
 
 	eventPayload := event.ThreadCreatedPayload{
 		ThreadID:       newThread.ID,
+		SpoolID:        newThread.SpoolID,
 		Title:          newThread.Title,
 		CreatedAt:      newThread.CreatedAt.Unix(),
 		Channel:        threadChannel,
@@ -121,6 +122,7 @@ func (u *ThreadUsecase) CloseThread(ctx context.Context, input CloseThreadInput)
 	// Подготавливаем payload события
 	payload := event.ThreadClosedPayload{
 		ThreadID: thread.ID,
+		SpoolID:  thread.SpoolID,
 	}
 
 	// Рассылаем событие всем участникам
@@ -142,7 +144,13 @@ func (u *ThreadUsecase) InviteToThread(ctx context.Context, input InviteToThread
 		return err
 	}
 
-	threadChannel := fmt.Sprintf("thread#%d", input.ThreadID)
+	// Получаем сам тред
+	thread, err := u.threadRepo.GetThreadByID(ctx, input.ThreadID)
+	if err != nil {
+		return fmt.Errorf("failed to get thread: %w", err)
+	}
+
+	threadChannel := fmt.Sprintf("thread#%d", thread.ID)
 
 	for _, username := range input.InviteeUsernames {
 		user, err := u.userRepo.GetUserByUsername(ctx, username)
@@ -157,9 +165,12 @@ func (u *ThreadUsecase) InviteToThread(ctx context.Context, input InviteToThread
 			continue
 		}
 
-		payload := event.ThreadSubTokenPayload{
-			Channel: threadChannel,
-			Token:   subToken,
+		payload := event.ThreadInvitePayload{
+			ThreadID: thread.ID,
+			SpoolID:  thread.SpoolID,
+			Title:    thread.Title,
+			Channel:  threadChannel,
+			Token:    subToken,
 		}
 
 		if err := u.wsRepo.PublishToUser(ctx, user.ID, event.Event{
@@ -196,6 +207,7 @@ func (u *ThreadUsecase) UpdateThread(ctx context.Context, input UpdateThreadInpu
 	// Подготавливаем payload события
 	payload := event.ThreadUpdatedPayload{
 		ThreadID:  updatedThread.ID,
+		SpoolID:   updatedThread.SpoolID,
 		Title:     updatedThread.Title,
 		UpdatedAt: updatedThread.UpdatedAt.Unix(),
 	}
