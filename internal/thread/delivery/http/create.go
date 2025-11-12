@@ -22,10 +22,11 @@ func (h *ThreadHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	input := usecase.CreateThreadInput{
-		Title:      req.Title,
-		SpoolID:    req.SpoolID,
-		OwnerID:    userID,
-		TypeThread: req.TypeThread,
+		Title:       req.Title,
+		SpoolID:     req.SpoolID,
+		OwnerID:     userID,
+		TypeThread:  req.TypeThread,
+		AccessLevel: req.AccessLevel,
 	}
 
 	createdThread, err := h.threadUsecase.CreateThread(r.Context(), input)
