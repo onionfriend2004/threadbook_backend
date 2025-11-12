@@ -38,7 +38,7 @@ func (h *ThreadHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	resp := dto.ThreadCreateResponse{
 		ID:        createdThread.ID,
-		SpoolID:   createdThread.SpoolID,
+		SpoolID:   *createdThread.SpoolID,
 		Title:     createdThread.Title,
 		Type:      createdThread.Type,
 		IsClosed:  createdThread.IsClosed,

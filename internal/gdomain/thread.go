@@ -5,22 +5,33 @@ import (
 )
 
 type Thread struct {
-	ID        uint      `gorm:"column:id;primaryKey"`
-	CreatorID uint      `gorm:"column:creator_id;not null"`
-	SpoolID   uint      `gorm:"column:spool_id;not null"`
-	Title     string    `gorm:"column:title;not null"`
-	Type      string    `gorm:"column:type;not null"`
-	IsClosed  bool      `gorm:"column:is_closed;not null"`
-	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime"`
-	UpdatedAt time.Time `gorm:"column:updated_at;autoUpdateTime"`
+	ID          uint   `gorm:"primaryKey"`
+	CreatorID   uint   `gorm:"not null"`
+	SpoolID     *uint  `gorm:"default:NULL"`
+	Title       string `gorm:"not null"`
+	Type        string `gorm:"not null"`
+	IsClosed    bool   `gorm:"not null;default:false"`
+	AccessLevel uint   `gorm:"nut null;default:1"`
 
 	Messages []Message `gorm:"foreignKey:ThreadID;constraint:OnDelete:CASCADE;"`
+	Users    []User    `gorm:"many2many:thread_users;constraint:OnDelete:CASCADE;"`
 
-	Users []User `gorm:"many2many:thread_users;joinForeignKey:ThreadID;joinReferences:UserID;constraint:OnDelete:CASCADE;"`
+	CreatedAt time.Time `gorm:"autoCreateTime"`
+	UpdatedAt time.Time `gorm:"autoUpdateTime"`
 }
 
 type ThreadUser struct {
-	UserID   uint `gorm:"primaryKey"`
-	ThreadID uint `gorm:"primaryKey"`
-	IsMember bool `gorm:"default:true"`
+	UserID   uint             `gorm:"primaryKey"`
+	ThreadID uint             `gorm:"primaryKey"`
+	Status   ThreadUserStatus `gorm:"type:varchar(20);not null;default:'active'"`
+	JoinedAt time.Time        `gorm:"autoCreateTime"`
 }
+
+type ThreadUserStatus string
+
+const (
+	ThreadUserStatusActive ThreadUserStatus = "active"
+	ThreadUserStatusLeft   ThreadUserStatus = "left"
+	ThreadUserStatusBanned ThreadUserStatus = "banned"
+	ThreadUserStatusMuted  ThreadUserStatus = "muted"
+)

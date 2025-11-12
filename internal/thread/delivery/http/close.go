@@ -43,7 +43,7 @@ func (h *ThreadHandler) Close(w http.ResponseWriter, r *http.Request) {
 
 	resp := dto.ThreadCreateResponse{
 		ID:        closedThread.ID,
-		SpoolID:   closedThread.SpoolID,
+		SpoolID:   *closedThread.SpoolID,
 		Title:     closedThread.Title,
 		Type:      closedThread.Type,
 		IsClosed:  closedThread.IsClosed,

@@ -21,4 +21,6 @@ type SpoolRepoInterface interface {
 	IsUserInSpool(ctx context.Context, userID uint, spoolID uint) (bool, error)
 
 	WithTx(ctx context.Context, fn func(txCtx context.Context) error) error
+
+	RemoveAllGuestsFromSpool(ctx context.Context, spoolID uint) error
 }

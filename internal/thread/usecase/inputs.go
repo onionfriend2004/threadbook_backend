@@ -8,10 +8,11 @@ import (
 
 // ---------- CreateThread ----------
 type CreateThreadInput struct {
-	Title      string
-	SpoolID    uint
-	OwnerID    uint
-	TypeThread string
+	Title       string
+	SpoolID     *uint
+	OwnerID     uint
+	TypeThread  string
+	AccessLevel uint
 }
 
 // ---------- GetBySpoolID ----------
@@ -35,10 +36,11 @@ type InviteToThreadInput struct {
 
 // ---------- UpdateThread ----------
 type UpdateThreadInput struct {
-	ID         uint
-	EditorID   uint
-	Title      *string
-	ThreadType *string
+	ID          uint
+	EditorID    uint
+	Title       *string
+	ThreadType  *string
+	AccessLevel *uint
 }
 
 // ---------- GetVoiceToken ----------

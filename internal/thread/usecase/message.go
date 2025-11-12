@@ -62,7 +62,7 @@ func (uc *MessageUsecase) SendMessage(ctx context.Context, input SendMessageInpu
 		return nil, ErrFailedToSaveMsg
 	}
 
-	members, err := uc.threadRepo.GetThreadMembers(ctx, input.ThreadID)
+	members, err := uc.threadRepo.GetUsersWithAccess(ctx, *thread.SpoolID, thread.AccessLevel)
 	if err != nil {
 		return msg, err
 	}
@@ -81,7 +81,7 @@ func (uc *MessageUsecase) SendMessage(ctx context.Context, input SendMessageInpu
 	for _, member := range members {
 		if err := uc.wsRepo.PublishToThread(ctx, input.ThreadID, ev); err != nil {
 			uc.logger.Warn(ErrFailedToPublish.Error(),
-				zap.Uint("userID", member.UserID),
+				zap.Uint("userID", member.ID),
 				zap.Error(err))
 		}
 	}

@@ -19,12 +19,6 @@ type BannerInput struct {
 	ContentType string
 }
 
-// ---------- LeaveFromSpool ----------
-type LeaveFromSpoolInput struct {
-	UserID  uint
-	SpoolID uint
-}
-
 // ---------- GetUserSpoolList ----------
 type GetUserSpoolListInput struct {
 	UserID uint
@@ -44,6 +38,12 @@ type UpdateSpoolInput struct {
 	SpoolID    uint
 	Name       string
 	BannerLink string
+}
+
+// ---------- LeaveFromSpool ----------
+type LeaveFromSpoolInput struct {
+	UserID  uint
+	SpoolID uint
 }
 
 // ---------- GetSpoolInfoById ----------
@@ -77,6 +77,11 @@ type DeleteInviteLinkInput struct {
 }
 
 type GetSpoolInviteLinksInput struct {
+	UserID  uint
+	SpoolID uint
+}
+
+type RemoveAllGuestsFromSpoolInput struct {
 	UserID  uint
 	SpoolID uint
 }

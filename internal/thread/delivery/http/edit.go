@@ -23,10 +23,11 @@ func (h *ThreadHandler) Update(w http.ResponseWriter, r *http.Request) {
 	req := validator.GetValidatedBody[dto.UpdateThreadRequest](r)
 
 	input := usecase.UpdateThreadInput{
-		ID:         req.ID,
-		EditorID:   userID,
-		Title:      req.Title,
-		ThreadType: req.Type,
+		ID:          req.ID,
+		EditorID:    userID,
+		Title:       req.Title,
+		ThreadType:  req.Type,
+		AccessLevel: req.AccessLevel,
 	}
 
 	updatedThread, err := h.threadUsecase.UpdateThread(r.Context(), input)
@@ -39,7 +40,7 @@ func (h *ThreadHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	resp := dto.ThreadCreateResponse{
 		ID:        updatedThread.ID,
-		SpoolID:   updatedThread.SpoolID,
+		SpoolID:   *updatedThread.SpoolID,
 		Title:     updatedThread.Title,
 		Type:      updatedThread.Type,
 		IsClosed:  updatedThread.IsClosed,

@@ -6,7 +6,6 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 
 	"github.com/onionfriend2004/threadbook_backend/internal/gdomain"
 )
@@ -148,26 +147,26 @@ func (r *spoolRepo) AddUserToSpoolByUsername(ctx context.Context, username strin
 			return err
 		}
 
-		var threads []gdomain.Thread
-		if err := tx.Where("spool_id = ? AND type = ?", spoolID, "public").
-			Find(&threads).Error; err != nil {
-			return ErrNotFound
-		}
+		// var threads []gdomain.Thread
+		// if err := tx.Where("spool_id = ? AND type = ?", spoolID, "public").
+		// 	Find(&threads).Error; err != nil {
+		// 	return ErrNotFound
+		// }
 
-		if len(threads) > 0 {
-			threadUsers := make([]gdomain.ThreadUser, 0, len(threads))
-			for _, thread := range threads {
-				threadUsers = append(threadUsers, gdomain.ThreadUser{
-					UserID:   user.ID,
-					ThreadID: thread.ID,
-					IsMember: true,
-				})
-			}
+		// if len(threads) > 0 {
+		// 	threadUsers := make([]gdomain.ThreadUser, 0, len(threads))
+		// 	for _, thread := range threads {
+		// 		threadUsers = append(threadUsers, gdomain.ThreadUser{
+		// 			UserID:   user.ID,
+		// 			ThreadID: thread.ID,
+		// 			IsMember: true,
+		// 		})
+		// 	}
 
-			if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&threadUsers).Error; err != nil {
-				return err
-			}
-		}
+		// 	if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&threadUsers).Error; err != nil {
+		// 		return err
+		// 	}
+		// }
 
 		return nil
 	})
@@ -235,4 +234,12 @@ func (r *spoolRepo) IsUserInSpool(ctx context.Context, userID uint, spoolID uint
 	}
 
 	return count > 0, nil
+}
+
+func (r *spoolRepo) RemoveAllGuestsFromSpool(ctx context.Context, spoolID uint) error {
+	return r.db.WithContext(ctx).
+		Model(&gdomain.UserSpool{}).
+		Joins("JOIN users ON user_spool.user_id = users.id").
+		Where("user_spool.spool_id = ? AND users.is_guest = ?", spoolID, true).
+		Update("deleted", true).Error
 }

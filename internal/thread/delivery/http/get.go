@@ -52,7 +52,7 @@ func (h *ThreadHandler) GetBySpoolID(w http.ResponseWriter, r *http.Request) {
 		is_creator := (userID == t.CreatorID)
 		resp = append(resp, dto.ThreadCreateResponse{
 			ID:        t.ID,
-			SpoolID:   t.SpoolID,
+			SpoolID:   *t.SpoolID,
 			IsCreator: is_creator,
 			Title:     t.Title,
 			Type:      t.Type,

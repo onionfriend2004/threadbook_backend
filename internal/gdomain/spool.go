@@ -21,9 +21,10 @@ type Spool struct {
 
 // UserSpool — join таблица пользователь <-> спул
 type UserSpool struct {
-	UserID    uint `gorm:"primaryKey"`
-	SpoolID   uint `gorm:"primaryKey"`
-	IsDeleted bool `gorm:"default:false"`
+	UserID      uint `gorm:"primaryKey"`
+	SpoolID     uint `gorm:"primaryKey"`
+	IsDeleted   bool `gorm:"default:false"`
+	AccessLevel uint `gorm:"not null;default:0"`
 }
 
 // NormalizeName приводит название к нормализованному виду

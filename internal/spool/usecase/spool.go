@@ -26,6 +26,7 @@ type SpoolUsecaseInterface interface {
 	DeleteInviteLink(ctx context.Context, input DeleteInviteLinkInput) error
 	JoinToSpool(ctx context.Context, input JoinToSpoolInput) error
 	CreateInviteLink(ctx context.Context, input CreateInviteLinkInput) (*gdomain.InviteLink, error)
+	RemoveAllGuestsFromSpool(ctx context.Context, input RemoveAllGuestsFromSpoolInput) error
 }
 
 type spoolUsecase struct {
@@ -325,4 +326,15 @@ func (u *spoolUsecase) GetSpoolInviteLinks(ctx context.Context, input GetSpoolIn
 	}
 
 	return u.inviteLinkRepo.GetLinksByResource(ctx, "spool", input.SpoolID)
+}
+
+func (u *spoolUsecase) RemoveAllGuestsFromSpool(ctx context.Context, input RemoveAllGuestsFromSpoolInput) error {
+	spool, err := u.spoolRepo.GetSpoolByID(ctx, input.SpoolID)
+	if err != nil {
+		return err
+	}
+	if spool.CreatorID != input.UserID {
+		return ErrForbidden
+	}
+	return u.spoolRepo.RemoveAllGuestsFromSpool(ctx, input.SpoolID)
 }

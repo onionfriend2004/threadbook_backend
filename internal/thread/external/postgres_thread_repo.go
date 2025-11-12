@@ -24,64 +24,35 @@ func NewThreadRepo(db *gorm.DB, logger *zap.Logger) ThreadRepoInterface {
 	}
 }
 
-func (r *ThreadRepo) Create(ctx context.Context, creatorID, spoolID uint, title, threadType string) (*gdomain.Thread, error) {
+func (r *ThreadRepo) Create(ctx context.Context, creatorID uint, spoolID *uint, title, threadType string, accessLevel uint) (*gdomain.Thread, error) {
 	var thread gdomain.Thread
 
 	err := r.Db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var count int64
-		if err := tx.
-			Table("user_spools").
-			Where("user_id = ? AND spool_id = ?", creatorID, spoolID).
-			Count(&count).Error; err != nil {
-			return ErrCreateThread
-		}
-
-		if count == 0 {
-			return ErrUserNotInSpool
-		}
-
 		thread = gdomain.Thread{
-			CreatorID: creatorID,
-			SpoolID:   spoolID,
-			Title:     title,
-			Type:      threadType,
-			IsClosed:  false,
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
+			CreatorID:   creatorID,
+			SpoolID:     spoolID,
+			Title:       title,
+			Type:        threadType,
+			AccessLevel: accessLevel,
+			IsClosed:    false,
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
 		}
 
 		if err := tx.Create(&thread).Error; err != nil {
 			return ErrCreateThread
 		}
 
-		if threadType == "public" {
-			var userIDs []int
-			if err := tx.
-				Table("user_spools").
-				Select("user_id").
-				Where("spool_id = ?", spoolID).
-				Pluck("user_id", &userIDs).Error; err != nil {
-				return ErrCreateThread
+		// Добавляем создателя в thread_users только для приватных тредов
+		if threadType == "private" {
+			threadUser := gdomain.ThreadUser{
+				UserID:   creatorID,
+				ThreadID: thread.ID,
+				Status:   gdomain.ThreadUserStatusActive,
+				JoinedAt: time.Now(),
 			}
 
-			if len(userIDs) > 0 {
-				records := make([]map[string]interface{}, 0, len(userIDs))
-				for _, uid := range userIDs {
-					records = append(records, map[string]interface{}{
-						"user_id":   uid,
-						"thread_id": thread.ID,
-					})
-				}
-
-				if err := tx.Table("thread_users").Create(&records).Error; err != nil {
-					return ErrCreateThread
-				}
-			}
-		} else {
-			if err := tx.Table("thread_users").Create(map[string]interface{}{
-				"user_id":   creatorID,
-				"thread_id": thread.ID,
-			}).Error; err != nil {
+			if err := tx.Create(&threadUser).Error; err != nil {
 				return ErrCreateThread
 			}
 		}
@@ -93,6 +64,22 @@ func (r *ThreadRepo) Create(ctx context.Context, creatorID, spoolID uint, title,
 		return nil, err
 	}
 	return &thread, nil
+}
+
+func (r *ThreadRepo) GetUserSpoolStatus(ctx context.Context, userID uint, spoolID uint) (*gdomain.UserSpool, error) {
+	var userSpool gdomain.UserSpool
+	err := r.Db.WithContext(ctx).
+		Where("user_id = ? AND spool_id = ?", userID, spoolID).
+		First(&userSpool).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &userSpool, nil
 }
 
 func (r *ThreadRepo) GetBySpoolID(ctx context.Context, userID, spoolID uint) ([]*gdomain.Thread, error) {
@@ -154,19 +141,15 @@ func (r *ThreadRepo) CheckRightsUserOnThreadRoom(ctx context.Context, threadID u
 func (r *ThreadRepo) Update(
 	ctx context.Context,
 	id uint,
-	editorID uint,
 	title *string,
 	threadType *string,
+	accessLevel *uint,
 ) (*gdomain.Thread, error) {
 	var thread gdomain.Thread
 
 	err := r.Db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.First(&thread, "id = ?", id).Error; err != nil {
 			return ErrThreadNotFound
-		}
-
-		if thread.CreatorID != editorID {
-			return ErrPermissionDenied
 		}
 
 		updates := map[string]interface{}{
@@ -178,6 +161,9 @@ func (r *ThreadRepo) Update(
 		}
 		if threadType != nil {
 			updates["type"] = *threadType
+		}
+		if accessLevel != nil {
+			updates["access_level"] = *accessLevel
 		}
 
 		if err := tx.Model(&thread).Updates(updates).Error; err != nil {
@@ -194,15 +180,78 @@ func (r *ThreadRepo) Update(
 	return &thread, nil
 }
 
-func (r *ThreadRepo) GetThreadMembers(ctx context.Context, threadID uint) ([]gdomain.ThreadUser, error) {
-	var members []gdomain.ThreadUser
+func (r *ThreadRepo) GetUsersWithAccess(ctx context.Context, spoolID uint, minAccessLevel uint) ([]gdomain.User, error) {
+	var users []gdomain.User
 	if err := r.Db.WithContext(ctx).
-		Table("thread_users").
-		Where("thread_id = ? AND is_member = ?", threadID, true).
-		Find(&members).Error; err != nil {
+		Joins("INNER JOIN user_spools ON users.id = user_spools.user_id").
+		Where("user_spools.spool_id = ? AND user_spools.access_level >= ?", spoolID, minAccessLevel).
+		Find(&users).Error; err != nil {
 		return nil, ErrGetMembers
 	}
-	return members, nil
+	return users, nil
+}
+
+func (r *ThreadRepo) GetUserThreadAccessLevelsToUpdate(ctx context.Context, userID uint, threadID uint) (userAccessLevel uint, threadAccessLevel uint, err error) {
+	var result struct {
+		ThreadType        string
+		ThreadAccessLevel uint
+		SpoolID           *uint
+	}
+
+	// Сначала получаем информацию о треде
+	err = r.Db.WithContext(ctx).
+		Table("threads").
+		Select("type, access_level, spool_id").
+		Where("id = ?", threadID).
+		Scan(&result).Error
+
+	if err != nil {
+		return 0, 0, err
+	}
+
+	// Для приватных тредов проверяем участников
+	if result.ThreadType == "private" {
+		// Проверяем, является ли пользователь участником приватного треда
+		var isMember bool
+		err = r.Db.WithContext(ctx).
+			Table("thread_users").
+			Select("COUNT(*) > 0").
+			Where("thread_id = ? AND user_id = ? AND status = ?", threadID, userID, gdomain.ThreadUserStatusActive).
+			Scan(&isMember).Error
+		if err != nil {
+			return 0, 0, err
+		}
+
+		if isMember {
+			// Участник приватного треда имеет доступ
+			return 1, 0, nil // userLevel > threadLevel = доступ разрешен
+		} else {
+			// Не участник - доступ запрещен
+			return 0, 1, nil // userLevel < threadLevel = доступ запрещен
+		}
+	}
+
+	// Для публичных тредов проверяем уровень доступа
+	if result.SpoolID == nil {
+		// Если тред не привязан к спулу - доступ запрещен
+		return 0, 1, nil
+	}
+
+	// Получаем уровень доступа пользователя в спуле
+	var userSpool gdomain.UserSpool
+	err = r.Db.WithContext(ctx).
+		Where("user_id = ? AND spool_id = ?", userID, *result.SpoolID).
+		First(&userSpool).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// Пользователь не состоит в спуле
+			return 0, result.ThreadAccessLevel, nil
+		}
+		return 0, 0, err
+	}
+
+	return userSpool.AccessLevel, result.ThreadAccessLevel, nil
 }
 
 func (r *ThreadRepo) GetAccessibleThreadIDs(ctx context.Context, userID uint) ([]uint, error) {
@@ -219,48 +268,42 @@ func (r *ThreadRepo) GetAccessibleThreadIDs(ctx context.Context, userID uint) ([
 
 func (r *ThreadRepo) InviteToThread(ctx context.Context, inviterID uint, inviteeUsernames []string, threadID uint) error {
 	return r.Db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Проверяем что тред приватный и приглашающий - участник
 		var thread gdomain.Thread
 		if err := tx.First(&thread, threadID).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return ErrThreadNotFound
-			}
-			return ErrInviteFailed
+			return ErrThreadNotFound
 		}
 
 		if thread.Type != "private" {
 			return ErrInvalidThreadType
 		}
 
-		if inviterID != thread.CreatorID {
+		// Проверяем что приглашающий в треде
+		var count int64
+		if err := tx.Table("thread_users").
+			Where("thread_id = ? AND user_id = ? AND status = ?", threadID, inviterID, gdomain.ThreadUserStatusActive).
+			Count(&count).Error; err != nil || count == 0 {
 			return ErrUserNoAccess
 		}
 
 		for _, username := range inviteeUsernames {
 			var invitee gdomain.User
 			if err := tx.Where("username = ?", username).First(&invitee).Error; err != nil {
-				if errors.Is(err, gorm.ErrRecordNotFound) {
-					return ErrUserNotFound
-				}
-				return ErrInviteFailed
+				return ErrUserNotFound
 			}
 
-			var inSpool int64
-			if err := tx.Table("user_spools").
-				Where("user_id = ? AND spool_id = ?", invitee.ID, thread.SpoolID).
-				Count(&inSpool).Error; err != nil {
-				return ErrInviteFailed
-			}
-			if inSpool == 0 {
-				return ErrUserNotInSpool
-			}
-
+			// Обновляем или создаем запись с статусом Active
 			threadUser := gdomain.ThreadUser{
 				UserID:   invitee.ID,
 				ThreadID: thread.ID,
-				IsMember: true,
+				Status:   gdomain.ThreadUserStatusActive,
+				JoinedAt: time.Now(),
 			}
 
-			if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&threadUser).Error; err != nil {
+			if err := tx.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "user_id"}, {Name: "thread_id"}},
+				DoUpdates: clause.AssignmentColumns([]string{"status", "joined_at"}),
+			}).Create(&threadUser).Error; err != nil {
 				return ErrInviteFailed
 			}
 		}
@@ -306,43 +349,38 @@ func (r *ThreadRepo) IsThreadOwner(ctx context.Context, userID uint, threadID ui
 func (r *ThreadRepo) AddUserToThread(ctx context.Context, userID, threadID uint) error {
 	var thread gdomain.Thread
 	if err := r.Db.WithContext(ctx).
-		Select("spool_id").
+		Select("spool_id, type").
 		Where("id = ?", threadID).
 		First(&thread).Error; err != nil {
 		return err
 	}
 
-	return r.Db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// 1. Добавляем в спул если нет
-		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).
-			Create(&gdomain.UserSpool{
-				UserID:  userID,
-				SpoolID: thread.SpoolID,
-			}).Error; err != nil {
+	// Если тред привязан к спулу, проверяем что юзер в спуле
+	if thread.SpoolID != nil {
+		var count int64
+		if err := r.Db.WithContext(ctx).
+			Table("user_spools").
+			Where("user_id = ? AND spool_id = ? AND is_deleted = false", userID, *thread.SpoolID).
+			Count(&count).Error; err != nil {
 			return err
 		}
-
-		// 2. Находим ВСЕ публичные треды этого спула
-		var publicThreads []gdomain.Thread
-		if err := tx.Where("spool_id = ? AND type = ? AND is_closed = false",
-			thread.SpoolID, "public"). // предполагаем что тип "public" для публичных
-			Find(&publicThreads).Error; err != nil {
-			return err
+		if count == 0 {
+			return ErrUserNotInSpool
 		}
+	}
 
-		// 3. Добавляем юзера во все публичные треды
-		for _, publicThread := range publicThreads {
-			threadUser := gdomain.ThreadUser{
-				UserID:   userID,
-				ThreadID: publicThread.ID,
-				IsMember: true,
-			}
-			if err := tx.Clauses(clause.OnConflict{DoNothing: true}).
-				Create(&threadUser).Error; err != nil {
-				return err
-			}
-		}
+	// Добавляем пользователя в тред
+	threadUser := gdomain.ThreadUser{
+		UserID:   userID,
+		ThreadID: threadID,
+		Status:   gdomain.ThreadUserStatusActive,
+		JoinedAt: time.Now(),
+	}
 
-		return nil
-	})
+	return r.Db.WithContext(ctx).
+		Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "user_id"}, {Name: "thread_id"}},
+			DoUpdates: clause.AssignmentColumns([]string{"status", "joined_at"}),
+		}).
+		Create(&threadUser).Error
 }

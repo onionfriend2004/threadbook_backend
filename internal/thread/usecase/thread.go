@@ -9,6 +9,8 @@ import (
 	userexternal "github.com/onionfriend2004/threadbook_backend/internal/auth/external"
 	"github.com/onionfriend2004/threadbook_backend/internal/gdomain"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib/event"
+
+	// spoolexternal "github.com/onionfriend2004/threadbook_backend/internal/spool/external"
 	"github.com/onionfriend2004/threadbook_backend/internal/thread/external"
 	repo "github.com/onionfriend2004/threadbook_backend/internal/thread/external"
 	"go.uber.org/zap"
@@ -58,41 +60,51 @@ func (u *ThreadUsecase) CreateThread(ctx context.Context, input CreateThreadInpu
 		return nil, ErrWrongTypeThread
 	}
 
-	newThread, err := u.threadRepo.Create(ctx, input.OwnerID, input.SpoolID, input.Title, input.TypeThread)
-	if err != nil {
-		return nil, err
-	}
-
-	threadChannel := fmt.Sprintf("thread#%d", newThread.ID)
-
-	subToken, err := u.wsRepo.GenerateSubscribeToken(ctx, input.OwnerID, threadChannel, u.tokenTTL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate subscribe token: %w", err)
-	}
-
-	members, err := u.threadRepo.GetThreadMembers(ctx, newThread.ID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get thread members: %w", err)
-	}
-
-	eventPayload := event.ThreadCreatedPayload{
-		ThreadID:       newThread.ID,
-		Title:          newThread.Title,
-		CreatedAt:      newThread.CreatedAt.Unix(),
-		Channel:        threadChannel,
-		Token:          subToken,
-		SubscribeToken: subToken,
-	}
-
-	for _, member := range members {
-		if err := u.wsRepo.PublishToUser(ctx, member.UserID, event.Event{
-			Type:    event.ThreadCreated,
-			Payload: eventPayload,
-		}); err != nil {
-			u.logger.Warn("failed to publish thread created event", zap.Uint("userID", member.UserID), zap.Error(err))
+	if input.SpoolID != nil {
+		userSpool, err := u.threadRepo.GetUserSpoolStatus(ctx, input.OwnerID, *input.SpoolID)
+		if err != nil {
+			return nil, external.ErrUserNotInSpool
+		}
+		if input.TypeThread != "private" && (userSpool.AccessLevel <= input.AccessLevel || userSpool.IsDeleted) {
+			return nil, external.ErrPermissionDenied
 		}
 	}
 
+	newThread, err := u.threadRepo.Create(ctx, input.OwnerID, input.SpoolID, input.Title, input.TypeThread, input.AccessLevel)
+	if err != nil {
+		return nil, err
+	}
+	if input.SpoolID != nil {
+		threadChannel := fmt.Sprintf("thread#%d", newThread.ID)
+
+		subToken, err := u.wsRepo.GenerateSubscribeToken(ctx, input.OwnerID, threadChannel, u.tokenTTL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate subscribe token: %w", err)
+		}
+
+		members, err := u.threadRepo.GetUsersWithAccess(ctx, *input.SpoolID, input.AccessLevel)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get thread members: %w", err)
+		}
+
+		eventPayload := event.ThreadCreatedPayload{
+			ThreadID:       newThread.ID,
+			Title:          newThread.Title,
+			CreatedAt:      newThread.CreatedAt.Unix(),
+			Channel:        threadChannel,
+			Token:          subToken,
+			SubscribeToken: subToken,
+		}
+
+		for _, member := range members {
+			if err := u.wsRepo.PublishToUser(ctx, member.ID, event.Event{
+				Type:    event.ThreadCreated,
+				Payload: eventPayload,
+			}); err != nil {
+				u.logger.Warn("failed to publish thread created event", zap.Uint("userID", member.ID), zap.Error(err))
+			}
+		}
+	}
 	return newThread, nil
 }
 
@@ -105,13 +117,21 @@ func (u *ThreadUsecase) GetBySpoolID(ctx context.Context, input GetBySpoolIDInpu
 }
 
 func (u *ThreadUsecase) CloseThread(ctx context.Context, input CloseThreadInput) (*gdomain.Thread, error) {
+	userAccessLevel, threadAccessLevel, err := u.threadRepo.GetUserThreadAccessLevelsToUpdate(ctx, input.ThreadID, input.UserID)
+	if err != nil {
+		return nil, err
+	}
+	if userAccessLevel <= threadAccessLevel {
+		return nil, ErrNoAccessToThread
+	}
+
 	thread, err := u.threadRepo.CloseThread(input.ThreadID, input.UserID)
 	if err != nil {
 		return nil, err
 	}
 
 	// Получаем участников треда
-	members, err := u.threadRepo.GetThreadMembers(ctx, thread.ID)
+	members, err := u.threadRepo.GetUsersWithAccess(ctx, *thread.SpoolID, thread.AccessLevel)
 	if err != nil {
 		u.logger.Warn("failed to get thread members for CloseThread event", zap.Error(err))
 		return thread, nil // возвращаем закрытый тред даже если событие не отправилось
@@ -124,11 +144,11 @@ func (u *ThreadUsecase) CloseThread(ctx context.Context, input CloseThreadInput)
 
 	// Рассылаем событие всем участникам
 	for _, member := range members {
-		if err := u.wsRepo.PublishToUser(ctx, member.UserID, event.Event{
+		if err := u.wsRepo.PublishToUser(ctx, member.ID, event.Event{
 			Type:    event.ThreadDeleted,
 			Payload: payload,
 		}); err != nil {
-			u.logger.Warn("failed to publish ThreadDeleted event", zap.Uint("userID", member.UserID), zap.Error(err))
+			u.logger.Warn("failed to publish ThreadDeleted event", zap.Uint("userID", member.ID), zap.Error(err))
 		}
 	}
 
@@ -180,35 +200,44 @@ func (u *ThreadUsecase) UpdateThread(ctx context.Context, input UpdateThreadInpu
 		return nil, errors.New("editor id is required")
 	}
 
-	updatedThread, err := u.threadRepo.Update(ctx, input.ID, input.EditorID, input.Title, input.ThreadType)
+	userAccessLevel, threadAccessLevel, err := u.threadRepo.GetUserThreadAccessLevelsToUpdate(ctx, input.EditorID, input.ID)
+	if err != nil {
+		return nil, ErrFailToGetThread
+	}
+	if userAccessLevel <= threadAccessLevel || userAccessLevel <= *input.AccessLevel {
+		return nil, ErrNoAccessToThread
+	}
+
+	updatedThread, err := u.threadRepo.Update(ctx, input.ID, input.Title, input.ThreadType, input.AccessLevel)
 	if err != nil {
 		return nil, err
 	}
 
 	// Получаем участников треда
-	members, err := u.threadRepo.GetThreadMembers(ctx, updatedThread.ID)
-	if err != nil {
-		u.logger.Warn("failed to get thread members for ThreadUpdated event", zap.Error(err))
-		return updatedThread, nil
-	}
+	if updatedThread.SpoolID != nil {
+		members, err := u.threadRepo.GetUsersWithAccess(ctx, *updatedThread.SpoolID, updatedThread.AccessLevel)
+		if err != nil {
+			u.logger.Warn("failed to get thread members for ThreadUpdated event", zap.Error(err))
+			return updatedThread, nil
+		}
 
-	// Подготавливаем payload события
-	payload := event.ThreadUpdatedPayload{
-		ThreadID:  updatedThread.ID,
-		Title:     updatedThread.Title,
-		UpdatedAt: updatedThread.UpdatedAt.Unix(),
-	}
+		// Подготавливаем payload события
+		payload := event.ThreadUpdatedPayload{
+			ThreadID:  updatedThread.ID,
+			Title:     updatedThread.Title,
+			UpdatedAt: updatedThread.UpdatedAt.Unix(),
+		}
 
-	// Рассылаем событие всем участникам
-	for _, member := range members {
-		if err := u.wsRepo.PublishToUser(ctx, member.UserID, event.Event{
-			Type:    event.ThreadUpdated,
-			Payload: payload,
-		}); err != nil {
-			u.logger.Warn("failed to publish ThreadUpdated event", zap.Uint("userID", member.UserID), zap.Error(err))
+		// Рассылаем событие всем участникам
+		for _, member := range members {
+			if err := u.wsRepo.PublishToUser(ctx, member.ID, event.Event{
+				Type:    event.ThreadUpdated,
+				Payload: payload,
+			}); err != nil {
+				u.logger.Warn("failed to publish ThreadUpdated event", zap.Uint("userID", member.ID), zap.Error(err))
+			}
 		}
 	}
-
 	return updatedThread, nil
 }
 
