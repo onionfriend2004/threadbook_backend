@@ -1,5 +1,5 @@
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { RedisService, RedisPipeline } from 'src/shared/redis/redis.service';
-import { Injectable, Logger } from '@nestjs/common';
 import { UpdateStatusDto } from './dto/update-status.dto';
 import { UpsertStatusDto } from './dto/upsert-status.dto';
 import { PrismaService } from '../shared/prisma/prisma.service';
@@ -17,6 +17,44 @@ export class StatusService {
     private readonly redis: RedisService,
   ) {}
 
+  // === NATS Event Handler ===
+
+  async createUserStatusRecord(userData: {
+    userId: number;
+    username: string;
+    email?: string;
+  }): Promise<void> {
+    try {
+      // Валидация username
+      if (userData.username.length > 32) {
+        throw new BadRequestException(
+          'Username must be less than 32 characters',
+        );
+      }
+
+      await this.prisma.onlineStatus.upsert({
+        where: { userId: userData.userId },
+        update: {
+          username: userData.username,
+        },
+        create: {
+          userId: userData.userId,
+          username: userData.username,
+          customStatus: null,
+          isPrivate: false,
+        },
+      });
+
+      this.logger.log(`Created status record for user: ${userData.username}`);
+    } catch (error) {
+      this.logger.error(
+        `Failed to create status record for user ${userData.userId}`,
+        error,
+      );
+      throw error;
+    }
+  }
+
   // === Online status (Redis) ===
 
   async markOnline(userId: number): Promise<void> {
@@ -24,12 +62,15 @@ export class StatusService {
       const pipeline: RedisPipeline = this.redis.multi();
       pipeline.set(`online-status:user:${userId}`, '1', { EX: 70 });
       pipeline.set(`last-seen:user:${userId}`, Date.now().toString(), {
+<<<<<<< Updated upstream
         EX: LAST_SEEN_TTL,
+=======
+        EX: 30 * 24 * 3600 * 12,
+>>>>>>> Stashed changes
       });
       await pipeline.exec();
     } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      this.logger.error(`Failed to mark user ${userId} as online`, err);
+      this.logger.error(`Failed to mark user ${userId} as online`, error);
     }
   }
 
@@ -42,8 +83,7 @@ export class StatusService {
       });
       await pipeline.exec();
     } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      this.logger.error(`Failed to mark user ${userId} as offline`, err);
+      this.logger.error(`Failed to mark user ${userId} as offline`, error);
     }
   }
 
@@ -51,16 +91,51 @@ export class StatusService {
     try {
       return await this.redis.exists(`online-status:user:${userId}`);
     } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
       this.logger.error(
         `Failed to check online status for user ${userId}`,
-        err,
+        error,
       );
       return false;
     }
   }
 
   // === Custom status (PostgreSQL) ===
+  async updateUsername(userId: number, newUsername: string): Promise<void> {
+    try {
+      if (newUsername.length > 32) {
+        throw new BadRequestException(
+          'Username must be less than 32 characters',
+        );
+      }
+
+      const existing = await this.prisma.onlineStatus.findUnique({
+        where: { userId },
+      });
+
+      if (!existing) {
+        // Если записи нет, создаем новую
+        await this.prisma.onlineStatus.create({
+          data: {
+            userId,
+            username: newUsername,
+            customStatus: null,
+            isPrivate: false,
+          },
+        });
+      } else {
+        // Обновляем существующую
+        await this.prisma.onlineStatus.update({
+          where: { userId },
+          data: { username: newUsername },
+        });
+      }
+
+      this.logger.log(`Updated username for user ${userId} to ${newUsername}`);
+    } catch (error) {
+      this.logger.error(`Failed to update username for user ${userId}`, error);
+      throw error;
+    }
+  }
 
   async updateCustomStatus(
     userId: number,
@@ -68,6 +143,13 @@ export class StatusService {
     dto: UpsertStatusDto,
   ): Promise<void> {
     try {
+      // Валидация username
+      if (username.length > 32) {
+        throw new BadRequestException(
+          'Username must be less than 32 characters',
+        );
+      }
+
       await this.prisma.onlineStatus.upsert({
         where: { userId },
         update: {
@@ -83,16 +165,17 @@ export class StatusService {
         },
       });
     } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
       this.logger.error(
         `Failed to update custom status for user ${userId}`,
-        err,
+        error,
       );
-      throw err;
+      throw error;
     }
   }
 
-  async getUserStatus(userId: number): Promise<UserStatus | null> {
+  async getUserStatus(
+    userId: number,
+  ): Promise<Omit<UserStatus, 'userId'> | null> {
     try {
       const [onlineStatus, onlineKey, lastSeen] = await Promise.all([
         this.prisma.onlineStatus.findUnique({ where: { userId } }),
@@ -105,15 +188,20 @@ export class StatusService {
       const isOnline = !!onlineKey;
       const lastSeenTimestamp = lastSeen ? parseInt(lastSeen, 10) : null;
 
-      return this.buildUserStatus(onlineStatus, isOnline, lastSeenTimestamp);
+      return this.buildUserStatusResponse(
+        onlineStatus,
+        isOnline,
+        lastSeenTimestamp,
+      );
     } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      this.logger.error(`Failed to get status for user ${userId}`, err);
+      this.logger.error(`Failed to get status for user ${userId}`, error);
       return null;
     }
   }
 
-  async getUserStatusByUsername(username: string): Promise<UserStatus | null> {
+  async getUserStatusByUsername(
+    username: string,
+  ): Promise<Omit<UserStatus, 'userId'> | null> {
     try {
       const onlineStatus = await this.prisma.onlineStatus.findFirst({
         where: { username },
@@ -129,16 +217,28 @@ export class StatusService {
       const isOnline = !!onlineKey;
       const lastSeenTimestamp = lastSeen ? parseInt(lastSeen, 10) : null;
 
-      return this.buildUserStatus(onlineStatus, isOnline, lastSeenTimestamp);
+      return this.buildUserStatusResponse(
+        onlineStatus,
+        isOnline,
+        lastSeenTimestamp,
+      );
     } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      this.logger.error(`Failed to get status for username ${username}`, err);
+      this.logger.error(`Failed to get status for username ${username}`, error);
       return null;
     }
   }
 
-  async getBatchStatus(usernames: string[]): Promise<UserStatus[]> {
+  async getBatchStatus(
+    usernames: string[],
+  ): Promise<Omit<UserStatus, 'userId'>[]> {
     try {
+      // Валидация длины usernames
+      if (usernames.some((username) => username.length > 32)) {
+        throw new BadRequestException(
+          'All usernames must be less than 32 characters',
+        );
+      }
+
       const statuses = await this.prisma.onlineStatus.findMany({
         where: { username: { in: usernames } },
       });
@@ -152,7 +252,7 @@ export class StatusService {
 
       const redisValues = await this.redis.mget(redisKeys);
 
-      const results: UserStatus[] = [];
+      const results: Omit<UserStatus, 'userId'>[] = [];
       for (let i = 0; i < statuses.length; i++) {
         const onlineStatus = statuses[i];
         const onlineKey = redisValues[i * 2];
@@ -162,14 +262,17 @@ export class StatusService {
         const lastSeenTimestamp = lastSeen ? parseInt(lastSeen, 10) : null;
 
         results.push(
-          this.buildUserStatus(onlineStatus, isOnline, lastSeenTimestamp),
+          this.buildUserStatusResponse(
+            onlineStatus,
+            isOnline,
+            lastSeenTimestamp,
+          ),
         );
       }
 
       return results;
     } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      this.logger.error(`Failed to get batch status`, err);
+      this.logger.error(`Failed to get batch status`, error);
       return [];
     }
   }
@@ -189,6 +292,16 @@ export class StatusService {
     };
   }
 
+  private buildUserStatusResponse(
+    onlineStatus: OnlineStatus,
+    isOnline: boolean,
+    lastSeen: number | null,
+  ): Omit<UserStatus, 'userId'> {
+    const status = this.buildUserStatus(onlineStatus, isOnline, lastSeen);
+    const { userId, ...response } = status;
+    return response;
+  }
+
   // === Centrifugo presence handling ===
 
   async handleUserPresence(userId: number, isOnline: boolean): Promise<void> {
@@ -199,8 +312,7 @@ export class StatusService {
         await this.markOffline(userId);
       }
     } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      this.logger.error(`Failed to handle presence for user ${userId}`, err);
+      this.logger.error(`Failed to handle presence for user ${userId}`, error);
     }
   }
 }

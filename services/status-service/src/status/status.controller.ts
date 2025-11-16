@@ -39,7 +39,11 @@ export class StatusController {
   @UseGuards(AuthGuard)
   @Get('user/status')
   async getOwnStatus(@User() user: { userId: number; username: string }) {
-    return this.statusService.getUserStatus(user.userId);
+    const status = await this.statusService.getUserStatus(user.userId);
+    if (!status) {
+      throw new NotFoundException('User status not found');
+    }
+    return status;
   }
 
   @UseGuards(AuthGuard)
@@ -64,14 +68,12 @@ export class StatusController {
     @User() user: { userId: number; username: string },
     @Body('isPrivate') isPrivate: boolean,
   ) {
-    // Передаём username из сессии (даже если не меняется — на случай смены ника)
     await this.statusService.updateCustomStatus(user.userId, user.username, {
       isPrivate,
     });
     return { success: true };
   }
 
-  // Вебхук от Centrifugo — БЕЗ GUARD!
   @Post('webhooks/centrifugo/presence')
   async centrifugoWebhook(
     @Body() rawBody: unknown,

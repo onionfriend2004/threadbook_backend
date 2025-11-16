@@ -6,3 +6,5 @@ export interface UserStatus {
   isOnline: boolean;
   lastSeen: number | null;
 }
+
+export type UserStatusResponse = Omit<UserStatus, 'userId'>;

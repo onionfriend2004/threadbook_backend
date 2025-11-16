@@ -10,5 +10,6 @@ import { Module } from '@nestjs/common';
   imports: [PrismaModule, RedisModule, NatsModule],
   providers: [StatusService, NatsConsumer],
   controllers: [StatusController],
+  exports: [StatusService],
 })
 export class StatusModule {}
