@@ -85,3 +85,10 @@ type RemoveAllGuestsFromSpoolInput struct {
 	UserID  uint
 	SpoolID uint
 }
+
+type AccessLevelInput struct {
+	EditorID    uint
+	SpoolID     uint
+	Username    string
+	AccessLevel uint
+}

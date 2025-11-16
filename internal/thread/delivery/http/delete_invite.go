@@ -11,9 +11,9 @@ import (
 )
 
 func (h *ThreadHandler) DeleteInviteLink(w http.ResponseWriter, r *http.Request) {
-	threadLink := r.URL.Query().Get("thread_link")
+	threadLink := r.URL.Query().Get("invite_token")
 	if threadLink == "" {
-		lib.WriteError(w, "missing thread_link", lib.StatusBadRequest)
+		lib.WriteError(w, "missing invite_token", lib.StatusBadRequest)
 		return
 	}
 	userID, err := auth.GetUserIDFromContext(r.Context())

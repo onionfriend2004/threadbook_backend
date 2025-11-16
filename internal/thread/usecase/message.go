@@ -7,6 +7,7 @@ import (
 
 	"github.com/onionfriend2004/threadbook_backend/internal/gdomain"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib/event"
+	spoolExternal "github.com/onionfriend2004/threadbook_backend/internal/spool/external"
 	"github.com/onionfriend2004/threadbook_backend/internal/thread/external"
 	"go.uber.org/zap"
 )
@@ -15,6 +16,7 @@ type MessageUsecase struct {
 	msgRepo    external.MessageRepoInterface
 	wsRepo     external.WebsocketRepoInterface
 	threadRepo external.ThreadRepoInterface
+	spoolRepo  spoolExternal.SpoolRepoInterface
 	tokenTTL   time.Duration
 	logger     *zap.Logger
 }
@@ -23,32 +25,43 @@ func NewMessageUsecase(
 	msgRepo external.MessageRepoInterface,
 	wsRepo external.WebsocketRepoInterface,
 	threadRepo external.ThreadRepoInterface,
+	spoolRepo spoolExternal.SpoolRepoInterface,
 	tokenTTL time.Duration,
 	logger *zap.Logger) *MessageUsecase {
 	return &MessageUsecase{
 		msgRepo:    msgRepo,
 		wsRepo:     wsRepo,
 		threadRepo: threadRepo,
+		spoolRepo:  spoolRepo,
 		tokenTTL:   tokenTTL,
 		logger:     logger,
 	}
 }
 
 func (uc *MessageUsecase) SendMessage(ctx context.Context, input SendMessageInput) (*gdomain.Message, error) {
-	hasRights, err := uc.threadRepo.CheckRightsUserOnThreadRoom(ctx, input.ThreadID, input.UserID)
-	if err != nil {
-		return nil, err
-	}
-	if !hasRights {
-		return nil, ErrNoAccessToThread
-	}
-
 	thread, err := uc.threadRepo.GetThreadByID(ctx, input.ThreadID)
 	if err != nil {
 		return nil, ErrFailedToGetThread
 	}
 	if thread.IsClosed {
 		return nil, ErrThreadIsClosed
+	}
+	if thread.Type == gdomain.ThreadTypePrivate {
+		isMember, err := uc.threadRepo.IsUserThreadMember(ctx, input.UserID, thread.ID)
+		if err != nil {
+			return nil, ErrFailedToGetThread
+		}
+		if !isMember {
+			return nil, ErrThreadNotFound
+		}
+	} else {
+		userStatus, err := uc.spoolRepo.GetUserSpoolStatus(ctx, input.UserID, *thread.SpoolID)
+		if err != nil {
+			return nil, ErrFailedToGetThread
+		}
+		if userStatus.IsDeleted || userStatus.AccessLevel < thread.AccessLevel {
+			return nil, ErrThreadNotFound
+		}
 	}
 
 	msg := &gdomain.Message{
@@ -90,6 +103,14 @@ func (uc *MessageUsecase) SendMessage(ctx context.Context, input SendMessageInpu
 }
 
 func (uc *MessageUsecase) GetMessages(ctx context.Context, input GetMessagesInput) ([]gdomain.Message, error) {
+	thread, err := uc.threadRepo.GetThreadByID(ctx, input.ThreadID)
+	if err != nil {
+		return nil, err
+	}
+	if thread.Type == gdomain.ThreadTypePrivate {
+		uc.threadRepo.IsUserThreadMember(ctx, input.UserID, input.ThreadID)
+	}
+
 	return uc.msgRepo.GetByThreadID(ctx, input.ThreadID, input.Limit, input.Offset)
 }
 

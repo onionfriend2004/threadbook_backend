@@ -7,12 +7,14 @@ import (
 )
 
 type ThreadRepoInterface interface {
-	Create(ctx context.Context, creatorID uint, spoolID *uint, title, threadType string, accessLevel uint) (*gdomain.Thread, error)
+	Create(ctx context.Context, creatorID uint, spoolID *uint, title string, threadType gdomain.ThreadType, accessLevel *uint) (*gdomain.Thread, error)
 	GetBySpoolID(ctx context.Context, userID, spoolID uint) ([]*gdomain.Thread, error)
-	CloseThread(id, userID uint) (*gdomain.Thread, error)
+	CloseThread(ctx context.Context, id uint) (*gdomain.Thread, error)
 	InviteToThread(ctx context.Context, inviterID uint, inviteeUsernames []string, threadID uint) error
 	Update(ctx context.Context, id uint, title *string, threadType *string, accessLevel *uint) (*gdomain.Thread, error)
 	GetThreadByID(ctx context.Context, threadID uint) (*gdomain.Thread, error)
+	IsUserThreadMember(ctx context.Context, userID uint, threadID uint) (bool, error)
+	GetThreadUsers(ctx context.Context, threadID uint) ([]gdomain.User, error)
 
 	CheckRightsUserOnThreadRoom(ctx context.Context, threadID, userID uint) (bool, error)
 	GetUserThreadAccessLevelsToUpdate(ctx context.Context, userID uint, threadID uint) (userAccessLevel uint, threadAccessLevel uint, err error)
@@ -22,5 +24,5 @@ type ThreadRepoInterface interface {
 
 	IsThreadOwner(ctx context.Context, userID, threadID uint) (bool, error)
 	AddUserToThread(ctx context.Context, userID, threadID uint) error
-	GetUserSpoolStatus(ctx context.Context, userID uint, spoolID uint) (*gdomain.UserSpool, error)
+	// GetUserSpoolStatus(ctx context.Context, userID uint, spoolID uint) (*gdomain.UserSpool, error)
 }

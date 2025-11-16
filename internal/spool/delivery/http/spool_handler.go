@@ -37,14 +37,21 @@ func (h *SpoolHandler) Routes(r chi.Router, authenticator auth.AuthenticatorInte
 			r.With(validator.ValidateJSONMiddleware(dto.InviteMemberInSpoolRequest{})).
 				Post("/invite", h.InviteMemberInSpool)
 		})
-		r.Get("/{spoolID}", h.GetSpoolInfoById)
-		r.Get("/{spoolID}/members", h.GetSpoolMembers)
 		r.Get("/user", h.GetUserSpoolList)
 
-		r.With(validator.ValidateJSONMiddleware(dto.CreateInviteLinkRequest{})).
-			Post("/invite-link/create", h.CreateInviteLink)
-		r.Delete("/invite-link", h.DeleteInviteLink)
-		r.Get("/invite-link/{spool_id}", h.GetSpoolInviteLinks)
+		r.Route("/{spoolID}", func(r chi.Router) {
+			r.Get("/", h.GetSpoolInfoById)
+			r.Route("/members", func(r chi.Router) {
+				r.Get("/", h.GetSpoolMembers)
+				r.With(validator.ValidateJSONMiddleware(dto.AccessLevelRequest{})).
+					Post("/{username}/access-level", h.AccessLevel)
+			})
+			r.With(validator.ValidateJSONMiddleware(dto.CreateInviteLinkRequest{})).
+				Post("/invite-link/create", h.CreateInviteLink)
+			r.Delete("/invite-link", h.DeleteInviteLink)
+			r.Post("/invite-link", h.GetSpoolInviteLinks)
+		})
+
 		r.Get("/invite-link/join/{spool_link}", h.JoinToSpool)
 	})
 }

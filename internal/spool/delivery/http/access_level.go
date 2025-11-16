@@ -5,7 +5,6 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/goccy/go-json"
 	"github.com/onionfriend2004/threadbook_backend/internal/apperrors"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib/middleware/auth"
@@ -15,7 +14,12 @@ import (
 	"go.uber.org/zap"
 )
 
-func (h *SpoolHandler) CreateInviteLink(w http.ResponseWriter, r *http.Request) {
+func (h *SpoolHandler) AccessLevel(w http.ResponseWriter, r *http.Request) {
+	editorID, err := auth.GetUserIDFromContext(r.Context())
+	if err != nil {
+		lib.WriteError(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	spoolIDStr := chi.URLParam(r, "spoolID")
 	spoolIDInt, err := strconv.Atoi(spoolIDStr)
@@ -25,31 +29,22 @@ func (h *SpoolHandler) CreateInviteLink(w http.ResponseWriter, r *http.Request) 
 	}
 	spoolID := uint(spoolIDInt)
 
-	req := validator.GetValidatedBody[dto.CreateInviteLinkRequest](r)
-	userID, err := auth.GetUserIDFromContext(r.Context())
-	if err != nil {
-		lib.WriteError(w, "unauthorized", http.StatusUnauthorized)
-		return
-	}
+	username := chi.URLParam(r, "username")
+	req := validator.GetValidatedBody[dto.AccessLevelRequest](r)
+	err = h.usecase.AccessLevel(r.Context(), usecase.AccessLevelInput{
+		EditorID:    editorID,
+		SpoolID:     spoolID,
+		Username:    username,
+		AccessLevel: req.AccessLevel,
+	})
 
-	input := usecase.CreateInviteLinkInput{
-		UserID:    userID,
-		SpoolID:   spoolID,
-		MaxUses:   req.MaxUses,
-		ExpiresAt: req.ExpiresAt,
-	}
-
-	session, err := h.usecase.CreateInviteLink(r.Context(), input)
 	if err != nil {
 		code, clientErr := apperrors.GetErrAndCodeToSend(err)
-		h.logger.Warn("failed to create session", zap.Error(err))
+		h.logger.Warn("failed change user Access Level", zap.Error(err))
 		lib.WriteError(w, clientErr.Error(), code)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(lib.StatusOK)
-	if err := json.NewEncoder(w).Encode(session); err != nil {
-		h.logger.Warn("failed to encode response", zap.Error(err))
-	}
 }

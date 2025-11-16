@@ -25,7 +25,7 @@ func (h *ThreadHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Title:       req.Title,
 		SpoolID:     req.SpoolID,
 		OwnerID:     userID,
-		TypeThread:  req.TypeThread,
+		ThreadType:  req.ThreadType,
 		AccessLevel: req.AccessLevel,
 	}
 
@@ -38,13 +38,17 @@ func (h *ThreadHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := dto.ThreadCreateResponse{
-		ID:        createdThread.ID,
-		SpoolID:   *createdThread.SpoolID,
-		Title:     createdThread.Title,
-		Type:      createdThread.Type,
-		IsClosed:  createdThread.IsClosed,
-		CreatedAt: createdThread.CreatedAt,
-		UpdatedAt: createdThread.UpdatedAt,
+		ID: createdThread.ID,
+		// SpoolID:     createdThread.SpoolID,
+		AccessLevel: createdThread.AccessLevel,
+		Title:       createdThread.Title,
+		Type:        createdThread.Type,
+		IsClosed:    createdThread.IsClosed,
+		CreatedAt:   createdThread.CreatedAt,
+		UpdatedAt:   createdThread.UpdatedAt,
+	}
+	if createdThread.SpoolID != nil {
+		resp.SpoolID = *createdThread.SpoolID
 	}
 
 	w.Header().Set("Content-Type", "application/json")

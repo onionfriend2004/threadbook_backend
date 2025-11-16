@@ -11,8 +11,8 @@ type CreateThreadInput struct {
 	Title       string
 	SpoolID     *uint
 	OwnerID     uint
-	TypeThread  string
-	AccessLevel uint
+	ThreadType  gdomain.ThreadType
+	AccessLevel *uint
 }
 
 // ---------- GetBySpoolID ----------
@@ -36,7 +36,7 @@ type InviteToThreadInput struct {
 
 // ---------- UpdateThread ----------
 type UpdateThreadInput struct {
-	ID          uint
+	ThreadID    uint
 	EditorID    uint
 	Title       *string
 	ThreadType  *string
@@ -61,6 +61,7 @@ type SendMessageInput struct {
 
 // ---------- GetMessages ----------
 type GetMessagesInput struct {
+	UserID   uint
 	ThreadID uint
 	Limit    int
 	Offset   int
@@ -86,8 +87,9 @@ type CreateInviteLinkInput struct {
 }
 
 type JoinToThreadInput struct {
-	UserID uint
-	Link   string
+	UserID      uint
+	Username    string
+	InviteToken string
 }
 
 type DeleteInviteLinkInput struct {
@@ -96,6 +98,11 @@ type DeleteInviteLinkInput struct {
 }
 
 type GetThreadInviteLinksInput struct {
+	UserID   uint
+	ThreadID uint
+}
+
+type GetThreadUsersInput struct {
 	UserID   uint
 	ThreadID uint
 }

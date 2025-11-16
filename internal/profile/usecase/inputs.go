@@ -13,7 +13,7 @@ type Avatar struct {
 }
 
 type UpdateProfileInput struct {
-	UserID   int
+	UserID   uint
 	Nickname *string
 	Avatar   *Avatar
 }

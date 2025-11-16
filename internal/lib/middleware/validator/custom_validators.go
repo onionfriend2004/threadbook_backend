@@ -4,6 +4,7 @@ import (
 	"regexp"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/onionfriend2004/threadbook_backend/internal/gdomain"
 )
 
 var validate *validator.Validate
@@ -13,6 +14,7 @@ func init() {
 
 	_ = validate.RegisterValidation("password", validatePassword)
 	_ = validate.RegisterValidation("username", validateUsername)
+	_ = validate.RegisterValidation("threadtype", validateThreadType)
 }
 
 func validatePassword(fl validator.FieldLevel) bool {
@@ -43,4 +45,11 @@ func validateUsername(fl validator.FieldLevel) bool {
 
 	matched, _ := regexp.MatchString(`^[a-zA-Z0-9_-]+$`, username)
 	return matched
+}
+
+func validateThreadType(fl validator.FieldLevel) bool {
+	if threadType, ok := fl.Field().Interface().(gdomain.ThreadType); ok {
+		return threadType.IsValid()
+	}
+	return false
 }

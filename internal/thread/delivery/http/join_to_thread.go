@@ -13,7 +13,7 @@ import (
 )
 
 func (h *ThreadHandler) JoinToThread(w http.ResponseWriter, r *http.Request) {
-	link := chi.URLParam(r, "thread_link")
+	inviteToken := chi.URLParam(r, "invite_token")
 	userID, err := auth.GetUserIDFromContext(r.Context())
 	if err != nil {
 		code, clientErr := apperrors.GetErrAndCodeToSend(err)
@@ -22,8 +22,8 @@ func (h *ThreadHandler) JoinToThread(w http.ResponseWriter, r *http.Request) {
 	}
 
 	input := usecase.JoinToThreadInput{
-		Link:   link,
-		UserID: userID,
+		InviteToken: inviteToken,
+		UserID:      userID,
 	}
 	if err := h.threadUsecase.JoinToThread(r.Context(), input); err != nil {
 		code, clientErr := apperrors.GetErrAndCodeToSend(err)

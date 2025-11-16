@@ -43,8 +43,10 @@ func (h *SpoolHandler) GetSpoolMembers(w http.ResponseWriter, r *http.Request) {
 	resp := dto.GetSpoolMembersResponse{}
 	for _, u := range users {
 		resp.Members = append(resp.Members, dto.MemberShortInfo{
-			Username: u.Username,
-			// Avatar:   u.AvatarLink,
+			Username:    u.User.Username,
+			Nickname:    u.User.Profile.Nickname,
+			AccessLevel: u.AccessLevel,
+			// Avatar:   u.User.Profile.AvatarLink,
 		})
 	}
 

@@ -38,37 +38,35 @@ func (h *ThreadHandler) Routes(r chi.Router, authenticator auth.AuthenticatorInt
 	r.Route("/thread", func(r chi.Router) {
 		r.Use(auth.AuthMiddleware(authenticator))
 		r.With(auth.GuestMiddleware(authenticator)).Group(func(r chi.Router) {
-			r.Put("/close", h.Close)
-
-			r.With(validator.ValidateJSONMiddleware(dto.UpdateThreadRequest{})).
-				Put("/update", h.Update)
-
+			// Управление тредом
+			r.Get("/", h.GetBySpoolID)
 			r.With(validator.ValidateJSONMiddleware(dto.ThreadCreateRequest{})).
-				Post("/create", h.Create)
+				Post("/", h.Create)
 
-			r.With(validator.ValidateJSONMiddleware(dto.CreateInviteLinkRequest{})).
-				Post("/invite-link/create", h.CreateInviteLink)
-			r.Delete("/invite-link", h.DeleteInviteLink)
-			r.Get("/invite-link/{thread_id}", h.GetThreadInviteLinks)
+			r.Route("/{thread_id}", func(r chi.Router) {
+				r.Get("/", h.GetThreadUsers)
 
-			r.With(validator.ValidateJSONMiddleware(dto.InviteRequest{})).
-				Post("/invite", h.InviteToThread)
+				// Управление тредом
+				r.Put("/close", h.Close)
+				r.With(validator.ValidateJSONMiddleware(dto.UpdateThreadRequest{})).
+					Put("/update", h.Update)
+				r.With(validator.ValidateJSONMiddleware(dto.InviteRequest{})).
+					Post("/invite", h.InviteToThread)
+				// Инвайт линки
+				r.Delete("/invite-link", h.DeleteInviteLink)
+				r.Get("/invite-link", h.GetThreadInviteLinks)
+				r.With(validator.ValidateJSONMiddleware(dto.CreateInviteLinkRequest{})).
+					Post("/invite-link/create", h.CreateInviteLink)
 
+				r.Get("/sfu/token", h.GetVoiceToken)
+
+				r.Get("/messages", h.GetMessages)
+				r.With(validator.ValidateJSONMiddleware(dto.SendMessageRequest{})).
+					Post("/messages", h.SendMessage)
+			})
+
+			r.Get("/invite-link/join/{invite_token}", h.JoinToThread)
+			r.Get("/ws/token", h.GetSubscribeToken)
 		})
-
-		r.Get("/ws/token", h.GetSubscribeToken)
-		r.Get("/", h.GetBySpoolID)
-		r.Get("/invite-link/join/{thread_link}", h.JoinToThread)
-
-		r.With(validator.ValidateJSONMiddleware(dto.GetVoiceTokenRequest{})).
-			Post("/sfu/token", h.GetVoiceToken)
-
-		r.Route("/{id}", func(r chi.Router) {
-			r.Get("/messages", h.GetMessages)
-
-			r.With(validator.ValidateJSONMiddleware(dto.SendMessageRequest{})).
-				Post("/messages", h.SendMessage)
-		})
-
 	})
 }

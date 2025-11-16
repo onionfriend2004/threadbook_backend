@@ -55,18 +55,18 @@ func (r *spoolRepo) UserExistsByID(ctx context.Context, userID uint) (bool, erro
 
 // Создание Spool + связь с владельцем
 func (r *spoolRepo) CreateSpool(ctx context.Context, spool *gdomain.Spool, ownerID uint) (*gdomain.Spool, error) {
-	if spool.Name == "" {
-		return nil, ErrInvalidSpool
-	}
+	// if spool.Name == "" {
+	// 	return nil, ErrInvalidSpool
+	// }
 
-	// Проверяем, существует ли владелец
-	exists, err := r.UserExistsByID(ctx, ownerID)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, ErrUserNotFound
-	}
+	// // Проверяем, существует ли владелец
+	// exists, err := r.UserExistsByID(ctx, ownerID)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// if !exists {
+	// 	return nil, ErrUserNotFound
+	// }
 
 	tx := r.db.WithContext(ctx).Begin()
 
@@ -79,8 +79,9 @@ func (r *spoolRepo) CreateSpool(ctx context.Context, spool *gdomain.Spool, owner
 	}
 
 	userSpool := gdomain.UserSpool{
-		UserID:  ownerID,
-		SpoolID: spool.ID,
+		UserID:      ownerID,
+		SpoolID:     spool.ID,
+		AccessLevel: 3,
 	}
 	if err := tx.Create(&userSpool).Error; err != nil {
 		tx.Rollback()
@@ -205,13 +206,15 @@ func (r *spoolRepo) GetSpoolsByUser(ctx context.Context, userID uint) ([]gdomain
 	return result, err
 }
 
-func (r *spoolRepo) GetMembersBySpoolID(ctx context.Context, spoolID uint) ([]gdomain.User, error) {
-	var users []gdomain.User
+func (r *spoolRepo) GetMembersBySpoolID(ctx context.Context, spoolID uint) ([]SpoolMember, error) {
+	var members []SpoolMember
 	err := r.db.WithContext(ctx).
-		Joins("JOIN user_spools us ON us.user_id = users.id").
-		Where("us.spool_id = ?", spoolID).
-		Find(&users).Error
-	return users, err
+		Table("users").
+		Select("users.*, user_spools.access_level").
+		Joins("JOIN user_spools ON users.id = user_spools.user_id").
+		Where("user_spools.spool_id = ?", spoolID).
+		Find(&members).Error
+	return members, err
 }
 
 func (r *spoolRepo) IsUserInSpool(ctx context.Context, userID uint, spoolID uint) (bool, error) {
@@ -242,4 +245,44 @@ func (r *spoolRepo) RemoveAllGuestsFromSpool(ctx context.Context, spoolID uint) 
 		Joins("JOIN users ON user_spool.user_id = users.id").
 		Where("user_spool.spool_id = ? AND users.is_guest = ?", spoolID, true).
 		Update("deleted", true).Error
+}
+
+func (r *spoolRepo) GetUserSpoolStatus(ctx context.Context, userID uint, spoolID uint) (*gdomain.UserSpool, error) {
+	var userSpool gdomain.UserSpool
+	err := r.db.WithContext(ctx).
+		Where("user_id = ? AND spool_id = ?", userID, spoolID).
+		First(&userSpool).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &userSpool, nil
+}
+
+func (r *spoolRepo) GetUserSpoolStatusByUsername(ctx context.Context, username string, spoolID uint) (*gdomain.UserSpool, error) {
+	var userSpool gdomain.UserSpool
+	err := r.db.WithContext(ctx).
+		Table("user_spools").
+		Joins("JOIN users ON user_spools.user_id = users.id").
+		Where("users.username = ? AND user_spools.spool_id = ?", username, spoolID).
+		First(&userSpool).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &userSpool, nil
+}
+
+func (r *spoolRepo) UpdateUserAccessLevel(ctx context.Context, userID uint, spoolID uint, accessLevel uint) error {
+	return r.db.WithContext(ctx).
+		Model(&gdomain.UserSpool{}).
+		Where("user_id = ? AND spool_id = ?", userID, spoolID).
+		Update("access_level", accessLevel).Error
 }

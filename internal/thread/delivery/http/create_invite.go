@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/goccy/go-json"
 	"github.com/onionfriend2004/threadbook_backend/internal/apperrors"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib"
@@ -15,20 +16,15 @@ import (
 )
 
 func (h *ThreadHandler) CreateInviteLink(w http.ResponseWriter, r *http.Request) {
-	threadIDStr := r.URL.Query().Get("thread_id")
-	if threadIDStr == "" {
-		lib.WriteError(w, "missing thread_id", lib.StatusBadRequest)
+	threadIDstr := chi.URLParam(r, "thread_id")
+	id, err := strconv.ParseUint(threadIDstr, 10, 32)
+	if err != nil {
+		lib.WriteError(w, "parameter thread_id must be a valid integer", lib.StatusUnauthorized)
 		return
 	}
-	req := validator.GetValidatedBody[dto.CreateInviteLinkRequest](r)
+	threadID := uint(id)
 
-	threadIDint, err := strconv.Atoi(threadIDStr)
-	if err != nil || threadIDint < 0 {
-		h.logger.Warn("failed string to int thread_id", zap.Error(err))
-		lib.WriteError(w, "invalid thread_id", lib.StatusBadRequest)
-		return
-	}
-	threadID := uint(threadIDint)
+	req := validator.GetValidatedBody[dto.CreateInviteLinkRequest](r)
 
 	userID, err := auth.GetUserIDFromContext(r.Context())
 	if err != nil {

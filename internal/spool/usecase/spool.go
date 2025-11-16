@@ -20,7 +20,8 @@ type SpoolUsecaseInterface interface {
 	InviteMemberInSpool(ctx context.Context, input InviteMemberInSpoolInput) error
 	UpdateSpool(ctx context.Context, input UpdateSpoolInput) (*gdomain.Spool, error)
 	GetSpoolInfoById(ctx context.Context, input GetSpoolInfoByIdInput) (*gdomain.Spool, error)
-	GetSpoolMembers(ctx context.Context, input GetSpoolMembersInput) ([]gdomain.User, error)
+	GetSpoolMembers(ctx context.Context, input GetSpoolMembersInput) ([]external.SpoolMember, error)
+	AccessLevel(ctx context.Context, input AccessLevelInput) error
 
 	GetSpoolInviteLinks(ctx context.Context, input GetSpoolInviteLinksInput) ([]*gdomain.InviteLink, error)
 	DeleteInviteLink(ctx context.Context, input DeleteInviteLinkInput) error
@@ -207,7 +208,7 @@ func (u *spoolUsecase) UpdateSpool(ctx context.Context, input UpdateSpoolInput) 
 }
 
 // ---------- Get members ----------
-func (u *spoolUsecase) GetSpoolMembers(ctx context.Context, input GetSpoolMembersInput) ([]gdomain.User, error) {
+func (u *spoolUsecase) GetSpoolMembers(ctx context.Context, input GetSpoolMembersInput) ([]external.SpoolMember, error) {
 	if input.SpoolID == 0 || input.UserID == 0 {
 		return nil, ErrInvalidInput
 	}
@@ -337,4 +338,39 @@ func (u *spoolUsecase) RemoveAllGuestsFromSpool(ctx context.Context, input Remov
 		return ErrForbidden
 	}
 	return u.spoolRepo.RemoveAllGuestsFromSpool(ctx, input.SpoolID)
+}
+
+func (u *spoolUsecase) AccessLevel(ctx context.Context, input AccessLevelInput) error {
+	editor, err := u.spoolRepo.GetUserSpoolStatus(ctx, input.EditorID, input.SpoolID)
+	if err != nil {
+		// TODO ПРОПИСАТЬ НОРМАЛЬНЫЕ ОШИБКИ
+		return err
+	}
+	if editor == nil {
+		return ErrInvalidInput
+	}
+	if editor.AccessLevel <= input.AccessLevel {
+		// u.logger.Debug("editor access level <= input access level",
+		// 	zap.Uint("editor.AccessLevel", editor.AccessLevel),
+		// 	zap.Uint("input.AccessLevel", input.AccessLevel),
+		// )
+		// TODO ПРОПИСАТЬ НОРМАЛЬНЫЕ ОШИБКИ
+		return ErrInvalidInput
+	}
+	user, err := u.spoolRepo.GetUserSpoolStatusByUsername(ctx, input.Username, input.SpoolID)
+	if err != nil {
+		return ErrInvalidInput
+	}
+	if user == nil {
+		return ErrInvalidInput
+	}
+	if editor.AccessLevel <= user.AccessLevel {
+		// u.logger.Debug("editor access level <= input user level",
+		// 	zap.Uint("editor.AccessLevel", editor.AccessLevel),
+		// 	zap.Uint("user.AccessLevel", user.AccessLevel),
+		// )
+		// TODO ПРОПИСАТЬ НОРМАЛЬНЫЕ ОШИБКИ
+		return ErrInvalidInput
+	}
+	return u.spoolRepo.UpdateUserAccessLevel(ctx, user.UserID, input.SpoolID, input.AccessLevel)
 }
