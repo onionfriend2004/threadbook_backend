@@ -360,7 +360,11 @@ func (uc *MessageUsecase) DeleteMessage(ctx context.Context, input DeleteMessage
 }
 
 func (uc *MessageUsecase) GetTokensBySpool(ctx context.Context, userID, spoolID uint) (ConnectAndSubscribeTokens, error) {
-	threads, err := uc.threadRepo.GetAccessibleThreadIDsBySpool(ctx, userID, spoolID)
+	status, err := uc.spoolRepo.GetUserSpoolStatus(ctx, userID, spoolID)
+	if err != nil || status == nil {
+		return ConnectAndSubscribeTokens{}, err
+	}
+	threads, err := uc.spoolRepo.GetSpoolThreadsByUser(ctx, *status)
 	if err != nil {
 		return ConnectAndSubscribeTokens{}, err
 	}
@@ -380,11 +384,11 @@ func (uc *MessageUsecase) GetTokensBySpool(ctx context.Context, userID, spoolID 
 	channels[userChannel] = userSub
 
 	for _, id := range threads {
-		channel := "thread#" + fmt.Sprint(id)
+		channel := "thread#" + fmt.Sprint(id.ID)
 		token, err := uc.wsRepo.GenerateSubscribeToken(ctx, userID, channel, uc.tokenTTL)
 		if err != nil {
 			uc.logger.Warn(ErrFailedToPublish.Error(),
-				zap.Uint("threadID", id),
+				zap.Uint("threadID", id.ID),
 				zap.Error(err))
 			continue
 		}

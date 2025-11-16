@@ -26,6 +26,7 @@ type SpoolRepoInterface interface {
 	GetUserSpoolStatus(ctx context.Context, userID uint, spoolID uint) (*gdomain.UserSpool, error)
 	GetUserSpoolStatusByUsername(ctx context.Context, username string, spoolID uint) (*gdomain.UserSpool, error)
 	UpdateUserAccessLevel(ctx context.Context, userID uint, spoolID uint, accessLevel uint) error
+	GetSpoolThreadsByUser(ctx context.Context, user gdomain.UserSpool) ([]*gdomain.Thread, error)
 }
 
 type SpoolMember struct {

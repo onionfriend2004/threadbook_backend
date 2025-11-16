@@ -286,3 +286,26 @@ func (r *spoolRepo) UpdateUserAccessLevel(ctx context.Context, userID uint, spoo
 		Where("user_id = ? AND spool_id = ?", userID, spoolID).
 		Update("access_level", accessLevel).Error
 }
+
+func (r *spoolRepo) GetSpoolThreadsByUser(ctx context.Context, user gdomain.UserSpool) ([]*gdomain.Thread, error) {
+	var threads []*gdomain.Thread
+
+	err := r.db.WithContext(ctx).
+		Raw(`
+            SELECT t.* FROM threads t
+            WHERE t.spool_id = ? AND (
+                (t.type = 'public' AND ? >= t.access_level) OR
+                (t.type = 'private' AND EXISTS(
+                    SELECT 1 FROM thread_users tu 
+                    WHERE tu.thread_id = t.id AND tu.user_id = ? AND tu.status = 'active'
+                ))
+            )
+        `, user.SpoolID, user.AccessLevel, user.UserID).
+		Find(&threads).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return threads, nil
+}

@@ -318,6 +318,7 @@ func (r *ThreadRepo) InviteToThread(ctx context.Context, inviterID uint, invitee
 	})
 }
 
+// не используется
 func (r *ThreadRepo) GetAccessibleThreadIDsBySpool(ctx context.Context, userID, spoolID uint) ([]uint, error) {
 	var threadIDs []uint
 
