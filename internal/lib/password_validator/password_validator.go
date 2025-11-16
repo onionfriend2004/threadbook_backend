@@ -5,6 +5,7 @@ import (
 	"regexp"
 )
 
+// =============== ФАЙЛ НЕ ИСПОЛЬЗУЕТСЯ, МОЖНО УДАЛЯТЬ, ВАЛИДАЦИИ ПАРОЛЯ ТЕПЕРЬ ПРИ ДЕКОДЕ ДЖСОНА ============
 func ValidatePassword(password string) error {
 	if len(password) < 8 {
 		return fmt.Errorf("password must be at least 8 characters long")

@@ -9,8 +9,8 @@ import (
 )
 
 type ProfileRepoInterface interface {
-	UpdateProfile(ctx context.Context, userID int, nickname *string, avatarLink string) (*gdomain.Profile, error)
-	GetProfileByUserID(ctx context.Context, userID int) (*gdomain.Profile, error)
+	UpdateProfile(ctx context.Context, userID uint, nickname *string, avatarLink string) (*gdomain.Profile, error)
+	GetProfileByUserID(ctx context.Context, userID uint) (*gdomain.Profile, error)
 	GetProfilesByUsernames(ctx context.Context, usernames []string) ([]gdomain.User, error)
 }
 
@@ -22,7 +22,7 @@ func NewProfileRepo(db *gorm.DB) ProfileRepoInterface {
 	return &ProfileRepo{db: db}
 }
 
-func (r *ProfileRepo) UpdateProfile(ctx context.Context, userID int, nickname *string, avatarLink string) (*gdomain.Profile, error) {
+func (r *ProfileRepo) UpdateProfile(ctx context.Context, userID uint, nickname *string, avatarLink string) (*gdomain.Profile, error) {
 	if userID == 0 {
 		return nil, errors.New("invalid user id")
 	}
@@ -74,7 +74,7 @@ func (r *ProfileRepo) UpdateProfile(ctx context.Context, userID int, nickname *s
 	return &profile, nil
 }
 
-func (r *ProfileRepo) GetProfileByUserID(ctx context.Context, userID int) (*gdomain.Profile, error) {
+func (r *ProfileRepo) GetProfileByUserID(ctx context.Context, userID uint) (*gdomain.Profile, error) {
 	var profile gdomain.Profile
 	if err := r.db.WithContext(ctx).
 		Where("user_id = ?", userID).

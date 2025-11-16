@@ -17,8 +17,8 @@ import (
 )
 
 func (h *ThreadHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
-	threadIDStr := chi.URLParam(r, "id")
-	threadID64, err := strconv.ParseUint(threadIDStr, 10, 64)
+	idStr := chi.URLParam(r, "thread_id")
+	threadID64, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
 		lib.WriteError(w, "invalid thread id", http.StatusBadRequest)
 		return

@@ -5,7 +5,8 @@ type GetSpoolMembersResponse struct {
 }
 
 type MemberShortInfo struct {
-	Username   string `json:"username"`
-	Nickname   string `json:"nickname,omitempty"`
-	AvatarPath string `json:"avatar_link,omitempty"`
+	Username    string `json:"username"`
+	Nickname    string `json:"nickname,omitempty"`
+	AvatarPath  string `json:"avatar_link,omitempty"`
+	AccessLevel uint   `json:"access_level"`
 }

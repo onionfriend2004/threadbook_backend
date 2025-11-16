@@ -10,7 +10,6 @@ import (
 	"github.com/onionfriend2004/threadbook_backend/internal/auth/external"
 	"github.com/onionfriend2004/threadbook_backend/internal/auth/hasher"
 	"github.com/onionfriend2004/threadbook_backend/internal/gdomain"
-	passwordvalidator "github.com/onionfriend2004/threadbook_backend/internal/lib/password_validator"
 	"go.uber.org/zap"
 )
 
@@ -109,11 +108,11 @@ func (u *authUsecase) SignUpUser(ctx context.Context, input SignUpInput) (*gdoma
 	}
 
 	/// пока так, потом надо кастомный валидатор в жысон прикрутить
-	err = passwordvalidator.ValidatePassword(input.Password)
-	if err != nil {
-		u.logger.Error("failed to validate password", zap.Error(err))
-		return nil, err
-	}
+	// err = passwordvalidator.ValidatePassword(input.Password)
+	// if err != nil {
+	// 	u.logger.Error("failed to validate password", zap.Error(err))
+	// 	return nil, err
+	// }
 	/// пока так, потом надо кастомный валидатор в жысон прикрутить
 
 	hashedPassword, err := u.hasher.Hash(input.Password)
@@ -191,11 +190,11 @@ func (u *authUsecase) UpgradeGuestToUser(ctx context.Context, input UpgradeGuest
 	}
 
 	/// пока так, потом надо кастомный валидатор в жысон прикрутить
-	err = passwordvalidator.ValidatePassword(input.Password)
-	if err != nil {
-		u.logger.Error("failed to validate password", zap.Error(err))
-		return nil, err
-	}
+	// err = passwordvalidator.ValidatePassword(input.Password)
+	// if err != nil {
+	// 	u.logger.Error("failed to validate password", zap.Error(err))
+	// 	return nil, err
+	// }
 	/// пока так, потом надо кастомный валидатор в жысон прикрутить
 
 	hashedPassword, err := u.hasher.Hash(input.Password)

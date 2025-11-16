@@ -68,7 +68,7 @@ func (h *ProfileHandler) EditProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	profile, err := h.usecase.UpdateProfile(r.Context(), usecase.UpdateProfileInput{
-		UserID:   int(userID),
+		UserID:   userID,
 		Nickname: &nickname,
 		Avatar:   avatarInput,
 	})

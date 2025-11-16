@@ -8,14 +8,14 @@ import (
 	"github.com/goccy/go-json"
 	"github.com/onionfriend2004/threadbook_backend/internal/apperrors"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib"
+	"github.com/onionfriend2004/threadbook_backend/internal/lib/middleware/auth"
 	"github.com/onionfriend2004/threadbook_backend/internal/thread/delivery/dto"
 	"github.com/onionfriend2004/threadbook_backend/internal/thread/usecase"
 	"go.uber.org/zap"
 )
 
 func (h *ThreadHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
-	// --- 1. Thread ID ---
-	idStr := chi.URLParam(r, "id")
+	idStr := chi.URLParam(r, "thread_id")
 	threadID64, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
 		lib.WriteError(w, "invalid thread id", lib.StatusBadRequest)
@@ -43,8 +43,14 @@ func (h *ThreadHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 		forward = fStr == "true"
 	}
 
-	// --- 3. Вызов usecase ---
+	userID, err := auth.GetUserIDFromContext(r.Context())
+	if err != nil {
+		lib.WriteError(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	input := usecase.GetMessagesInput{
+		UserID:   userID,
 		ThreadID: threadID,
 		CursorID: cursorID,
 		Limit:    limit,

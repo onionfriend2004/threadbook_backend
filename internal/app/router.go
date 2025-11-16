@@ -176,24 +176,35 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 	fileHandler := fileDeliveryHTTP.NewFileHandler(fileUC, logger)
 	fileHandler.Routes(r)
 
-	// ===================== Thread =====================
-	// external repos
-	threadRepo := threadExternal.NewThreadRepo(db, logger)
-	liveKitRepo := threadExternal.NewLiveKitRepo(livekit, cfg.Room.EmptyTTL, cfg.Room.MaxParticipants)
+	// ===================== Other =====================
 	websocketRepo := threadExternal.NewWebsocketRepo(
 		centrifugo,               // *gocent.Client
 		cfg.Centrifugo.TokenHMAC, // JWT secret
 		"threadbook",             // token issuer
 	)
+	InviteLinkRepo := threadExternal.NewInviteLinkRepo(db)
+
+	// ===================== Spool =====================
+	spoolFileRepo := fileExternal.NewFileRepo(minio, "uploads")
+	spoolFileUC := fileUsecase.NewFileUsecase(spoolFileRepo, logger)
+	spoolFileHandler := fileDeliveryHTTP.NewFileHandler(spoolFileUC, logger)
+	spoolFileHandler.Routes(r)
+
+	spoolRepo := spoolExternal.NewSpoolRepo(db)
+	spoolUC := spoolUsecase.NewSpoolUsecase(spoolRepo, InviteLinkRepo, websocketRepo, spoolFileUC, logger)
+	spoolHandler := spoolDeliveryHTTP.NewSpoolHandler(spoolUC, logger, fileConfig)
+	spoolHandler.Routes(r, authenticator)
+
+	// ===================== Thread =====================
+	// external repos
+	threadRepo := threadExternal.NewThreadRepo(db, logger)
+	liveKitRepo := threadExternal.NewLiveKitRepo(livekit, cfg.Room.EmptyTTL, cfg.Room.MaxParticipants)
 	// messages repo
 	messageRepo := threadExternal.NewMessageRepo(db)
-	noAuthRepo := threadExternal.NewInviteLinkRepo(redis)
-	messageFileRepo := fileExternal.NewFileRepo(minio, "files")
 
 	// usecases
-	messageFileUC := fileUsecase.NewFileUsecase(messageFileRepo, logger)
-	threadUC := threadUsecase.NewThreadUsecase(threadRepo, noAuthRepo, websocketRepo, userRepo, time.Duration(cfg.Centrifugo.TTL)*time.Second, logger)
-	messageUC := threadUsecase.NewMessageUsecase(messageRepo, websocketRepo, messageFileUC, threadRepo, time.Duration(cfg.Centrifugo.TTL)*time.Second, logger)
+	threadUC := threadUsecase.NewThreadUsecase(threadRepo, spoolRepo, InviteLinkRepo, websocketRepo, userRepo, time.Duration(cfg.Centrifugo.TTL)*time.Second, logger)
+	messageUC := threadUsecase.NewMessageUsecase(messageRepo, websocketRepo, threadRepo, spoolRepo, time.Duration(cfg.Centrifugo.TTL)*time.Second, logger)
 	roomUC := threadUsecase.NewRoomUsecase(threadRepo, liveKitRepo, cfg.LiveKit.URL, cfg.LiveKit.APIKey, cfg.LiveKit.APISecret, logger)
 
 	// handler
@@ -210,19 +221,6 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 	profileUC := profileUsecase.NewProfileUsecase(profileRepo, profileFileUC, logger)
 	profileHandler := profileDeliveryHTTP.NewProfileHandler(profileUC, logger, fileConfig)
 	profileHandler.Routes(r, authenticator)
-
-	// ===================== Spool =====================
-
-	spoolFileRepo := fileExternal.NewFileRepo(minio, "spools")
-	spoolFileUC := fileUsecase.NewFileUsecase(spoolFileRepo, logger)
-	spoolFileHandler := fileDeliveryHTTP.NewFileHandler(spoolFileUC, logger)
-	spoolFileHandler.Routes(r)
-
-	spoolRepo := spoolExternal.NewSpoolRepo(db)
-	spoolUC := spoolUsecase.NewSpoolUsecase(spoolRepo, websocketRepo, spoolFileUC, logger)
-	spoolHandler := spoolDeliveryHTTP.NewSpoolHandler(spoolUC, logger, fileConfig)
-	spoolHandler.Routes(r, authenticator)
-	// ===================== Other =====================
 
 	return r, nil
 }

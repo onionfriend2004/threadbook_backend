@@ -2,16 +2,16 @@ package usecase
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
 	userexternal "github.com/onionfriend2004/threadbook_backend/internal/auth/external"
 	"github.com/onionfriend2004/threadbook_backend/internal/gdomain"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib/event"
+
+	spoolexternal "github.com/onionfriend2004/threadbook_backend/internal/spool/external"
 	"github.com/onionfriend2004/threadbook_backend/internal/thread/external"
 	repo "github.com/onionfriend2004/threadbook_backend/internal/thread/external"
-	"github.com/onionfriend2004/threadbook_backend/internal/thread/external/domain"
 	"go.uber.org/zap"
 )
 
@@ -21,49 +21,77 @@ type ThreadUsecaseInterface interface {
 	CloseThread(ctx context.Context, input CloseThreadInput) (*gdomain.Thread, error)
 	InviteToThread(ctx context.Context, input InviteToThreadInput) error
 	UpdateThread(ctx context.Context, input UpdateThreadInput) (*gdomain.Thread, error)
-	CreateInviteLink(ctx context.Context, input CreateInviteLinkInput) (*domain.InviteLink, error)
+	CreateInviteLink(ctx context.Context, input CreateInviteLinkInput) (*gdomain.InviteLink, error)
 	JoinToThread(ctx context.Context, input JoinToThreadInput) error
 	DeleteInviteLink(ctx context.Context, input DeleteInviteLinkInput) error
-	GetThreadInviteLinks(ctx context.Context, input GetThreadInviteLinksInput) ([]*domain.InviteLink, error)
+	GetThreadInviteLinks(ctx context.Context, input GetThreadInviteLinksInput) ([]*gdomain.InviteLink, error)
+	GetThreadUsers(ctx context.Context, input GetThreadUsersInput) ([]gdomain.User, error)
 }
 
 type ThreadUsecase struct {
-	threadRepo external.ThreadRepoInterface
-	noAuthRepo repo.InviteLinkRepoInterface
-	wsRepo     external.WebsocketRepoInterface
-	userRepo   userexternal.UserRepoInterface
-	tokenTTL   time.Duration
-	logger     *zap.Logger
+	threadRepo     external.ThreadRepoInterface
+	spoolRepo      spoolexternal.SpoolRepoInterface
+	InviteLinkRepo repo.InviteLinkRepoInterface
+	wsRepo         external.WebsocketRepoInterface
+	userRepo       userexternal.UserRepoInterface
+	tokenTTL       time.Duration
+	logger         *zap.Logger
 }
 
 func NewThreadUsecase(
 	threadRepo external.ThreadRepoInterface,
-	noAuthRepo repo.InviteLinkRepoInterface,
+	spoolRepo spoolexternal.SpoolRepoInterface,
+	InviteLinkRepo repo.InviteLinkRepoInterface,
 	wsRepo external.WebsocketRepoInterface,
 	userRepo userexternal.UserRepoInterface,
 	tokenTTL time.Duration,
 	logger *zap.Logger,
 ) ThreadUsecaseInterface {
 	return &ThreadUsecase{
-		threadRepo: threadRepo,
-		noAuthRepo: noAuthRepo,
-		wsRepo:     wsRepo,
-		userRepo:   userRepo,
-		tokenTTL:   tokenTTL,
-		logger:     logger,
+		threadRepo:     threadRepo,
+		spoolRepo:      spoolRepo,
+		InviteLinkRepo: InviteLinkRepo,
+		wsRepo:         wsRepo,
+		userRepo:       userRepo,
+		tokenTTL:       tokenTTL,
+		logger:         logger,
 	}
 }
 
 func (u *ThreadUsecase) CreateThread(ctx context.Context, input CreateThreadInput) (*gdomain.Thread, error) {
-	if !(input.TypeThread == "private" || input.TypeThread == "public") {
-		return nil, ErrWrongTypeThread
+	if input.SpoolID != nil {
+		userSpool, err := u.spoolRepo.GetUserSpoolStatus(ctx, input.OwnerID, *input.SpoolID)
+		if err != nil {
+			return nil, external.ErrUserNotInSpool
+		}
+		var trueAccessLevel uint
+		if input.AccessLevel == nil {
+			trueAccessLevel = 0
+		} else {
+			trueAccessLevel = *input.AccessLevel
+		}
+		// Если объединить в один if -- потом ничего непонятно
+		if userSpool.IsDeleted {
+			return nil, external.ErrPermissionDenied
+		}
+		if input.ThreadType == gdomain.ThreadTypePrivate && userSpool.AccessLevel < 1 {
+			return nil, external.ErrPermissionDenied
+		}
+		if input.ThreadType == gdomain.ThreadTypePublic && (userSpool.AccessLevel <= trueAccessLevel) {
+			return nil, external.ErrPermissionDenied
+		}
+	} else {
+		if input.ThreadType == gdomain.ThreadTypePublic {
+			return nil, ErrInvalidInput
+		}
 	}
 
-	// Создаём поток в репозитории
-	newThread, err := u.threadRepo.Create(ctx, input.OwnerID, input.SpoolID, input.Title, input.TypeThread)
+	newThread, err := u.threadRepo.Create(ctx, input.OwnerID, input.SpoolID, input.Title, input.ThreadType, input.AccessLevel)
 	if err != nil {
 		return nil, err
 	}
+	if newThread.Type == gdomain.ThreadTypePublic {
+		threadChannel := fmt.Sprintf("thread#%d", newThread.ID)
 
 	threadChannel := fmt.Sprintf("thread#%d", newThread.ID)
 
@@ -97,7 +125,6 @@ func (u *ThreadUsecase) CreateThread(ctx context.Context, input CreateThreadInpu
 			u.logger.Warn("failed to publish thread created event", zap.Uint("userID", member.UserID), zap.Error(err))
 		}
 	}
-
 	return newThread, nil
 }
 
@@ -110,16 +137,47 @@ func (u *ThreadUsecase) GetBySpoolID(ctx context.Context, input GetBySpoolIDInpu
 }
 
 func (u *ThreadUsecase) CloseThread(ctx context.Context, input CloseThreadInput) (*gdomain.Thread, error) {
-	thread, err := u.threadRepo.CloseThread(input.ThreadID, input.UserID)
+	thread, err := u.threadRepo.GetThreadByID(ctx, input.ThreadID)
 	if err != nil {
 		return nil, err
 	}
-
-	// Получаем участников треда
-	members, err := u.threadRepo.GetThreadMembers(ctx, thread.ID)
-	if err != nil {
-		u.logger.Warn("failed to get thread members for CloseThread event", zap.Error(err))
-		return thread, nil // возвращаем закрытый тред даже если событие не отправилось
+	var members []gdomain.User
+	if thread.Type == gdomain.ThreadTypePrivate {
+		isOwner, err := u.threadRepo.IsThreadOwner(ctx, input.UserID, input.ThreadID)
+		// isMember, err := u.threadRepo.IsUserThreadMember(ctx, input.UserID, input.ThreadID)
+		if err != nil {
+			return nil, err
+		}
+		if isOwner {
+			thread, err = u.threadRepo.CloseThread(ctx, thread.ID)
+			if err != nil {
+				return nil, err
+			}
+		}
+		members, err = u.threadRepo.GetThreadUsers(ctx, thread.ID)
+		if err != nil {
+			u.logger.Warn("failed to get thread members for CloseThread event", zap.Error(err))
+			return thread, nil // возвращаем закрытый тред даже если событие не отправилось
+		}
+	} else if thread.SpoolID != nil {
+		user, err := u.spoolRepo.GetUserSpoolStatus(ctx, input.UserID, *thread.SpoolID)
+		if err != nil {
+			return nil, err
+		}
+		if user.AccessLevel <= thread.AccessLevel {
+			return nil, ErrNoAccessToThread
+		}
+		thread, err = u.threadRepo.CloseThread(ctx, thread.ID)
+		if err != nil {
+			return nil, err
+		}
+		members, err = u.threadRepo.GetUsersWithAccess(ctx, *thread.SpoolID, thread.AccessLevel)
+		if err != nil {
+			u.logger.Warn("failed to get thread members for CloseThread event", zap.Error(err))
+			return thread, nil // возвращаем закрытый тред даже если событие не отправилось
+		}
+	} else {
+		return nil, ErrInvalidInput
 	}
 
 	// Подготавливаем payload события
@@ -130,11 +188,11 @@ func (u *ThreadUsecase) CloseThread(ctx context.Context, input CloseThreadInput)
 
 	// Рассылаем событие всем участникам
 	for _, member := range members {
-		if err := u.wsRepo.PublishToUser(ctx, member.UserID, event.Event{
+		if err := u.wsRepo.PublishToUser(ctx, member.ID, event.Event{
 			Type:    event.ThreadDeleted,
 			Payload: payload,
 		}); err != nil {
-			u.logger.Warn("failed to publish ThreadDeleted event", zap.Uint("userID", member.UserID), zap.Error(err))
+			u.logger.Warn("failed to publish ThreadDeleted event", zap.Uint("userID", member.ID), zap.Error(err))
 		}
 	}
 
@@ -143,6 +201,20 @@ func (u *ThreadUsecase) CloseThread(ctx context.Context, input CloseThreadInput)
 
 func (u *ThreadUsecase) InviteToThread(ctx context.Context, input InviteToThreadInput) error {
 	// Добавляем пользователей в тред через репозиторий
+	thread, err := u.threadRepo.GetThreadByID(ctx, input.ThreadID)
+	if err != nil {
+		return err
+	}
+	if thread.Type == gdomain.ThreadTypePublic {
+		return ErrWrongTypeThread
+	}
+	isMember, err := u.threadRepo.IsUserThreadMember(ctx, input.InviterID, input.ThreadID)
+	if err != nil {
+		return err
+	}
+	if !isMember {
+		return ErrThreadNotFound
+	}
 	if err := u.threadRepo.InviteToThread(ctx, input.InviterID, input.InviteeUsernames, input.ThreadID); err != nil {
 		return err
 	}
@@ -189,24 +261,55 @@ func (u *ThreadUsecase) InviteToThread(ctx context.Context, input InviteToThread
 }
 
 func (u *ThreadUsecase) UpdateThread(ctx context.Context, input UpdateThreadInput) (*gdomain.Thread, error) {
-	if input.ID == 0 {
-		return nil, errors.New("thread id is required")
+	// userAccessLevel, threadAccessLevel, err := u.threadRepo.GetUserThreadAccessLevelsToUpdate(ctx, input.EditorID, input.ID)
+	// if err != nil {
+	// 	return nil, ErrFailToGetThread
+	// }
+
+	// // Проверяем доступ к редактированию
+	// if userAccessLevel <= threadAccessLevel {
+	// 	return nil, ErrNoAccessToThread
+	// }
+
+	// // Если передали новый access level, проверяем что у пользователя достаточно прав
+	// if input.AccessLevel != nil && userAccessLevel <= *input.AccessLevel {
+	// 	return nil, ErrNoAccessToThread
+	// }
+	thread, err := u.threadRepo.GetThreadByID(ctx, input.ThreadID)
+	if err != nil {
+		return nil, err
 	}
-	if input.EditorID == 0 {
-		return nil, errors.New("editor id is required")
+	if thread.Type == gdomain.ThreadTypePrivate {
+		isOwner, err := u.threadRepo.IsThreadOwner(ctx, input.EditorID, thread.ID)
+		// isMember, err := u.threadRepo.IsUserThreadMember(ctx, input.EditorID, thread.ID)
+		if err != nil {
+			return nil, err
+		}
+		if !isOwner {
+			return nil, ErrThreadNotFound
+		}
+	} else {
+		userStatus, err := u.spoolRepo.GetUserSpoolStatus(ctx, input.EditorID, *thread.SpoolID)
+		if err != nil {
+			return nil, err
+		}
+		if userStatus.AccessLevel <= thread.AccessLevel {
+			return nil, ErrThreadNotFound
+		}
 	}
 
-	updatedThread, err := u.threadRepo.Update(ctx, input.ID, input.EditorID, input.Title, input.ThreadType)
+	updatedThread, err := u.threadRepo.Update(ctx, input.ThreadID, input.Title, input.ThreadType, input.AccessLevel)
 	if err != nil {
 		return nil, err
 	}
 
 	// Получаем участников треда
-	members, err := u.threadRepo.GetThreadMembers(ctx, updatedThread.ID)
-	if err != nil {
-		u.logger.Warn("failed to get thread members for ThreadUpdated event", zap.Error(err))
-		return updatedThread, nil
-	}
+	if updatedThread.SpoolID != nil {
+		members, err := u.threadRepo.GetUsersWithAccess(ctx, *updatedThread.SpoolID, updatedThread.AccessLevel)
+		if err != nil {
+			u.logger.Warn("failed to get thread members for ThreadUpdated event", zap.Error(err))
+			return updatedThread, nil
+		}
 
 	// Подготавливаем payload события
 	payload := event.ThreadUpdatedPayload{
@@ -216,33 +319,40 @@ func (u *ThreadUsecase) UpdateThread(ctx context.Context, input UpdateThreadInpu
 		UpdatedAt: updatedThread.UpdatedAt.Unix(),
 	}
 
-	// Рассылаем событие всем участникам
-	for _, member := range members {
-		if err := u.wsRepo.PublishToUser(ctx, member.UserID, event.Event{
-			Type:    event.ThreadUpdated,
-			Payload: payload,
-		}); err != nil {
-			u.logger.Warn("failed to publish ThreadUpdated event", zap.Uint("userID", member.UserID), zap.Error(err))
+		// Рассылаем событие всем участникам
+		for _, member := range members {
+			if err := u.wsRepo.PublishToUser(ctx, member.ID, event.Event{
+				Type:    event.ThreadUpdated,
+				Payload: payload,
+			}); err != nil {
+				u.logger.Warn("failed to publish ThreadUpdated event", zap.Uint("userID", member.ID), zap.Error(err))
+			}
 		}
 	}
-
 	return updatedThread, nil
 }
 
-func (u *ThreadUsecase) CreateInviteLink(ctx context.Context, input CreateInviteLinkInput) (*domain.InviteLink, error) {
+func (u *ThreadUsecase) CreateInviteLink(ctx context.Context, input CreateInviteLinkInput) (*gdomain.InviteLink, error) {
 
 	thread, err := u.threadRepo.GetThreadByID(ctx, input.ThreadID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get thread: %w", err)
+		return nil, err
 	}
-	if thread.CreatorID != input.UserID {
-		return nil, ErrNoAccessToThread
+	if thread.Type != gdomain.ThreadTypePrivate {
+		return nil, ErrWrongTypeThread
 	}
 	if thread.IsClosed {
 		return nil, ErrThreadClosed
 	}
+	isMember, err := u.threadRepo.IsUserThreadMember(ctx, input.UserID, thread.ID)
+	if err != nil {
+		return nil, ErrThreadNotFound
+	}
+	if !isMember {
+		return nil, ErrThreadNotFound
+	}
 
-	session, err := u.noAuthRepo.CreateLink(ctx, input.ThreadID)
+	session, err := u.InviteLinkRepo.CreateLink(ctx, "thread", input.ThreadID, input.UserID, input.ExpiresAt, input.MaxUses)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create noauth session: %w", err)
 	}
@@ -251,41 +361,96 @@ func (u *ThreadUsecase) CreateInviteLink(ctx context.Context, input CreateInvite
 }
 
 func (u *ThreadUsecase) JoinToThread(ctx context.Context, input JoinToThreadInput) error {
-	if input.Link == "" {
-		return ErrInvalidInput
-	}
+	// if input.InviteToken == "" {
+	// 	return ErrInvalidInput
+	// }
 
-	session, err := u.noAuthRepo.GetInviteByID(ctx, input.Link)
+	session, err := u.InviteLinkRepo.GetInviteByID(ctx, input.InviteToken)
 	if err != nil {
 		return ErrThreadNotFound
 	}
-
-	return u.threadRepo.AddUserToThread(ctx, input.UserID, session.ThreadID)
+	thread, err := u.threadRepo.GetThreadByID(ctx, session.ResourceID)
+	if err != nil {
+		return err
+	}
+	if thread.SpoolID != nil {
+		user, err := u.spoolRepo.GetUserSpoolStatus(ctx, input.UserID, *thread.SpoolID)
+		if err != nil {
+			return err
+		}
+		if user == nil {
+			u.spoolRepo.AddUserToSpoolByUsername(ctx, input.Username, *thread.SpoolID)
+		}
+	}
+	return u.threadRepo.AddUserToThread(ctx, input.UserID, session.ResourceID)
 }
 
 func (u *ThreadUsecase) DeleteInviteLink(ctx context.Context, input DeleteInviteLinkInput) error {
-	if input.Link == "" {
-		return ErrInvalidInput
-	}
-
-	session, err := u.noAuthRepo.GetInviteByID(ctx, input.Link)
+	session, err := u.InviteLinkRepo.GetInviteByID(ctx, input.Link)
 	if err != nil {
 		return ErrThreadNotFound
 	}
 
-	isOwner, err := u.threadRepo.IsThreadOwner(ctx, input.UserID, session.ThreadID)
-	if err != nil || !isOwner {
-		return ErrThreadNotFound
+	thread, err := u.threadRepo.GetThreadByID(ctx, session.ResourceID)
+	if err != nil {
+		return err
+	}
+	if thread.Type == gdomain.ThreadTypePrivate {
+		isMember, err := u.threadRepo.IsUserThreadMember(ctx, input.UserID, thread.ID)
+		if err != nil {
+			return err
+		}
+		if !isMember {
+			return ErrThreadNotFound
+		}
+	} else {
+		return ErrWrongTypeThread
 	}
 
-	return u.noAuthRepo.DeleteLink(ctx, session.ID)
+	// user, err := u.threadRepo.GetUserSpoolStatus(ctx, input.UserID, *thread.SpoolID)
+	// if err != nil || user == nil {
+	// 	return err
+	// }
+
+	// isOwner, err := u.threadRepo.IsThreadOwner(ctx, input.UserID, session.ResourceID)
+	// if err != nil || !isOwner {
+	// 	return ErrThreadNotFound
+	// }
+
+	return u.InviteLinkRepo.DeleteLink(ctx, session.ID)
 }
 
-func (u *ThreadUsecase) GetThreadInviteLinks(ctx context.Context, input GetThreadInviteLinksInput) ([]*domain.InviteLink, error) {
-	inThread, err := u.threadRepo.CheckRightsUserOnThreadRoom(ctx, input.ThreadID, input.UserID)
-	if err != nil || !inThread {
+func (u *ThreadUsecase) GetThreadInviteLinks(ctx context.Context, input GetThreadInviteLinksInput) ([]*gdomain.InviteLink, error) {
+	fmt.Printf("GetThreadInviteLinks input: ThreadID=%d, UserID=%d\n", input.ThreadID, input.UserID)
+	isMember, err := u.threadRepo.IsUserThreadMember(ctx, input.UserID, input.ThreadID)
+	if err != nil {
+		return nil, err
+	}
+	if !isMember {
 		return nil, ErrThreadNotFound
 	}
 
-	return u.noAuthRepo.GetLinksByThread(ctx, input.ThreadID)
+	return u.InviteLinkRepo.GetLinksByResource(ctx, "thread", input.ThreadID)
+}
+
+func (u *ThreadUsecase) GetThreadUsers(ctx context.Context, input GetThreadUsersInput) ([]gdomain.User, error) {
+	thread, err := u.threadRepo.GetThreadByID(ctx, input.ThreadID)
+	if err != nil {
+		return nil, err
+	}
+	if thread.Type != gdomain.ThreadTypePrivate {
+		return nil, ErrWrongTypeThread
+	}
+	isMember, err := u.threadRepo.IsUserThreadMember(ctx, input.UserID, input.ThreadID)
+	if err != nil {
+		return nil, err
+	}
+	if !isMember {
+		return nil, ErrThreadNotFound
+	}
+	users, err := u.threadRepo.GetThreadUsers(ctx, input.ThreadID)
+	if err != nil {
+		return nil, err
+	}
+	return users, err
 }

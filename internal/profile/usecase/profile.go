@@ -17,7 +17,7 @@ type ProfileUsecaseInterface interface {
 }
 
 type UpdateProfileOutput struct {
-	UserID     int    `json:"user_id"`
+	UserID     uint   `json:"user_id"`
 	Nickname   string `json:"nickname,omitempty"`
 	AvatarLink string `json:"avatar_link,omitempty"`
 }
@@ -48,8 +48,8 @@ func (uc *ProfileUsecase) UpdateProfile(ctx context.Context, input UpdateProfile
 
 	var avatarLink string
 	var err error
-
-	userIDstr := strconv.Itoa(input.UserID)
+	// TODO: А почему у нас юзер айди стрингой хранится?
+	userIDstr := strconv.Itoa(int(input.UserID))
 
 	// Если передан аватар, сохраняем через fileUC
 	if input.Avatar != nil {

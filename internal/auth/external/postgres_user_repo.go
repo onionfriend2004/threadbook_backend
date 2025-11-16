@@ -28,16 +28,27 @@ func isUniqueViolation(err error) bool {
 }
 
 func (r *userRepo) CreateUser(ctx context.Context, user gdomain.User) (*gdomain.User, error) {
-	if user.Email == "" || user.Username == "" || user.PasswordHash == "" {
-		return &gdomain.User{}, ErrInvalidUser
-	}
 	user.EmailVerify = false
-	err := r.db.WithContext(ctx).Create(&user).Error
-	if err != nil {
-		if isUniqueViolation(err) {
-			return &gdomain.User{}, ErrUserExists
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&user).Error; err != nil {
+			if isUniqueViolation(err) {
+				return ErrUserExists
+			}
+			return err
 		}
-		return &gdomain.User{}, err
+
+		profile := gdomain.Profile{
+			UserID: user.ID,
+		}
+		if err := tx.Create(&profile).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
 	}
 	return &user, nil
 }
@@ -200,7 +211,7 @@ func (r *userRepo) GetUserProfileByUserID(ctx context.Context, userID uint) (*gd
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			// Возвращаем пустой профиль вместо ошибки
 			return &gdomain.Profile{
-				UserID:     int(userID),
+				UserID:     userID,
 				Nickname:   "",
 				AvatarLink: "",
 			}, nil

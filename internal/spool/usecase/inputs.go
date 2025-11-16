@@ -1,6 +1,9 @@
 package usecase
 
-import "io"
+import (
+	"io"
+	"time"
+)
 
 // ---------- CreateSpool ----------
 type CreateSpoolInput struct {
@@ -14,12 +17,6 @@ type BannerInput struct {
 	Size        int64
 	Filename    string
 	ContentType string
-}
-
-// ---------- LeaveFromSpool ----------
-type LeaveFromSpoolInput struct {
-	UserID  uint
-	SpoolID uint
 }
 
 // ---------- GetUserSpoolList ----------
@@ -43,6 +40,12 @@ type UpdateSpoolInput struct {
 	BannerLink string
 }
 
+// ---------- LeaveFromSpool ----------
+type LeaveFromSpoolInput struct {
+	UserID  uint
+	SpoolID uint
+}
+
 // ---------- GetSpoolInfoById ----------
 type GetSpoolInfoByIdInput struct {
 	UserID  uint
@@ -53,4 +56,39 @@ type GetSpoolInfoByIdInput struct {
 type GetSpoolMembersInput struct {
 	UserID  uint
 	SpoolID uint
+}
+
+// ---------- InviteLinks ----------
+type CreateInviteLinkInput struct {
+	UserID    uint
+	SpoolID   uint
+	MaxUses   uint
+	ExpiresAt time.Time
+}
+
+type JoinToSpoolInput struct {
+	Username string
+	Link     string
+}
+
+type DeleteInviteLinkInput struct {
+	UserID uint
+	Link   string
+}
+
+type GetSpoolInviteLinksInput struct {
+	UserID  uint
+	SpoolID uint
+}
+
+type RemoveAllGuestsFromSpoolInput struct {
+	UserID  uint
+	SpoolID uint
+}
+
+type AccessLevelInput struct {
+	EditorID    uint
+	SpoolID     uint
+	Username    string
+	AccessLevel uint
 }

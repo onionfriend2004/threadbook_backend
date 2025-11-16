@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 
 	"github.com/onionfriend2004/threadbook_backend/internal/file/usecase"
@@ -19,27 +20,37 @@ type SpoolUsecaseInterface interface {
 	InviteMemberInSpool(ctx context.Context, input InviteMemberInSpoolInput) error
 	UpdateSpool(ctx context.Context, input UpdateSpoolInput) (*gdomain.Spool, error)
 	GetSpoolInfoById(ctx context.Context, input GetSpoolInfoByIdInput) (*gdomain.Spool, error)
-	GetSpoolMembers(ctx context.Context, input GetSpoolMembersInput) ([]gdomain.User, error)
+	GetSpoolMembers(ctx context.Context, input GetSpoolMembersInput) ([]external.SpoolMember, error)
+	AccessLevel(ctx context.Context, input AccessLevelInput) error
+
+	GetSpoolInviteLinks(ctx context.Context, input GetSpoolInviteLinksInput) ([]*gdomain.InviteLink, error)
+	DeleteInviteLink(ctx context.Context, input DeleteInviteLinkInput) error
+	JoinToSpool(ctx context.Context, input JoinToSpoolInput) error
+	CreateInviteLink(ctx context.Context, input CreateInviteLinkInput) (*gdomain.InviteLink, error)
+	RemoveAllGuestsFromSpool(ctx context.Context, input RemoveAllGuestsFromSpoolInput) error
 }
 
 type spoolUsecase struct {
-	spoolRepo external.SpoolRepoInterface
-	wsRepo    wsexternal.WebsocketRepoInterface
-	fileUC    usecase.FileUsecaseInterface
-	logger    *zap.Logger
+	spoolRepo      external.SpoolRepoInterface
+	inviteLinkRepo wsexternal.InviteLinkRepoInterface
+	wsRepo         wsexternal.WebsocketRepoInterface
+	fileUC         usecase.FileUsecaseInterface
+	logger         *zap.Logger
 }
 
 func NewSpoolUsecase(
 	spoolRepo external.SpoolRepoInterface,
+	inviteLinkRepo wsexternal.InviteLinkRepoInterface,
 	wsRepo wsexternal.WebsocketRepoInterface,
 	fileUC usecase.FileUsecaseInterface,
 	logger *zap.Logger,
 ) SpoolUsecaseInterface {
 	return &spoolUsecase{
-		spoolRepo: spoolRepo,
-		wsRepo:    wsRepo,
-		fileUC:    fileUC,
-		logger:    logger,
+		spoolRepo:      spoolRepo,
+		inviteLinkRepo: inviteLinkRepo,
+		wsRepo:         wsRepo,
+		fileUC:         fileUC,
+		logger:         logger,
 	}
 }
 
@@ -197,7 +208,7 @@ func (u *spoolUsecase) UpdateSpool(ctx context.Context, input UpdateSpoolInput) 
 }
 
 // ---------- Get members ----------
-func (u *spoolUsecase) GetSpoolMembers(ctx context.Context, input GetSpoolMembersInput) ([]gdomain.User, error) {
+func (u *spoolUsecase) GetSpoolMembers(ctx context.Context, input GetSpoolMembersInput) ([]external.SpoolMember, error) {
 	if input.SpoolID == 0 || input.UserID == 0 {
 		return nil, ErrInvalidInput
 	}
@@ -257,4 +268,109 @@ func (u *spoolUsecase) GetSpoolInfoById(ctx context.Context, input GetSpoolInfoB
 	}
 
 	return spool, nil
+}
+
+// ---------- InviteLinks ----------
+func (u *spoolUsecase) CreateInviteLink(ctx context.Context, input CreateInviteLinkInput) (*gdomain.InviteLink, error) {
+
+	spool, err := u.spoolRepo.GetSpoolByID(ctx, input.SpoolID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get thread: %w", err)
+	}
+	if spool.CreatorID != input.UserID {
+		return nil, ErrForbidden
+	}
+	session, err := u.inviteLinkRepo.CreateLink(ctx, "spool", input.SpoolID, input.UserID, input.ExpiresAt, input.MaxUses)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create invite link: %w", err)
+	}
+
+	return session, nil
+}
+
+func (u *spoolUsecase) JoinToSpool(ctx context.Context, input JoinToSpoolInput) error {
+	if input.Link == "" {
+		return ErrInvalidInput
+	}
+
+	link, err := u.inviteLinkRepo.GetInviteByID(ctx, input.Link)
+	if err != nil {
+		return ErrForbidden
+	}
+
+	return u.spoolRepo.AddUserToSpoolByUsername(ctx, input.Username, link.ResourceID)
+}
+
+func (u *spoolUsecase) DeleteInviteLink(ctx context.Context, input DeleteInviteLinkInput) error {
+	if input.Link == "" {
+		return ErrInvalidInput
+	}
+
+	link, err := u.inviteLinkRepo.GetInviteByID(ctx, input.Link)
+	if err != nil {
+		return ErrForbidden
+	}
+
+	spool, err := u.spoolRepo.GetSpoolByID(ctx, link.ResourceID)
+	if err != nil || spool.CreatorID != input.UserID {
+		return ErrForbidden
+	}
+
+	return u.inviteLinkRepo.DeleteLink(ctx, link.ID)
+}
+
+func (u *spoolUsecase) GetSpoolInviteLinks(ctx context.Context, input GetSpoolInviteLinksInput) ([]*gdomain.InviteLink, error) {
+
+	spool, err := u.spoolRepo.GetSpoolByID(ctx, input.SpoolID)
+	if err != nil || spool.CreatorID != input.UserID {
+		return nil, ErrForbidden
+	}
+
+	return u.inviteLinkRepo.GetLinksByResource(ctx, "spool", input.SpoolID)
+}
+
+func (u *spoolUsecase) RemoveAllGuestsFromSpool(ctx context.Context, input RemoveAllGuestsFromSpoolInput) error {
+	spool, err := u.spoolRepo.GetSpoolByID(ctx, input.SpoolID)
+	if err != nil {
+		return err
+	}
+	if spool.CreatorID != input.UserID {
+		return ErrForbidden
+	}
+	return u.spoolRepo.RemoveAllGuestsFromSpool(ctx, input.SpoolID)
+}
+
+func (u *spoolUsecase) AccessLevel(ctx context.Context, input AccessLevelInput) error {
+	editor, err := u.spoolRepo.GetUserSpoolStatus(ctx, input.EditorID, input.SpoolID)
+	if err != nil {
+		// TODO ПРОПИСАТЬ НОРМАЛЬНЫЕ ОШИБКИ
+		return err
+	}
+	if editor == nil {
+		return ErrInvalidInput
+	}
+	if editor.AccessLevel <= input.AccessLevel {
+		// u.logger.Debug("editor access level <= input access level",
+		// 	zap.Uint("editor.AccessLevel", editor.AccessLevel),
+		// 	zap.Uint("input.AccessLevel", input.AccessLevel),
+		// )
+		// TODO ПРОПИСАТЬ НОРМАЛЬНЫЕ ОШИБКИ
+		return ErrInvalidInput
+	}
+	user, err := u.spoolRepo.GetUserSpoolStatusByUsername(ctx, input.Username, input.SpoolID)
+	if err != nil {
+		return ErrInvalidInput
+	}
+	if user == nil {
+		return ErrInvalidInput
+	}
+	if editor.AccessLevel <= user.AccessLevel {
+		// u.logger.Debug("editor access level <= input user level",
+		// 	zap.Uint("editor.AccessLevel", editor.AccessLevel),
+		// 	zap.Uint("user.AccessLevel", user.AccessLevel),
+		// )
+		// TODO ПРОПИСАТЬ НОРМАЛЬНЫЕ ОШИБКИ
+		return ErrInvalidInput
+	}
+	return u.spoolRepo.UpdateUserAccessLevel(ctx, user.UserID, input.SpoolID, input.AccessLevel)
 }

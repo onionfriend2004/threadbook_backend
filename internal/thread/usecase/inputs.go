@@ -1,13 +1,18 @@
 package usecase
 
-import "mime/multipart"
+import (
+	"time"
+
+	"github.com/onionfriend2004/threadbook_backend/internal/gdomain"
+)
 
 // ---------- CreateThread ----------
 type CreateThreadInput struct {
-	Title      string
-	SpoolID    uint
-	OwnerID    uint
-	TypeThread string
+	Title       string
+	SpoolID     *uint
+	OwnerID     uint
+	ThreadType  gdomain.ThreadType
+	AccessLevel *uint
 }
 
 // ---------- GetBySpoolID ----------
@@ -31,10 +36,11 @@ type InviteToThreadInput struct {
 
 // ---------- UpdateThread ----------
 type UpdateThreadInput struct {
-	ID         uint
-	EditorID   uint
-	Title      *string
-	ThreadType *string
+	ThreadID    uint
+	EditorID    uint
+	Title       *string
+	ThreadType  *string
+	AccessLevel *uint
 }
 
 // ---------- GetVoiceToken ----------
@@ -62,6 +68,7 @@ type SendMessageInput struct {
 
 // ---------- GetMessages ----------
 type GetMessagesInput struct {
+	UserID   uint
 	ThreadID uint
 	CursorID uint // ID сообщения, относительно которого грузим
 	Limit    int  // сколько сообщений загрузить
@@ -94,13 +101,16 @@ type ConnectAndSubscribeTokens struct {
 }
 
 type CreateInviteLinkInput struct {
-	UserID   uint
-	ThreadID uint
+	UserID    uint
+	ThreadID  uint
+	MaxUses   uint
+	ExpiresAt time.Time
 }
 
 type JoinToThreadInput struct {
-	UserID uint
-	Link   string
+	UserID      uint
+	Username    string
+	InviteToken string
 }
 
 type DeleteInviteLinkInput struct {
@@ -109,6 +119,11 @@ type DeleteInviteLinkInput struct {
 }
 
 type GetThreadInviteLinksInput struct {
+	UserID   uint
+	ThreadID uint
+}
+
+type GetThreadUsersInput struct {
 	UserID   uint
 	ThreadID uint
 }

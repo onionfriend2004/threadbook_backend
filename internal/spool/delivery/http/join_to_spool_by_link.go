@@ -8,24 +8,24 @@ import (
 	"github.com/onionfriend2004/threadbook_backend/internal/apperrors"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib/middleware/auth"
-	"github.com/onionfriend2004/threadbook_backend/internal/thread/usecase"
+	"github.com/onionfriend2004/threadbook_backend/internal/spool/usecase"
 	"go.uber.org/zap"
 )
 
-func (h *ThreadHandler) JoinToThread(w http.ResponseWriter, r *http.Request) {
-	inviteToken := chi.URLParam(r, "invite_token")
-	userID, err := auth.GetUserIDFromContext(r.Context())
+func (h *SpoolHandler) JoinToSpool(w http.ResponseWriter, r *http.Request) {
+	link := chi.URLParam(r, "thread_link")
+	username, err := auth.GetUsernameFromContext(r.Context())
 	if err != nil {
 		code, clientErr := apperrors.GetErrAndCodeToSend(err)
 		lib.WriteError(w, clientErr.Error(), code)
 		return
 	}
 
-	input := usecase.JoinToThreadInput{
-		InviteToken: inviteToken,
-		UserID:      userID,
+	input := usecase.JoinToSpoolInput{
+		Link:     link,
+		Username: username,
 	}
-	if err := h.threadUsecase.JoinToThread(r.Context(), input); err != nil {
+	if err := h.usecase.JoinToSpool(r.Context(), input); err != nil {
 		code, clientErr := apperrors.GetErrAndCodeToSend(err)
 		h.logger.Warn("failed to invite user", zap.Error(err))
 		lib.WriteError(w, clientErr.Error(), code)

@@ -2,8 +2,9 @@ package deliveryHTTP
 
 import (
 	"net/http"
+	"strconv"
 
-	"github.com/goccy/go-json"
+	"github.com/go-chi/chi/v5"
 	"github.com/onionfriend2004/threadbook_backend/internal/apperrors"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib/middleware/auth"
@@ -14,11 +15,15 @@ import (
 )
 
 func (h *ThreadHandler) InviteToThread(w http.ResponseWriter, r *http.Request) {
-	req := validator.GetValidatedBody[dto.InviteRequest](r)
-	if req.ThreadID == 0 || len(req.Usernames) == 0 {
-		lib.WriteError(w, "thread_id and invitee_id are required", lib.StatusBadRequest)
+	threadIDstr := chi.URLParam(r, "thread_id")
+	id, err := strconv.ParseUint(threadIDstr, 10, 32)
+	if err != nil {
+		lib.WriteError(w, "parameter thread_id must be a valid integer", lib.StatusUnauthorized)
 		return
 	}
+	threadID := uint(id)
+
+	req := validator.GetValidatedBody[dto.InviteRequest](r)
 
 	inviterID, err := auth.GetUserIDFromContext(r.Context())
 	if err != nil {
@@ -29,7 +34,7 @@ func (h *ThreadHandler) InviteToThread(w http.ResponseWriter, r *http.Request) {
 	input := usecase.InviteToThreadInput{
 		InviterID:        inviterID,
 		InviteeUsernames: req.Usernames,
-		ThreadID:         req.ThreadID,
+		ThreadID:         threadID,
 	}
 
 	if err := h.threadUsecase.InviteToThread(r.Context(), input); err != nil {
@@ -41,7 +46,4 @@ func (h *ThreadHandler) InviteToThread(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(lib.StatusOK)
-	if err := json.NewEncoder(w).Encode(map[string]string{"status": "ok"}); err != nil {
-		h.logger.Error("failed to encode response", zap.Error(err))
-	}
 }

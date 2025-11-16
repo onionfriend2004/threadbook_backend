@@ -9,6 +9,7 @@ import (
 	"github.com/onionfriend2004/threadbook_backend/internal/file/usecase"
 	"github.com/onionfriend2004/threadbook_backend/internal/gdomain"
 	"github.com/onionfriend2004/threadbook_backend/internal/lib/event"
+	spoolExternal "github.com/onionfriend2004/threadbook_backend/internal/spool/external"
 	"github.com/onionfriend2004/threadbook_backend/internal/thread/external"
 	"go.uber.org/zap"
 )
@@ -18,6 +19,7 @@ type MessageUsecase struct {
 	wsRepo     external.WebsocketRepoInterface
 	fileUC     usecase.FileUsecaseInterface
 	threadRepo external.ThreadRepoInterface
+	spoolRepo  spoolExternal.SpoolRepoInterface
 	tokenTTL   time.Duration
 	logger     *zap.Logger
 }
@@ -27,6 +29,7 @@ func NewMessageUsecase(
 	wsRepo external.WebsocketRepoInterface,
 	fileUC usecase.FileUsecaseInterface,
 	threadRepo external.ThreadRepoInterface,
+	spoolRepo spoolExternal.SpoolRepoInterface,
 	tokenTTL time.Duration,
 	logger *zap.Logger) *MessageUsecase {
 	return &MessageUsecase{
@@ -34,6 +37,7 @@ func NewMessageUsecase(
 		wsRepo:     wsRepo,
 		fileUC:     fileUC,
 		threadRepo: threadRepo,
+		spoolRepo:  spoolRepo,
 		tokenTTL:   tokenTTL,
 		logger:     logger,
 	}
@@ -55,6 +59,23 @@ func (uc *MessageUsecase) SendMessage(ctx context.Context, input SendMessageInpu
 	}
 	if thread.IsClosed {
 		return nil, ErrThreadIsClosed
+	}
+	if thread.Type == gdomain.ThreadTypePrivate {
+		isMember, err := uc.threadRepo.IsUserThreadMember(ctx, input.UserID, thread.ID)
+		if err != nil {
+			return nil, ErrFailedToGetThread
+		}
+		if !isMember {
+			return nil, ErrThreadNotFound
+		}
+	} else {
+		userStatus, err := uc.spoolRepo.GetUserSpoolStatus(ctx, input.UserID, *thread.SpoolID)
+		if err != nil {
+			return nil, ErrFailedToGetThread
+		}
+		if userStatus.IsDeleted || userStatus.AccessLevel < thread.AccessLevel {
+			return nil, ErrThreadNotFound
+		}
 	}
 
 	// --- 2. Загружаем файлы (payloads) ---
@@ -112,6 +133,7 @@ func (uc *MessageUsecase) SendMessage(ctx context.Context, input SendMessageInpu
 		})
 	}
 
+// 	members, err := uc.threadRepo.GetUsersWithAccess(ctx, *thread.SpoolID, thread.AccessLevel)
 	// --- 4. Сохраняем сообщение в транзакции ---
 	err = uc.msgRepo.WithTx(ctx, func(txCtx context.Context) error {
 		return uc.msgRepo.CreateWithPayloads(txCtx, newMsg)
@@ -151,6 +173,15 @@ func (uc *MessageUsecase) SendMessage(ctx context.Context, input SendMessageInpu
 }
 
 func (uc *MessageUsecase) GetMessages(ctx context.Context, input GetMessagesInput) ([]gdomain.Message, error) {
+	thread, err := uc.threadRepo.GetThreadByID(ctx, input.ThreadID)
+	if err != nil {
+		return nil, err
+	}
+	if thread.Type == gdomain.ThreadTypePrivate {
+		uc.threadRepo.IsUserThreadMember(ctx, input.UserID, input.ThreadID)
+	}
+
+	// return uc.msgRepo.GetByThreadID(ctx, input.ThreadID, input.Limit, input.Offset)
 	return uc.msgRepo.GetByThreadCursor(ctx, input.ThreadID, input.CursorID, input.Limit, input.Forward)
 }
 
