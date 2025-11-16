@@ -64,8 +64,7 @@ func (h *ThreadHandler) Routes(r chi.Router, authenticator auth.AuthenticatorInt
 				r.Get("/sfu/token", h.GetVoiceToken)
 
 				r.Get("/messages", h.GetMessages)
-				r.With(validator.ValidateJSONMiddleware(dto.SendMessageRequest{})).
-					Post("/messages", h.SendMessage)
+				r.Post("/messages", h.SendMessage)
 			})
 
 			r.Get("/invite-link/join/{invite_token}", h.JoinToThread)
