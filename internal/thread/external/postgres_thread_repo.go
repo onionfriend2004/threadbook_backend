@@ -50,7 +50,7 @@ func (r *ThreadRepo) Create(ctx context.Context, creatorID uint, spoolID *uint, 
 		}
 
 		// Добавляем создателя в thread_users только для приватных тредов
-		if threadType == "private" {
+		if thread.Type == gdomain.ThreadTypePrivate {
 			threadUser := gdomain.ThreadUser{
 				UserID:   creatorID,
 				ThreadID: thread.ID,

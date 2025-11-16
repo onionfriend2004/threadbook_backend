@@ -106,6 +106,12 @@ func (u *ThreadUsecase) CreateThread(ctx context.Context, input CreateThreadInpu
 			u.logger.Warn("failed to get thread members: %w", zap.Error(err))
 			return newThread, nil
 		}
+
+		u.logger.Info("private thread members",
+			zap.Uint("threadID", newThread.ID),
+			zap.Int("membersCount", len(members)),
+			zap.Any("members", members), // залогить самих members
+		)
 	}
 
 	// Для каждого участника создаём свой токен и рассылаем событие
@@ -135,6 +141,9 @@ func (u *ThreadUsecase) CreateThread(ctx context.Context, input CreateThreadInpu
 			u.logger.Warn("failed to publish thread created event", zap.Uint("userID", member.ID), zap.Error(err))
 		}
 	}
+	u.logger.Info("processed members for WS events",
+		zap.Int("processedCount", len(members)),
+	)
 	return newThread, nil
 }
 
