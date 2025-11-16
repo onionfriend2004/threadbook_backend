@@ -1,27 +1,26 @@
-# === STAGE 1: Builder ===
-FROM golang:1.24-alpine AS builder
+# Используем официальный образ Go
+FROM golang:1.24-alpine
 
-RUN apk add --no-cache git
+# Устанавливаем git (нужен для go mod download)
+RUN apk add --no-cache git ca-certificates tzdata
+
+# Устанавливаем рабочую директорию
 WORKDIR /app
 
+# Копируем go mod файлы
 COPY go.mod go.sum ./
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    go mod download
 
+# Загружаем зависимости
+RUN go mod download
+
+# Копируем ВЕСЬ код (включая ./config/)
 COPY . .
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags "-s -w" -o app ./cmd/threadbook/main.go
 
-# === STAGE 2: Рантайм ===
-FROM alpine:3.20
+# Устанавливаем права на чтение (на всякий случай)
+RUN chmod -R a+r ./config
 
-RUN apk add --no-cache ca-certificates tzdata
-WORKDIR /app
-
-COPY --from=builder /app/app .
-COPY --from=builder /app/config ./config
-
+# Порт приложения (если нужен)
 EXPOSE 8080
-CMD ["./app"]
+
+# Запуск через go run
+CMD ["go", "run", "./cmd/threadbook/main.go"]
