@@ -45,21 +45,43 @@ func NewMessageUsecase(
 
 func (uc *MessageUsecase) SendMessage(ctx context.Context, input SendMessageInput) (*gdomain.Message, error) {
 	// --- 1. Проверяем права пользователя ---
-	hasRights, err := uc.threadRepo.CheckRightsUserOnThreadRoom(ctx, input.ThreadID, input.UserID)
-	if err != nil {
-		return nil, err
-	}
-	if !hasRights {
-		return nil, ErrNoAccessToThread
-	}
-
 	thread, err := uc.threadRepo.GetThreadByID(ctx, input.ThreadID)
 	if err != nil {
-		return nil, ErrFailedToGetThread
+		return nil, ErrThreadNotFound
 	}
 	if thread.IsClosed {
 		return nil, ErrThreadIsClosed
 	}
+	if thread.Type == gdomain.ThreadTypePrivate {
+		isMember, err := uc.threadRepo.IsUserThreadMember(ctx, input.UserID, thread.ID)
+		if err != nil {
+			return nil, ErrThreadNotFound
+		}
+		if !isMember {
+			return nil, ErrThreadNotFound
+		}
+	} else {
+		userStatus, err := uc.spoolRepo.GetUserSpoolStatus(ctx, input.UserID, *thread.SpoolID)
+		if err != nil {
+			return nil, ErrThreadNotFound
+		}
+		if userStatus.AccessLevel < thread.AccessLevel || userStatus.IsDeleted {
+			return nil, ErrThreadNotFound
+		}
+	}
+	// hasRights, err := uc.threadRepo.CheckRightsUserOnThreadRoom(ctx, input.ThreadID, input.UserID)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// if !hasRights {
+	// 	return nil, ErrNoAccessToThread
+	// }
+
+	// thread, err := uc.threadRepo.GetThreadByID(ctx, input.ThreadID)
+	// if err != nil {
+	// 	return nil, ErrFailedToGetThread
+	// }
+
 	if thread.Type == gdomain.ThreadTypePrivate {
 		isMember, err := uc.threadRepo.IsUserThreadMember(ctx, input.UserID, thread.ID)
 		if err != nil {
