@@ -197,17 +197,6 @@ func (r *ThreadRepo) Update(
 	return &thread, nil
 }
 
-func (r *ThreadRepo) GetUsersWithAccess(ctx context.Context, spoolID uint, minAccessLevel uint) ([]gdomain.User, error) {
-	var users []gdomain.User
-	if err := r.Db.WithContext(ctx).
-		Joins("INNER JOIN user_spools ON users.id = user_spools.user_id").
-		Where("user_spools.spool_id = ? AND user_spools.access_level >= ?", spoolID, minAccessLevel).
-		Find(&users).Error; err != nil {
-		return nil, ErrGetMembers
-	}
-	return users, nil
-}
-
 func (r *ThreadRepo) GetUserThreadAccessLevelsToUpdate(ctx context.Context, userID uint, threadID uint) (userAccessLevel uint, threadAccessLevel uint, err error) {
 	var result struct {
 		ThreadType        string
@@ -415,5 +404,16 @@ func (r *ThreadRepo) GetThreadUsers(ctx context.Context, threadID uint) ([]gdoma
 		return nil, err
 	}
 
+	return users, nil
+}
+
+func (r *ThreadRepo) GetUsersWithAccess(ctx context.Context, spoolID uint, minAccessLevel uint) ([]gdomain.User, error) {
+	var users []gdomain.User
+	if err := r.Db.WithContext(ctx).
+		Joins("INNER JOIN user_spools ON users.id = user_spools.user_id").
+		Where("user_spools.spool_id = ? AND user_spools.access_level >= ?", spoolID, minAccessLevel).
+		Find(&users).Error; err != nil {
+		return nil, ErrGetMembers
+	}
 	return users, nil
 }

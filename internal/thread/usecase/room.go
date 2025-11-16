@@ -6,6 +6,8 @@ import (
 	"time"
 
 	liveKitAuth "github.com/livekit/protocol/auth"
+	"github.com/onionfriend2004/threadbook_backend/internal/gdomain"
+	spoolExternal "github.com/onionfriend2004/threadbook_backend/internal/spool/external"
 	repo "github.com/onionfriend2004/threadbook_backend/internal/thread/external"
 	"go.uber.org/zap"
 )
@@ -24,6 +26,7 @@ type RoomUsecaseInterface interface {
 type RoomUsecase struct {
 	threadRepo  repo.ThreadRepoInterface
 	liveKitRepo repo.SFUInterface
+	spoolRepo   spoolExternal.SpoolRepoInterface
 	liveKitURL  string
 	apiKey      string
 	apiSecret   string
@@ -32,12 +35,14 @@ type RoomUsecase struct {
 
 func NewRoomUsecase(
 	threadRepo repo.ThreadRepoInterface,
+	spoolRepo spoolExternal.SpoolRepoInterface,
 	liveKitRepo repo.SFUInterface,
 	liveKitURL, apiKey, apiSecret string,
 	logger *zap.Logger,
 ) RoomUsecaseInterface {
 	return &RoomUsecase{
 		threadRepo:  threadRepo,
+		spoolRepo:   spoolRepo,
 		liveKitRepo: liveKitRepo,
 		liveKitURL:  liveKitURL,
 		apiKey:      apiKey,
@@ -47,18 +52,29 @@ func NewRoomUsecase(
 }
 
 func (u *RoomUsecase) GetVoiceToken(ctx context.Context, input GetVoiceTokenInput) (string, error) {
-	if input.Username == "" || input.ThreadID <= 0 {
-		return "", ErrInvalidInput
-	}
-
 	thread, err := u.threadRepo.GetThreadByID(ctx, input.ThreadID)
 	if err != nil {
 		return "", ErrThreadNotFound
 	}
-
-	hasRights, err := u.threadRepo.CheckRightsUserOnThreadRoom(ctx, thread.ID, input.UserID)
-	if !hasRights || err != nil {
-		return "", ErrNoRightsOnJoinRoom
+	if thread.IsClosed {
+		return "nil", ErrThreadIsClosed
+	}
+	if thread.Type == gdomain.ThreadTypePrivate {
+		isMember, err := u.threadRepo.IsUserThreadMember(ctx, input.UserID, thread.ID)
+		if err != nil {
+			return "", ErrThreadNotFound
+		}
+		if !isMember {
+			return "", ErrThreadNotFound
+		}
+	} else {
+		userStatus, err := u.spoolRepo.GetUserSpoolStatus(ctx, input.UserID, *thread.SpoolID)
+		if err != nil {
+			return "", ErrThreadNotFound
+		}
+		if userStatus.AccessLevel < thread.AccessLevel || userStatus.IsDeleted {
+			return "", ErrThreadNotFound
+		}
 	}
 
 	roomName := fmt.Sprintf("thread_%d", input.ThreadID)

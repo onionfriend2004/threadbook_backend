@@ -69,37 +69,6 @@ func (uc *MessageUsecase) SendMessage(ctx context.Context, input SendMessageInpu
 			return nil, ErrThreadNotFound
 		}
 	}
-	// hasRights, err := uc.threadRepo.CheckRightsUserOnThreadRoom(ctx, input.ThreadID, input.UserID)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// if !hasRights {
-	// 	return nil, ErrNoAccessToThread
-	// }
-
-	// thread, err := uc.threadRepo.GetThreadByID(ctx, input.ThreadID)
-	// if err != nil {
-	// 	return nil, ErrFailedToGetThread
-	// }
-
-	if thread.Type == gdomain.ThreadTypePrivate {
-		isMember, err := uc.threadRepo.IsUserThreadMember(ctx, input.UserID, thread.ID)
-		if err != nil {
-			return nil, ErrFailedToGetThread
-		}
-		if !isMember {
-			return nil, ErrThreadNotFound
-		}
-	} else {
-		userStatus, err := uc.spoolRepo.GetUserSpoolStatus(ctx, input.UserID, *thread.SpoolID)
-		if err != nil {
-			return nil, ErrFailedToGetThread
-		}
-		if userStatus.IsDeleted || userStatus.AccessLevel < thread.AccessLevel {
-			return nil, ErrThreadNotFound
-		}
-	}
-
 	// --- 2. Загружаем файлы (payloads) ---
 	var uploadedFiles []string
 	filesSaved := false
@@ -171,10 +140,13 @@ func (uc *MessageUsecase) SendMessage(ctx context.Context, input SendMessageInpu
 	for i, p := range newMsg.Payloads {
 		payloadLinks[i] = p.FileLink
 	}
-	members, err := uc.threadRepo.GetUsersWithAccess(ctx, *thread.SpoolID, thread.AccessLevel)
-	if err != nil {
-		return newMsg, err
-	}
+	// if thread.Type == gdomain.ThreadTypePublic {
+
+	// }
+	// members, err := uc.threadRepo.GetUsersWithAccess(ctx, *thread.SpoolID, thread.AccessLevel)
+	// if err != nil {
+	// 	return newMsg, err
+	// }
 
 	ev := event.Event{
 		Type: event.MessageCreated,
@@ -193,13 +165,13 @@ func (uc *MessageUsecase) SendMessage(ctx context.Context, input SendMessageInpu
 			zap.Uint("thread_id", input.ThreadID),
 			zap.Error(err))
 	}
-	for _, member := range members {
-		if err := uc.wsRepo.PublishToThread(ctx, input.ThreadID, ev); err != nil {
-			uc.logger.Warn(ErrFailedToPublish.Error(),
-				zap.Uint("userID", member.ID),
-				zap.Error(err))
-		}
-	}
+	// for _, member := range members {
+	// if err := uc.wsRepo.PublishToThread(ctx, input.ThreadID, ev); err != nil {
+	// 	uc.logger.Warn(ErrFailedToPublish.Error(),
+	// 		zap.Uint("userID", member.ID),
+	// 		zap.Error(err))
+	// }
+	// }
 
 	return newMsg, nil
 }
@@ -242,22 +214,30 @@ func (uc *MessageUsecase) GetUserOnlyTokens(ctx context.Context, userID uint) (C
 
 func (uc *MessageUsecase) UpdateMessage(ctx context.Context, input UpdateMessageInput) (*gdomain.Message, error) {
 	// Проверяем права пользователя на поток
-	hasRights, err := uc.threadRepo.CheckRightsUserOnThreadRoom(ctx, input.ThreadID, input.UserID)
-	if err != nil {
-		return nil, err
-	}
-	if !hasRights {
-		return nil, ErrNoAccessToThread
-	}
-
 	thread, err := uc.threadRepo.GetThreadByID(ctx, input.ThreadID)
 	if err != nil {
-		return nil, ErrFailedToGetThread
+		return nil, ErrThreadNotFound
 	}
 	if thread.IsClosed {
 		return nil, ErrThreadIsClosed
 	}
-
+	if thread.Type == gdomain.ThreadTypePrivate {
+		isMember, err := uc.threadRepo.IsUserThreadMember(ctx, input.UserID, thread.ID)
+		if err != nil {
+			return nil, ErrThreadNotFound
+		}
+		if !isMember {
+			return nil, ErrThreadNotFound
+		}
+	} else {
+		userStatus, err := uc.spoolRepo.GetUserSpoolStatus(ctx, input.UserID, *thread.SpoolID)
+		if err != nil {
+			return nil, ErrThreadNotFound
+		}
+		if userStatus.AccessLevel < thread.AccessLevel || userStatus.IsDeleted {
+			return nil, ErrThreadNotFound
+		}
+	}
 	// Получаем сообщение
 	msg, err := uc.msgRepo.GetByID(ctx, input.MessageID)
 	if err != nil {
@@ -302,22 +282,30 @@ func (uc *MessageUsecase) UpdateMessage(ctx context.Context, input UpdateMessage
 
 func (uc *MessageUsecase) DeleteMessage(ctx context.Context, input DeleteMessageInput) error {
 	// Проверка прав
-	hasRights, err := uc.threadRepo.CheckRightsUserOnThreadRoom(ctx, input.ThreadID, input.UserID)
-	if err != nil {
-		return err
-	}
-	if !hasRights {
-		return ErrNoAccessToThread
-	}
-
 	thread, err := uc.threadRepo.GetThreadByID(ctx, input.ThreadID)
 	if err != nil {
-		return ErrFailedToGetThread
+		return ErrThreadNotFound
 	}
 	if thread.IsClosed {
 		return ErrThreadIsClosed
 	}
-
+	if thread.Type == gdomain.ThreadTypePrivate {
+		isMember, err := uc.threadRepo.IsUserThreadMember(ctx, input.UserID, thread.ID)
+		if err != nil {
+			return ErrThreadNotFound
+		}
+		if !isMember {
+			return ErrThreadNotFound
+		}
+	} else {
+		userStatus, err := uc.spoolRepo.GetUserSpoolStatus(ctx, input.UserID, *thread.SpoolID)
+		if err != nil {
+			return ErrThreadNotFound
+		}
+		if userStatus.AccessLevel < thread.AccessLevel || userStatus.IsDeleted {
+			return ErrThreadNotFound
+		}
+	}
 	msg, err := uc.msgRepo.GetByID(ctx, input.MessageID)
 	if err != nil {
 		return err

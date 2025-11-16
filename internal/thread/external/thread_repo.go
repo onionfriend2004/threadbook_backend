@@ -16,7 +16,7 @@ type ThreadRepoInterface interface {
 	IsUserThreadMember(ctx context.Context, userID uint, threadID uint) (bool, error)
 	GetThreadUsers(ctx context.Context, threadID uint) ([]gdomain.User, error)
 
-	CheckRightsUserOnThreadRoom(ctx context.Context, threadID, userID uint) (bool, error)
+	// CheckRightsUserOnThreadRoom(ctx context.Context, threadID, userID uint) (bool, error)
 	GetUserThreadAccessLevelsToUpdate(ctx context.Context, userID uint, threadID uint) (userAccessLevel uint, threadAccessLevel uint, err error)
 	GetUsersWithAccess(ctx context.Context, spoolID uint, minAccessLevel uint) ([]gdomain.User, error)
 	GetAccessibleThreadIDs(ctx context.Context, userID uint) ([]uint, error)

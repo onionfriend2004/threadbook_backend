@@ -209,7 +209,7 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 	// usecases
 	threadUC := threadUsecase.NewThreadUsecase(threadRepo, spoolRepo, InviteLinkRepo, websocketRepo, userRepo, time.Duration(cfg.Centrifugo.TTL)*time.Second, logger)
 	messageUC := threadUsecase.NewMessageUsecase(messageRepo, websocketRepo, messageFileUC, threadRepo, spoolRepo, time.Duration(cfg.Centrifugo.TTL)*time.Second, logger)
-	roomUC := threadUsecase.NewRoomUsecase(threadRepo, liveKitRepo, cfg.LiveKit.URL, cfg.LiveKit.APIKey, cfg.LiveKit.APISecret, logger)
+	roomUC := threadUsecase.NewRoomUsecase(threadRepo, spoolRepo, liveKitRepo, cfg.LiveKit.URL, cfg.LiveKit.APIKey, cfg.LiveKit.APISecret, logger)
 
 	// handler
 	threadHandler := threadDeliveryHTTP.NewThreadHandler(threadUC, messageUC, roomUC, cookieConfig, fileConfig, logger)
