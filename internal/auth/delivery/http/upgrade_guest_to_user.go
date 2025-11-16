@@ -62,7 +62,8 @@ func (h *AuthHandler) UpgradeGuestToUser(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	http.SetCookie(w, h.cookieConfig.ToHTTPCookie(session.ID, 0))
+	//TODO: Время сессии хардкоднуто
+	http.SetCookie(w, h.cookieConfig.ToHTTPCookie(session.ID, 604800))
 
 	resp := dto.RegisterResponse{
 		Email:    user.Email,
