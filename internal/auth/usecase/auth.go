@@ -3,6 +3,8 @@ package usecase
 import (
 	"context"
 	"errors"
+	"net"
+	"strings"
 
 	"github.com/onionfriend2004/threadbook_backend/internal/auth/domain"
 	"github.com/onionfriend2004/threadbook_backend/internal/auth/external"
@@ -66,6 +68,22 @@ func NewAuthUsecase(
 func (u *authUsecase) SignUpUser(ctx context.Context, input SignUpInput) (*gdomain.User, error) {
 	if input.Email == "" || input.Username == "" || input.Password == "" {
 		return nil, ErrInvalidInput
+	}
+
+	emailParts := strings.Split(input.Email, "@")
+	if len(emailParts) != 2 {
+		return nil, ErrInvalidEmail
+	}
+	localPart, domain := emailParts[0], emailParts[1]
+	if localPart == "" || domain == "" {
+		return nil, ErrInvalidEmail
+	}
+	if !strings.Contains(domain, ".") {
+		return nil, ErrInvalidEmail
+	}
+	_, err := net.LookupMX(strings.Split(input.Email, "@")[1])
+	if err != nil {
+		return nil, ErrInvalidEmail
 	}
 
 	email := gdomain.NormalizeEmail(input.Email)

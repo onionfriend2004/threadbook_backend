@@ -2,6 +2,7 @@ package deliveryNATS
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -9,7 +10,6 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/onionfriend2004/threadbook_backend/internal/email/usecase"
 	"github.com/onionfriend2004/threadbook_backend/internal/gdomain"
-	"github.com/onionfriend2004/threadbook_backend/internal/lib/event"
 	"go.uber.org/zap"
 )
 
@@ -39,7 +39,6 @@ func NewEmailConsumer(
 	usecase usecase.EmailUsecaseInterface,
 	logger *zap.Logger,
 ) (EmailConsumerInterface, error) {
-	// Получаем JetStream context
 	js, err := nc.JetStream()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get JetStream context: %w", err)
@@ -63,14 +62,13 @@ func (c *emailConsumer) Start(ctx context.Context) error {
 		Name:      c.stream,
 		Subjects:  []string{c.subject}, // "user.*" - wildcard для всех user событий
 		Retention: nats.LimitsPolicy,   // Для broadcast
-		MaxMsgs:   10000,               // Ограничиваем количество сообщений
-		MaxAge:    24 * time.Hour,      // Храним сообщения 24 часа
+		MaxMsgs:   -1,                  // Количество сообщений (ограничение)
+		MaxAge:    7 * 24 * time.Hour,  // Храним сообщения неделю
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create stream: %w", err)
 	}
 
-	// Подписываемся на WILDCARD subject
 	sub, err := c.js.Subscribe(c.subject, c.handleMessage,
 		nats.Durable(c.consumer),
 		nats.ManualAck(),
@@ -108,51 +106,40 @@ func (c *emailConsumer) handleMessage(msg *nats.Msg) {
 	var eventBody gdomain.UserRegisteredEvent
 	if err := json.Unmarshal(msg.Data, &eventBody); err != nil {
 		c.logger.Error("failed to unmarshal email event", zap.Error(err))
-		msg.Nak()
+		msg.Term()
 		return
 	}
 
-	// Определяем тип события по subject
+	var err error
 	switch msg.Subject {
 	case "user.registered":
-		if eventBody.Type != event.UserRegistered {
-			c.logger.Warn("event type mismatch for subject",
-				zap.String("subject", msg.Subject),
-				zap.Int("event_type", eventBody.Type))
-		}
-		if err := c.usecase.SendWelcomeEmail(&eventBody); err != nil {
-			c.logger.Error("failed to process welcome email event",
-				zap.String("subject", msg.Subject),
-				zap.Int("type", eventBody.Type),
-				zap.String("email", eventBody.Email),
-				zap.Error(err))
-			msg.Nak()
-			return
-		}
-
+		err = c.usecase.SendWelcomeEmail(&eventBody)
 	case "user.code.resend":
-		if eventBody.Type != event.UserRequestResendVerifyCode {
-			c.logger.Warn("event type mismatch for subject",
-				zap.String("subject", msg.Subject),
-				zap.Int("event_type", eventBody.Type))
-		}
-		if err := c.usecase.SendCodeResendEmail(&eventBody); err != nil {
-			c.logger.Error("failed to process code resend email event",
-				zap.String("subject", msg.Subject),
-				zap.Int("type", eventBody.Type),
-				zap.String("email", eventBody.Email),
-				zap.Error(err))
-			msg.Nak()
-			return
-		}
-
+		err = c.usecase.SendCodeResendEmail(&eventBody)
 	default:
 		c.logger.Warn("unknown subject, skipping", zap.String("subject", msg.Subject))
-		msg.Nak()
+		msg.Term()
 		return
 	}
 
-	// Подтверждаем обработку
+	if err != nil {
+		if errors.Is(err, usecase.ErrPermanentEmailError) {
+			c.logger.Warn("permanent email error, terminating message",
+				zap.String("subject", msg.Subject),
+				zap.String("email", eventBody.Email),
+				zap.Error(err))
+			msg.Term()
+			return
+		}
+
+		c.logger.Error("temporary processing error, will retry",
+			zap.String("subject", msg.Subject),
+			zap.String("email", eventBody.Email),
+			zap.Error(err))
+		msg.NakWithDelay(10 * time.Second)
+		return
+	}
+
 	if err := msg.Ack(); err != nil {
 		c.logger.Error("failed to ack message", zap.Error(err))
 	}

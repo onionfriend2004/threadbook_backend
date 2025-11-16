@@ -15,6 +15,7 @@ type ThreadHandler struct {
 	messageUsecase *usecase.MessageUsecase
 	roomUsecase    usecase.RoomUsecaseInterface
 	cookieConfig   *config.CookieConfig
+	fileConfig     *config.FileConfig
 	logger         *zap.Logger
 }
 
@@ -23,6 +24,7 @@ func NewThreadHandler(
 	messageUC *usecase.MessageUsecase,
 	roomUC usecase.RoomUsecaseInterface,
 	cookieConfig *config.CookieConfig,
+	fileConfig *config.FileConfig,
 	logger *zap.Logger,
 ) *ThreadHandler {
 	return &ThreadHandler{
@@ -30,6 +32,7 @@ func NewThreadHandler(
 		messageUsecase: messageUC,
 		roomUsecase:    roomUC,
 		cookieConfig:   cookieConfig,
+		fileConfig:     fileConfig,
 		logger:         logger,
 	}
 }

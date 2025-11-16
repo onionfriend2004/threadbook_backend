@@ -93,32 +93,36 @@ func (u *ThreadUsecase) CreateThread(ctx context.Context, input CreateThreadInpu
 	if newThread.Type == gdomain.ThreadTypePublic {
 		threadChannel := fmt.Sprintf("thread#%d", newThread.ID)
 
-		subToken, err := u.wsRepo.GenerateSubscribeToken(ctx, newThread.CreatorID, threadChannel, u.tokenTTL)
-		if err != nil {
-			return nil, fmt.Errorf("failed to generate subscribe token: %w", err)
-		}
+	threadChannel := fmt.Sprintf("thread#%d", newThread.ID)
 
-		members, err := u.threadRepo.GetUsersWithAccess(ctx, *newThread.SpoolID, newThread.AccessLevel)
+	// Получаем список участников потока
+	members, err := u.threadRepo.GetThreadMembers(ctx, newThread.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get thread members: %w", err)
+	}
+
+	// Для каждого участника создаём свой токен и рассылаем событие
+	for _, member := range members {
+		subToken, err := u.wsRepo.GenerateSubscribeToken(ctx, member.UserID, threadChannel, u.tokenTTL)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get thread members: %w", err)
+			u.logger.Warn("failed to generate subscribe token", zap.Uint("userID", member.UserID), zap.Error(err))
+			continue
 		}
 
 		eventPayload := event.ThreadCreatedPayload{
-			ThreadID:       newThread.ID,
-			Title:          newThread.Title,
-			CreatedAt:      newThread.CreatedAt.Unix(),
-			Channel:        threadChannel,
-			Token:          subToken,
-			SubscribeToken: subToken,
+			ThreadID:  newThread.ID,
+			SpoolID:   newThread.SpoolID,
+			Title:     newThread.Title,
+			CreatedAt: newThread.CreatedAt.Unix(),
+			Channel:   threadChannel,
+			Token:     subToken,
 		}
 
-		for _, member := range members {
-			if err := u.wsRepo.PublishToUser(ctx, member.ID, event.Event{
-				Type:    event.ThreadCreated,
-				Payload: eventPayload,
-			}); err != nil {
-				u.logger.Warn("failed to publish thread created event", zap.Uint("userID", member.ID), zap.Error(err))
-			}
+		if err := u.wsRepo.PublishToUser(ctx, member.UserID, event.Event{
+			Type:    event.ThreadCreated,
+			Payload: eventPayload,
+		}); err != nil {
+			u.logger.Warn("failed to publish thread created event", zap.Uint("userID", member.UserID), zap.Error(err))
 		}
 	}
 	return newThread, nil
@@ -179,6 +183,7 @@ func (u *ThreadUsecase) CloseThread(ctx context.Context, input CloseThreadInput)
 	// Подготавливаем payload события
 	payload := event.ThreadClosedPayload{
 		ThreadID: thread.ID,
+		SpoolID:  thread.SpoolID,
 	}
 
 	// Рассылаем событие всем участникам
@@ -214,7 +219,13 @@ func (u *ThreadUsecase) InviteToThread(ctx context.Context, input InviteToThread
 		return err
 	}
 
-	threadChannel := fmt.Sprintf("thread#%d", input.ThreadID)
+	// Получаем сам тред
+	thread, err := u.threadRepo.GetThreadByID(ctx, input.ThreadID)
+	if err != nil {
+		return fmt.Errorf("failed to get thread: %w", err)
+	}
+
+	threadChannel := fmt.Sprintf("thread#%d", thread.ID)
 
 	for _, username := range input.InviteeUsernames {
 		user, err := u.userRepo.GetUserByUsername(ctx, username)
@@ -229,9 +240,13 @@ func (u *ThreadUsecase) InviteToThread(ctx context.Context, input InviteToThread
 			continue
 		}
 
-		payload := event.ThreadSubTokenPayload{
-			Channel: threadChannel,
-			Token:   subToken,
+		payload := event.ThreadInvitePayload{
+			ThreadID: thread.ID,
+			SpoolID:  thread.SpoolID,
+			Type:     thread.Type,
+			Title:    thread.Title,
+			Channel:  threadChannel,
+			Token:    subToken,
 		}
 
 		if err := u.wsRepo.PublishToUser(ctx, user.ID, event.Event{
@@ -296,12 +311,13 @@ func (u *ThreadUsecase) UpdateThread(ctx context.Context, input UpdateThreadInpu
 			return updatedThread, nil
 		}
 
-		// Подготавливаем payload события
-		payload := event.ThreadUpdatedPayload{
-			ThreadID:  updatedThread.ID,
-			Title:     updatedThread.Title,
-			UpdatedAt: updatedThread.UpdatedAt.Unix(),
-		}
+	// Подготавливаем payload события
+	payload := event.ThreadUpdatedPayload{
+		ThreadID:  updatedThread.ID,
+		SpoolID:   updatedThread.SpoolID,
+		Title:     updatedThread.Title,
+		UpdatedAt: updatedThread.UpdatedAt.Unix(),
+	}
 
 		// Рассылаем событие всем участникам
 		for _, member := range members {

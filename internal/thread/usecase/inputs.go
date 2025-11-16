@@ -51,20 +51,41 @@ type GetVoiceTokenInput struct {
 }
 
 // ---------- SendMessage ----------
+type FilePayload struct {
+	File        multipart.File
+	Filename    string
+	Size        int64
+	ContentType string
+}
+
 type SendMessageInput struct {
+	ThreadID uint
 	UserID   uint
 	Username string
-	ThreadID uint
 	Content  string
-	Payloads []gdomain.MessagePayload
+	Payloads []*FilePayload
 }
 
 // ---------- GetMessages ----------
 type GetMessagesInput struct {
 	UserID   uint
 	ThreadID uint
-	Limit    int
-	Offset   int
+	CursorID uint // ID сообщения, относительно которого грузим
+	Limit    int  // сколько сообщений загрузить
+	Forward  bool // true — новые сообщения после курсора, false — старые перед курсором
+}
+
+type UpdateMessageInput struct {
+	ThreadID  uint
+	MessageID uint
+	UserID    uint
+	Content   string
+}
+
+type DeleteMessageInput struct {
+	ThreadID  uint
+	MessageID uint
+	UserID    uint
 }
 
 // ---------- GetSubscribeToken ----------

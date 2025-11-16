@@ -99,12 +99,11 @@ services:
     image: livekit/livekit-server:latest
     container_name: VibeLiveKit
     restart: unless-stopped
-    # ports:
-    #  - "${LIVEKIT_WS_PORT}:7880"
-    #  - "${LIVEKIT_API_PORT}:7881" # LiveKit HTTP API
-    #  # - "3478:3478/udp" # TURN -> We use External
-    #  - "${LIVEKIT_WEBRTC_START_PORT}-${LIVEKIT_WEBRTC_END_PORT}:${LIVEKIT_WEBRTC_START_PORT}-${LIVEKIT_WEBRTC_END_PORT}/udp" # for Web-RTC Connections
-    network_mode: "host"
+    ports:
+      - "${LIVEKIT_WS_PORT}:7880"
+      - "${LIVEKIT_API_PORT}:7881" # LiveKit HTTP API
+    # - "3478:3478/udp" # TURN -> We use External
+      - "${LIVEKIT_WEBRTC_START_PORT}-${LIVEKIT_WEBRTC_END_PORT}:${LIVEKIT_WEBRTC_START_PORT}-${LIVEKIT_WEBRTC_END_PORT}/udp" # for Web-RTC Connections
     environment:
       LIVEKIT_KEYS: "${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}"
     volumes:
@@ -113,10 +112,10 @@ services:
       - ./data/certbot/www:/var/www/certbot:ro
     command: --config /etc/livekit.yaml
     # command: --config /dev/null --dev # --dev отключает TLS и упрощает dev
-    # networks:
-    #  - vibecode_network
+    networks:
+      - vibecode_network
     healthcheck:
-      test: [ "CMD", "livekit-cli", "health", "--url", "127.0.0.1:7881" ]
+      test: [ "CMD", "livekit-cli", "health", "--url", "localhost:7880" ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -172,6 +171,8 @@ services:
     networks:
       - vibecode_network
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   nginx:
     image: nginx

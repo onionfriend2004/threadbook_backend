@@ -208,7 +208,7 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 	roomUC := threadUsecase.NewRoomUsecase(threadRepo, liveKitRepo, cfg.LiveKit.URL, cfg.LiveKit.APIKey, cfg.LiveKit.APISecret, logger)
 
 	// handler
-	threadHandler := threadDeliveryHTTP.NewThreadHandler(threadUC, messageUC, roomUC, cookieConfig, logger)
+	threadHandler := threadDeliveryHTTP.NewThreadHandler(threadUC, messageUC, roomUC, cookieConfig, fileConfig, logger)
 	threadHandler.Routes(r, authenticator)
 
 	// ===================== Profile =====================
