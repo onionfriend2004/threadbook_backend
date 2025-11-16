@@ -177,12 +177,37 @@ func (uc *MessageUsecase) SendMessage(ctx context.Context, input SendMessageInpu
 }
 
 func (uc *MessageUsecase) GetMessages(ctx context.Context, input GetMessagesInput) ([]gdomain.Message, error) {
+	// thread, err := uc.threadRepo.GetThreadByID(ctx, input.ThreadID)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// if thread.Type == gdomain.ThreadTypePrivate {
+	// 	uc.threadRepo.IsUserThreadMember(ctx, input.UserID, input.ThreadID)
+	// }
+
 	thread, err := uc.threadRepo.GetThreadByID(ctx, input.ThreadID)
 	if err != nil {
-		return nil, err
+		return nil, ErrThreadNotFound
+	}
+	if thread.IsClosed {
+		return nil, ErrThreadIsClosed
 	}
 	if thread.Type == gdomain.ThreadTypePrivate {
-		uc.threadRepo.IsUserThreadMember(ctx, input.UserID, input.ThreadID)
+		isMember, err := uc.threadRepo.IsUserThreadMember(ctx, input.UserID, thread.ID)
+		if err != nil {
+			return nil, ErrThreadNotFound
+		}
+		if !isMember {
+			return nil, ErrThreadNotFound
+		}
+	} else {
+		userStatus, err := uc.spoolRepo.GetUserSpoolStatus(ctx, input.UserID, *thread.SpoolID)
+		if err != nil {
+			return nil, ErrThreadNotFound
+		}
+		if userStatus.AccessLevel < thread.AccessLevel || userStatus.IsDeleted {
+			return nil, ErrThreadNotFound
+		}
 	}
 
 	return uc.msgRepo.GetByThreadCursor(ctx, input.ThreadID, input.CursorID, input.Limit, input.Forward)

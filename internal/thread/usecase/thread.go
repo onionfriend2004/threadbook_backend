@@ -126,6 +126,7 @@ func (u *ThreadUsecase) CreateThread(ctx context.Context, input CreateThreadInpu
 			ThreadID: newThread.ID,
 			// SpoolID:   newThread.SpoolID,
 			Title:     newThread.Title,
+			Type:      newThread.Type,
 			CreatedAt: newThread.CreatedAt.Unix(),
 			Channel:   threadChannel,
 			Token:     subToken,
