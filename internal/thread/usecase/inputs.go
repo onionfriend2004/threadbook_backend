@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"mime/multipart"
 	"time"
 
 	"github.com/onionfriend2004/threadbook_backend/internal/gdomain"

@@ -133,7 +133,6 @@ func (uc *MessageUsecase) SendMessage(ctx context.Context, input SendMessageInpu
 		})
 	}
 
-// 	members, err := uc.threadRepo.GetUsersWithAccess(ctx, *thread.SpoolID, thread.AccessLevel)
 	// --- 4. Сохраняем сообщение в транзакции ---
 	err = uc.msgRepo.WithTx(ctx, func(txCtx context.Context) error {
 		return uc.msgRepo.CreateWithPayloads(txCtx, newMsg)
@@ -149,6 +148,10 @@ func (uc *MessageUsecase) SendMessage(ctx context.Context, input SendMessageInpu
 	payloadLinks := make([]string, len(newMsg.Payloads))
 	for i, p := range newMsg.Payloads {
 		payloadLinks[i] = p.FileLink
+	}
+	members, err := uc.threadRepo.GetUsersWithAccess(ctx, *thread.SpoolID, thread.AccessLevel)
+	if err != nil {
+		return newMsg, err
 	}
 
 	ev := event.Event{
@@ -168,6 +171,13 @@ func (uc *MessageUsecase) SendMessage(ctx context.Context, input SendMessageInpu
 			zap.Uint("thread_id", input.ThreadID),
 			zap.Error(err))
 	}
+	for _, member := range members {
+		if err := uc.wsRepo.PublishToThread(ctx, input.ThreadID, ev); err != nil {
+			uc.logger.Warn(ErrFailedToPublish.Error(),
+				zap.Uint("userID", member.ID),
+				zap.Error(err))
+		}
+	}
 
 	return newMsg, nil
 }
@@ -181,7 +191,6 @@ func (uc *MessageUsecase) GetMessages(ctx context.Context, input GetMessagesInpu
 		uc.threadRepo.IsUserThreadMember(ctx, input.UserID, input.ThreadID)
 	}
 
-	// return uc.msgRepo.GetByThreadID(ctx, input.ThreadID, input.Limit, input.Offset)
 	return uc.msgRepo.GetByThreadCursor(ctx, input.ThreadID, input.CursorID, input.Limit, input.Forward)
 }
 

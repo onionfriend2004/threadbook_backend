@@ -201,10 +201,14 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 	liveKitRepo := threadExternal.NewLiveKitRepo(livekit, cfg.Room.EmptyTTL, cfg.Room.MaxParticipants)
 	// messages repo
 	messageRepo := threadExternal.NewMessageRepo(db)
+	messageFileRepo := fileExternal.NewFileRepo(minio, "files")
+
+	// usecases
+	messageFileUC := fileUsecase.NewFileUsecase(messageFileRepo, logger)
 
 	// usecases
 	threadUC := threadUsecase.NewThreadUsecase(threadRepo, spoolRepo, InviteLinkRepo, websocketRepo, userRepo, time.Duration(cfg.Centrifugo.TTL)*time.Second, logger)
-	messageUC := threadUsecase.NewMessageUsecase(messageRepo, websocketRepo, threadRepo, spoolRepo, time.Duration(cfg.Centrifugo.TTL)*time.Second, logger)
+	messageUC := threadUsecase.NewMessageUsecase(messageRepo, websocketRepo, messageFileUC, threadRepo, spoolRepo, time.Duration(cfg.Centrifugo.TTL)*time.Second, logger)
 	roomUC := threadUsecase.NewRoomUsecase(threadRepo, liveKitRepo, cfg.LiveKit.URL, cfg.LiveKit.APIKey, cfg.LiveKit.APISecret, logger)
 
 	// handler

@@ -1,5 +1,7 @@
 package event
 
+import "github.com/onionfriend2004/threadbook_backend/internal/gdomain"
+
 type Type string
 
 const (
@@ -68,23 +70,23 @@ type ThreadCreatedPayload struct {
 
 type ThreadUpdatedPayload struct {
 	ThreadID  uint   `json:"id"`
-	SpoolID   uint   `json:"spool_id"`
+	SpoolID   *uint  `json:"spool_id"`
 	Title     string `json:"title"`
 	UpdatedAt int64  `json:"updated_at"`
 }
 
 type ThreadClosedPayload struct {
-	ThreadID uint `json:"id"`
-	SpoolID  uint `json:"spool_id"`
+	ThreadID uint  `json:"id"`
+	SpoolID  *uint `json:"spool_id"`
 }
 
 type ThreadInvitePayload struct {
-	ThreadID uint   `json:"id"`
-	SpoolID  uint   `json:"spool_id"`
-	Type     string `json:"type"`
-	Title    string `json:"title"`
-	Channel  string `json:"channel"`
-	Token    string `json:"token"`
+	ThreadID uint               `json:"id"`
+	SpoolID  uint               `json:"spool_id"`
+	Type     gdomain.ThreadType `json:"type"`
+	Title    string             `json:"title"`
+	Channel  string             `json:"channel"`
+	Token    string             `json:"token"`
 }
 
 //
