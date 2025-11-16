@@ -14,12 +14,12 @@ type ThreadRepoInterface interface {
 	Update(ctx context.Context, id uint, title *string, threadType *string, accessLevel *uint) (*gdomain.Thread, error)
 	GetThreadByID(ctx context.Context, threadID uint) (*gdomain.Thread, error)
 	IsUserThreadMember(ctx context.Context, userID uint, threadID uint) (bool, error)
-	GetThreadUsers(ctx context.Context, threadID uint) ([]gdomain.User, error)
+	GetPrivateThreadUsers(ctx context.Context, threadID uint) ([]gdomain.User, error)
 
 	// CheckRightsUserOnThreadRoom(ctx context.Context, threadID, userID uint) (bool, error)
 	GetUserThreadAccessLevelsToUpdate(ctx context.Context, userID uint, threadID uint) (userAccessLevel uint, threadAccessLevel uint, err error)
 	GetUsersWithAccess(ctx context.Context, spoolID uint, minAccessLevel uint) ([]gdomain.User, error)
-	GetAccessibleThreadIDs(ctx context.Context, userID uint) ([]uint, error)
+	// GetAccessibleThreadIDs(ctx context.Context, userID uint) ([]uint, error)
 	// GetAccessibleThreadIDsBySpool(ctx context.Context, userID, spoolID uint) ([]uint, error)
 
 	IsThreadOwner(ctx context.Context, userID, threadID uint) (bool, error)

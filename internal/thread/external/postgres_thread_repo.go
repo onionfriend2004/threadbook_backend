@@ -392,7 +392,7 @@ func (r *ThreadRepo) AddUserToThread(ctx context.Context, userID, threadID uint)
 		Create(&threadUser).Error
 }
 
-func (r *ThreadRepo) GetThreadUsers(ctx context.Context, threadID uint) ([]gdomain.User, error) {
+func (r *ThreadRepo) GetPrivateThreadUsers(ctx context.Context, threadID uint) ([]gdomain.User, error) {
 	var users []gdomain.User
 
 	err := r.Db.WithContext(ctx).
