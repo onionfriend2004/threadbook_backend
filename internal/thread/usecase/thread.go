@@ -223,9 +223,9 @@ func (u *ThreadUsecase) InviteToThread(ctx context.Context, input InviteToThread
 
 	// Получаем сам тред
 	// thread, err := u.threadRepo.GetThreadByID(ctx, input.ThreadID)
-	if err != nil {
-		return fmt.Errorf("failed to get thread: %w", err)
-	}
+	// if err != nil {
+	// 	return fmt.Errorf("failed to get thread: %w", err)
+	// }
 
 	threadChannel := fmt.Sprintf("thread#%d", thread.ID)
 

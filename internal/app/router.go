@@ -152,7 +152,7 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 
 	// external
 	userRepo := authExternal.NewUserRepo(db)
-	sessionRepo := authExternal.NewSessionRepo(redis, time.Duration(cfg.UserSession.TTL)*time.Minute)
+	sessionRepo := authExternal.NewSessionRepo(redis, time.Duration(int64(cfg.UserSession.TTL))*time.Minute)
 	sendCodeRepo := authExternal.NewSendCodeRepo(nts)
 	verifyCodeRepo := authExternal.NewVerifyCodeRepo(redis, time.Duration(cfg.VerifyCode.TTL)*time.Minute)
 	attemptSendCodeRepo := authExternal.NewAttemptSendCodeRedisRepo(redis, cfg.AttemptsResend.ResendTTL)
