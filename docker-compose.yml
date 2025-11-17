@@ -3,8 +3,8 @@ services:
     image: redis:alpine
     container_name: VibeRedis
     restart: always
-    ports:
-      - "${REDIS_HOST}:${REDIS_PORT}:6379"
+    #ports:
+    #  - "${REDIS_HOST}:${REDIS_PORT}:6379"
     environment:
       - REDIS_DATABASE=0
       - REDIS_PASSWORD=${REDIS_PASSWORD}
@@ -26,8 +26,8 @@ services:
       POSTGRES_PASSWORD: ${PSQL_PASSWORD}
       POSTGRES_DB: ${PSQL_DB_NAME}
       POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=scram-sha-256
-    ports:
-      - "${PSQL_PORT}:5432"
+    #ports:
+    #  - "${PSQL_PORT}:5432"
     command:
       - "postgres"
       - "-c"
@@ -81,7 +81,7 @@ services:
     container_name: VibeNats
     restart: unless-stopped
     ports:
-      - "${NATS_CLIENT_PORT}:4222" # клиентские подключения
+    #  - "${NATS_CLIENT_PORT}:4222" # клиентские подключения
       - "${NATS_MONITORING_PORT}:8222" # веб-мониторинг
       # - "${NATS_CLUSTER_PORT}:6222"  # раскомментировать, если нужен кластер
     command: [ "${NATS_SERVER_ARGS}" ]
@@ -100,8 +100,8 @@ services:
     container_name: VibeLiveKit
     restart: unless-stopped
     ports:
-      - "${LIVEKIT_WS_PORT}:7880"
-      - "${LIVEKIT_API_PORT}:7881" # LiveKit HTTP API
+    #  - "${LIVEKIT_WS_PORT}:7880"
+    #  - "${LIVEKIT_API_PORT}:7881" # LiveKit HTTP API
     # - "3478:3478/udp" # TURN -> We use External
       - "${LIVEKIT_WEBRTC_START_PORT}-${LIVEKIT_WEBRTC_END_PORT}:${LIVEKIT_WEBRTC_START_PORT}-${LIVEKIT_WEBRTC_END_PORT}/udp" # for Web-RTC Connections
     environment:
@@ -128,7 +128,7 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     ports:
-      - "${MINIO_API_PORT}:9000" # S3 API
+    #  - "${MINIO_API_PORT}:9000" # S3 API
       - "${MINIO_CONSOLE_PORT}:9001" # Web Console
     volumes:
       - minio_data:/data
@@ -145,8 +145,8 @@ services:
     image: centrifugo/centrifugo:v5
     container_name: VibeCentrifugo
     restart: unless-stopped
-    ports:
-      - "${CENTRIFUGO_WS_PORT}:8000"
+    #ports:
+    #  - "${CENTRIFUGO_WS_PORT}:8000"
     command: centrifugo --config=/config/centrifugo.json
     volumes:
       - ./config/centrifugo.json:/config/centrifugo.json
@@ -160,8 +160,8 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: VibeAPI
-    ports:
-      - "${API_PORT}:8080"
+    #ports:
+    #  - "${API_PORT}:8080"
     volumes:
       - .:/app
       - ./config:/app/config
