@@ -185,7 +185,7 @@ func apiRouter(cfg *config.Config, db *gorm.DB, redis *redis.Client, nts *nats.C
 	InviteLinkRepo := threadExternal.NewInviteLinkRepo(db)
 
 	// ===================== Spool =====================
-	spoolFileRepo := fileExternal.NewFileRepo(minio, "uploads")
+	spoolFileRepo := fileExternal.NewFileRepo(minio, "spools")
 	spoolFileUC := fileUsecase.NewFileUsecase(spoolFileRepo, logger)
 	spoolFileHandler := fileDeliveryHTTP.NewFileHandler(spoolFileUC, logger)
 	spoolFileHandler.Routes(r)
