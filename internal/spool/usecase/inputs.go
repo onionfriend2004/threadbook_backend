@@ -12,6 +12,14 @@ type CreateSpoolInput struct {
 	BannerInput *BannerInput
 }
 
+// ---------- UpdateSpool ----------
+type UpdateSpoolInput struct {
+	UserID      uint
+	SpoolID     uint
+	Name        string
+	BannerInput *BannerInput
+}
+
 type BannerInput struct {
 	File        io.Reader
 	Size        int64
@@ -30,14 +38,6 @@ type InviteMemberInSpoolInput struct {
 	Username        string
 	SpoolID         uint
 	MemberUsernames []string
-}
-
-// ---------- UpdateSpool ----------
-type UpdateSpoolInput struct {
-	UserID     uint
-	SpoolID    uint
-	Name       string
-	BannerLink string
 }
 
 // ---------- LeaveFromSpool ----------

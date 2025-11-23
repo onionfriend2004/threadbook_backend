@@ -12,4 +12,6 @@ var (
 	ErrFailedToInvite      = errors.New("failed to invite member to spool")
 	ErrFailedToGetMembers  = errors.New("failed to get spool members")
 	ErrFailedToGetSpool    = errors.New("failed to get spool info")
+	ErrSpoolNotFound       = errors.New("spool not found")
+	ErrNoAccessToSpool     = errors.New("no access to spool")
 )

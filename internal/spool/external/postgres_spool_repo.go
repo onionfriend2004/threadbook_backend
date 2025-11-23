@@ -55,19 +55,6 @@ func (r *spoolRepo) UserExistsByID(ctx context.Context, userID uint) (bool, erro
 
 // Создание Spool + связь с владельцем
 func (r *spoolRepo) CreateSpool(ctx context.Context, spool *gdomain.Spool, ownerID uint) (*gdomain.Spool, error) {
-	// if spool.Name == "" {
-	// 	return nil, ErrInvalidSpool
-	// }
-
-	// // Проверяем, существует ли владелец
-	// exists, err := r.UserExistsByID(ctx, ownerID)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// if !exists {
-	// 	return nil, ErrUserNotFound
-	// }
-
 	tx := r.db.WithContext(ctx).Begin()
 
 	if err := tx.Create(spool).Error; err != nil {
@@ -104,21 +91,38 @@ func (r *spoolRepo) GetSpoolByID(ctx context.Context, spoolID uint) (*gdomain.Sp
 }
 
 func (r *spoolRepo) UpdateSpool(ctx context.Context, spoolID uint, name, bannerLink string) (*gdomain.Spool, error) {
+	tx := r.db.WithContext(ctx).Begin()
+	if tx.Error != nil {
+		return nil, tx.Error
+	}
+
 	var spool gdomain.Spool
-	if err := r.db.WithContext(ctx).First(&spool, spoolID).Error; err != nil {
+	if err := tx.First(&spool, spoolID).Error; err != nil {
+		tx.Rollback()
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
 		return nil, err
 	}
 
 	if name != "" {
 		spool.Name = name
 	}
-	if bannerLink != "" {
-		spool.BannerLink = bannerLink
-	}
 
-	if err := r.db.WithContext(ctx).Save(&spool).Error; err != nil {
+	spool.BannerLink = bannerLink
+
+	if err := tx.Save(&spool).Error; err != nil {
+		tx.Rollback()
+		if isUniqueViolation(err) {
+			return nil, ErrSpoolExists
+		}
 		return nil, err
 	}
+
+	if err := tx.Commit().Error; err != nil {
+		return nil, err
+	}
+
 	return &spool, nil
 }
 

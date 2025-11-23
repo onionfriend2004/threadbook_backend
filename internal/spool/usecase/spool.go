@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"log"
 	"strconv"
 
 	"github.com/onionfriend2004/threadbook_backend/internal/file/usecase"
@@ -116,6 +117,96 @@ func (u *spoolUsecase) CreateSpool(ctx context.Context, input CreateSpoolInput) 
 	return createdSpool, nil
 }
 
+// ---------- Update ----------
+func (u *spoolUsecase) UpdateSpool(ctx context.Context, input UpdateSpoolInput) (*gdomain.Spool, error) {
+	current, err := u.spoolRepo.GetSpoolByID(ctx, input.SpoolID)
+	if err != nil || current == nil {
+		return nil, ErrSpoolNotFound
+	}
+	log.Print(input)
+	userStatus, err := u.spoolRepo.GetUserSpoolStatus(ctx, input.UserID, input.SpoolID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Проверяем уровень доступа
+	if userStatus.AccessLevel < 3 { // 3 — полный доступ (можно менять спул)
+		return nil, ErrNoAccessToSpool
+	}
+
+	var newBannerLink string
+	var newBannerUploaded bool
+
+	if input.BannerInput != nil {
+		fileInput := usecase.SaveFile{
+			File:        input.BannerInput.File,
+			Size:        input.BannerInput.Size,
+			Filename:    input.BannerInput.Filename,
+			ContentType: input.BannerInput.ContentType,
+			UserID:      strconv.FormatUint(uint64(current.CreatorID), 10),
+			FileType:    "spool_banner",
+		}
+
+		var saveErr error
+		newBannerLink, saveErr = u.fileUC.SaveFile(ctx, fileInput)
+		if saveErr != nil {
+			return nil, ErrFailedToSaveBanner
+		}
+		newBannerUploaded = true
+
+		defer func(link string, uploaded bool) {
+			if uploaded == false && link != "" {
+				if delErr := u.fileUC.DeleteFile(ctx, usecase.DeleteFileInput{Filename: link}); delErr != nil {
+					u.logger.Error("failed to cleanup new banner after error",
+						zap.Error(delErr),
+						zap.String("banner_link", link),
+					)
+				}
+			}
+		}(newBannerLink, newBannerUploaded)
+	}
+
+	updatedSpool, err := u.spoolRepo.UpdateSpool(ctx, current.ID, input.Name, newBannerLink)
+	if err != nil {
+		return nil, ErrInvalidInput
+	}
+
+	var result *gdomain.Spool
+
+	err = u.spoolRepo.WithTx(ctx, func(txCtx context.Context) error {
+		var txErr error
+		result, txErr = u.spoolRepo.UpdateSpool(
+			txCtx,
+			input.SpoolID,
+			updatedSpool.Name,
+			updatedSpool.BannerLink,
+		)
+		return txErr
+	})
+
+	if err != nil {
+		u.logger.Error("failed to update spool", zap.Error(err))
+		return nil, ErrFailedToUpdateSpool
+	}
+
+	if newBannerUploaded && current.BannerLink != "" {
+		if delErr := u.fileUC.DeleteFile(ctx, usecase.DeleteFileInput{Filename: current.BannerLink}); delErr != nil {
+			u.logger.Error("failed to delete old banner",
+				zap.Error(delErr),
+				zap.String("old_banner", current.BannerLink),
+			)
+		}
+	}
+
+	u.logger.Info("spool updated successfully",
+		zap.Uint("spool_id", result.ID),
+		zap.String("spool_name", result.Name),
+		zap.Bool("banner_updated", newBannerUploaded),
+	)
+
+	return result, nil
+}
+
 // ---------- Leave ----------
 func (u *spoolUsecase) LeaveFromSpool(ctx context.Context, input LeaveFromSpoolInput) error {
 	if input.UserID == 0 || input.SpoolID == 0 {
@@ -191,20 +282,6 @@ func (u *spoolUsecase) InviteMemberInSpool(ctx context.Context, input InviteMemb
 		}
 	}
 	return nil
-}
-
-// ---------- Update ----------
-func (u *spoolUsecase) UpdateSpool(ctx context.Context, input UpdateSpoolInput) (*gdomain.Spool, error) {
-	if input.SpoolID == 0 {
-		return nil, ErrInvalidInput
-	}
-
-	updated, err := u.spoolRepo.UpdateSpool(ctx, input.SpoolID, input.Name, input.BannerLink)
-	if err != nil {
-		u.logger.Error("failed to update spool", zap.Error(err))
-		return nil, ErrFailedToUpdateSpool
-	}
-	return updated, nil
 }
 
 // ---------- Get members ----------
