@@ -96,7 +96,7 @@ services:
       retries: 3
 
   livekit:
-    image: livekit/livekit-server:latest
+    image: livekit/livekit-server:v1.12.4
     container_name: VibeLiveKit
     restart: unless-stopped
     ports:
