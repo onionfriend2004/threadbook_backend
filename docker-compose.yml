@@ -102,7 +102,7 @@ services:
     ports:
     #  - "${LIVEKIT_WS_PORT}:7880"
     #  - "${LIVEKIT_API_PORT}:7881" # LiveKit HTTP API
-      - "3478:3478/udp" # TURN
+    #  - "3478:3478/udp" # TURN
       - "5349:5349/udp" # TURN TLS
       - "${LIVEKIT_WEBRTC_START_PORT}-${LIVEKIT_WEBRTC_END_PORT}:${LIVEKIT_WEBRTC_START_PORT}-${LIVEKIT_WEBRTC_END_PORT}/udp" # for Web-RTC Connections
     environment:
