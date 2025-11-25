@@ -103,7 +103,7 @@ services:
     #  - "${LIVEKIT_WS_PORT}:7880"
     #  - "${LIVEKIT_API_PORT}:7881" # LiveKit HTTP API
     #  - "3478:3478/udp" # TURN
-      - "5349:5349/udp" # TURN TLS
+      - "5349:5349" # TURN TLS
       - "30000-30010:30000-30010/udp"  # for TURN Relays TODO в конфиг, но вообще этот костыль должен в coturn переехать
       - "${LIVEKIT_WEBRTC_START_PORT}-${LIVEKIT_WEBRTC_END_PORT}:${LIVEKIT_WEBRTC_START_PORT}-${LIVEKIT_WEBRTC_END_PORT}/udp" # for Web-RTC Connections
     environment:
