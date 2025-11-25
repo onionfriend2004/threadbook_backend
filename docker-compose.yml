@@ -102,7 +102,8 @@ services:
     ports:
     #  - "${LIVEKIT_WS_PORT}:7880"
     #  - "${LIVEKIT_API_PORT}:7881" # LiveKit HTTP API
-    # - "3478:3478/udp" # TURN -> We use External
+      - "3478:3478/udp" # TURN
+      - "5349:5349/udp" # TURN TLS
       - "${LIVEKIT_WEBRTC_START_PORT}-${LIVEKIT_WEBRTC_END_PORT}:${LIVEKIT_WEBRTC_START_PORT}-${LIVEKIT_WEBRTC_END_PORT}/udp" # for Web-RTC Connections
     environment:
       LIVEKIT_KEYS: "${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}"
@@ -115,7 +116,7 @@ services:
     networks:
       - vibecode_network
     healthcheck:
-      test: [ "CMD", "livekit-cli", "health", "--url", "localhost:7880" ]
+      test: [ "CMD", "livekit-cli", "health", "--url", "livekit:7880" ]
       interval: 10s
       timeout: 5s
       retries: 3
