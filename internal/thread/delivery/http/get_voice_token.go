@@ -43,7 +43,7 @@ func (h *ThreadHandler) GetVoiceToken(w http.ResponseWriter, r *http.Request) {
 		ThreadID: threadID,
 	}
 
-	token, err := h.roomUsecase.GetVoiceToken(ctx, input)
+	tokenOutput, err := h.roomUsecase.GetVoiceToken(ctx, input)
 	if err != nil {
 		code, clientErr := apperrors.GetErrAndCodeToSend(err)
 		h.logger.Error("failed to generate voice token", zap.Error(err))
@@ -52,7 +52,11 @@ func (h *ThreadHandler) GetVoiceToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := dto.GetVoiceTokenResponse{
-		Token: token,
+		Token:    tokenOutput.Token,
+		TurnURLs: tokenOutput.TurnURLs,
+		TurnUser: tokenOutput.TurnUser,
+		TurnPass: tokenOutput.TurnPass,
+		TurnTTL:  tokenOutput.TurnTTL,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
