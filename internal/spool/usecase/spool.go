@@ -3,8 +3,8 @@ package usecase
 import (
 	"context"
 	"fmt"
-	"log"
 	"strconv"
+	"time"
 
 	"github.com/onionfriend2004/threadbook_backend/internal/file/usecase"
 	"github.com/onionfriend2004/threadbook_backend/internal/gdomain"
@@ -117,25 +117,24 @@ func (u *spoolUsecase) CreateSpool(ctx context.Context, input CreateSpoolInput) 
 	return createdSpool, nil
 }
 
-// ---------- Update ----------
 func (u *spoolUsecase) UpdateSpool(ctx context.Context, input UpdateSpoolInput) (*gdomain.Spool, error) {
 	current, err := u.spoolRepo.GetSpoolByID(ctx, input.SpoolID)
 	if err != nil || current == nil {
 		return nil, ErrSpoolNotFound
 	}
-	log.Print(input)
+
 	userStatus, err := u.spoolRepo.GetUserSpoolStatus(ctx, input.UserID, input.SpoolID)
 	if err != nil {
 		return nil, err
 	}
-
-	// Проверяем уровень доступа
-	if userStatus.AccessLevel < 3 { // 3 — полный доступ (можно менять спул)
+	if userStatus.AccessLevel < 3 {
 		return nil, ErrNoAccessToSpool
 	}
 
-	var newBannerLink string
-	var newBannerUploaded bool
+	var (
+		newBannerLink string
+		newUploaded   bool
+	)
 
 	if input.BannerInput != nil {
 		fileInput := usecase.SaveFile{
@@ -152,34 +151,32 @@ func (u *spoolUsecase) UpdateSpool(ctx context.Context, input UpdateSpoolInput) 
 		if saveErr != nil {
 			return nil, ErrFailedToSaveBanner
 		}
-		newBannerUploaded = true
+		newUploaded = true
+	}
 
-		defer func(link string, uploaded bool) {
-			if uploaded == false && link != "" {
-				if delErr := u.fileUC.DeleteFile(ctx, usecase.DeleteFileInput{Filename: link}); delErr != nil {
-					u.logger.Error("failed to cleanup new banner after error",
-						zap.Error(delErr),
-						zap.String("banner_link", link),
-					)
-				}
+	defer func(link string, uploaded bool) {
+		if uploaded && link != "" {
+			if recovered := recover(); recovered != nil {
+				u.fileUC.DeleteFile(ctx, usecase.DeleteFileInput{Filename: link})
+				panic(recovered)
 			}
-		}(newBannerLink, newBannerUploaded)
-	}
-
-	updatedSpool, err := u.spoolRepo.UpdateSpool(ctx, current.ID, input.Name, newBannerLink)
-	if err != nil {
-		return nil, ErrInvalidInput
-	}
+		}
+	}(newBannerLink, newUploaded)
 
 	var result *gdomain.Spool
 
 	err = u.spoolRepo.WithTx(ctx, func(txCtx context.Context) error {
+		bannerToSave := current.BannerLink
+		if newUploaded {
+			bannerToSave = newBannerLink
+		}
+
 		var txErr error
 		result, txErr = u.spoolRepo.UpdateSpool(
 			txCtx,
 			input.SpoolID,
-			updatedSpool.Name,
-			updatedSpool.BannerLink,
+			input.Name,
+			bannerToSave,
 		)
 		return txErr
 	})
@@ -189,8 +186,10 @@ func (u *spoolUsecase) UpdateSpool(ctx context.Context, input UpdateSpoolInput) 
 		return nil, ErrFailedToUpdateSpool
 	}
 
-	if newBannerUploaded && current.BannerLink != "" {
-		if delErr := u.fileUC.DeleteFile(ctx, usecase.DeleteFileInput{Filename: current.BannerLink}); delErr != nil {
+	if newUploaded && current.BannerLink != "" {
+		if delErr := u.fileUC.DeleteFile(ctx, usecase.DeleteFileInput{
+			Filename: current.BannerLink,
+		}); delErr != nil {
 			u.logger.Error("failed to delete old banner",
 				zap.Error(delErr),
 				zap.String("old_banner", current.BannerLink),
@@ -201,8 +200,36 @@ func (u *spoolUsecase) UpdateSpool(ctx context.Context, input UpdateSpoolInput) 
 	u.logger.Info("spool updated successfully",
 		zap.Uint("spool_id", result.ID),
 		zap.String("spool_name", result.Name),
-		zap.Bool("banner_updated", newBannerUploaded),
+		zap.Bool("banner_updated", newUploaded),
 	)
+
+	members, err := u.spoolRepo.GetMembersBySpoolID(ctx, result.ID)
+	if err != nil {
+		u.logger.Error("failed to get spool members",
+			zap.Uint("spool_id", result.ID),
+			zap.Error(err),
+		)
+	} else {
+		payload := event.SpoolUpdatedPayload{
+			SpoolID:    result.ID,
+			BannerLink: result.BannerLink,
+			Name:       result.Name,
+			UpdatedAt:  time.Now().Unix(),
+		}
+
+		for _, member := range members {
+			if err := u.wsRepo.PublishToUser(ctx, member.ID, event.Event{
+				Type:    event.SpoolUpdated,
+				Payload: payload,
+			}); err != nil {
+				u.logger.Warn("failed to publish SpoolUpdated event",
+					zap.Uint("userID", member.ID),
+					zap.Uint("spoolID", result.ID),
+					zap.Error(err),
+				)
+			}
+		}
+	}
 
 	return result, nil
 }
@@ -253,34 +280,60 @@ func (u *spoolUsecase) InviteMemberInSpool(ctx context.Context, input InviteMemb
 		return ErrInvalidInput
 	}
 
+	spool, err := u.spoolRepo.GetSpoolByID(ctx, input.SpoolID)
+	if err != nil || spool == nil {
+		u.logger.Error("failed to get spool",
+			zap.Uint("spool_id", input.SpoolID),
+			zap.Error(err),
+		)
+		return ErrInternal
+	}
+
 	for _, username := range input.MemberUsernames {
 		if username == "" {
 			continue
 		}
+
+		// 1. Добавляем участника
 		if err := u.spoolRepo.AddUserToSpoolByUsername(ctx, username, input.SpoolID); err != nil {
-			u.logger.Error("failed to add user to spool", zap.String("username", username), zap.Error(err))
+			u.logger.Error("failed to add user to spool",
+				zap.String("username", username),
+				zap.Error(err),
+			)
 			return ErrFailedToInvite
 		}
+	}
 
-		spool, err := u.spoolRepo.GetSpoolByID(ctx, input.SpoolID)
-		if err != nil {
-			u.logger.Error("failed to get spool", zap.Uint("spool_id", input.SpoolID), zap.Error(err))
-			return ErrInternal
-		}
+	// 2. Загружаем всех участников спула
+	members, err := u.spoolRepo.GetMembersBySpoolID(ctx, input.SpoolID)
+	if err != nil {
+		u.logger.Error("failed to get spool members",
+			zap.Uint("spool_id", input.SpoolID),
+			zap.Error(err),
+		)
+		return ErrInternal
+	}
 
-		payload := event.SpoolInvitedPayload{
-			SpoolID:    spool.ID,
-			BannerLink: spool.BannerLink,
-			Name:       spool.Name,
-		}
+	// 3. Готовим payload
+	payload := event.SpoolInvitedPayload{
+		SpoolID:    spool.ID,
+		BannerLink: spool.BannerLink,
+		Name:       spool.Name,
+	}
 
-		if err := u.wsRepo.PublishToUser(ctx, input.UserID, event.Event{
-			Type:    event.ThreadInvited,
+	// 4. Широковещательная отправка ВСЕМ участникам
+	for _, member := range members {
+		if err := u.wsRepo.PublishToUser(ctx, member.ID, event.Event{
+			Type:    event.SpoolInvited,
 			Payload: payload,
 		}); err != nil {
-			u.logger.Warn("failed to publish ThreadInvited event", zap.Uint("userID", input.UserID), zap.Error(err))
+			u.logger.Warn("failed to publish SpoolInvited event",
+				zap.Uint("userID", member.ID),
+				zap.Error(err),
+			)
 		}
 	}
+
 	return nil
 }
 
