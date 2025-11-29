@@ -72,8 +72,9 @@ func (c *emailConsumer) Start(ctx context.Context) error {
 	sub, err := c.js.Subscribe(c.subject, c.handleMessage,
 		nats.Durable(c.consumer),
 		nats.ManualAck(),
-		nats.DeliverAll(),
-		nats.AckWait(30*time.Second),
+		nats.DeliverNew(),
+		nats.AckWait(60*time.Second),
+		nats.MaxDeliver(3),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to subscribe to JetStream: %w", err)
@@ -141,6 +142,10 @@ func (c *emailConsumer) handleMessage(msg *nats.Msg) {
 	}
 
 	if err := msg.Ack(); err != nil {
-		c.logger.Error("failed to ack message", zap.Error(err))
+		c.logger.Warn("Failed to ack message — terminating to prevent redelivery",
+			zap.String("subject", msg.Subject),
+			zap.String("email", eventBody.Email),
+			zap.Error(err))
+		msg.Term()
 	}
 }
