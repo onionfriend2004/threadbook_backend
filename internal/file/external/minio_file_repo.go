@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"path/filepath"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/minio/minio-go/v7"
@@ -88,6 +89,29 @@ func (r *FileRepo) DeleteFile(ctx context.Context, filename string) error {
 		return fmt.Errorf("%s: %w", ErrRemoveObject, err)
 	}
 	return nil
+}
+
+func (r *FileRepo) GetFileWithMetadata(ctx context.Context, bucket, filename string) ([]byte, string, string, time.Time, error) {
+	obj, err := r.client.GetObject(ctx, bucket, filename, minio.GetObjectOptions{})
+	if err != nil {
+		return nil, "", "", time.Time{}, fmt.Errorf("%s: %w", ErrGetObject, err)
+	}
+	defer obj.Close()
+
+	buf := new(bytes.Buffer)
+	if _, err := io.Copy(buf, obj); err != nil {
+		return nil, "", "", time.Time{}, fmt.Errorf("%s: %w", ErrReadObject, err)
+	}
+
+	info, err := r.client.StatObject(ctx, bucket, filename, minio.StatObjectOptions{})
+	if err != nil {
+		return nil, "", "", time.Time{}, fmt.Errorf("%s: %w", ErrStatObject, err)
+	}
+
+	// MinIO возвращает ETag БЕЗ кавычек, в кавычки для HTTP
+	etag := fmt.Sprintf(`"%s"`, info.ETag)
+
+	return buf.Bytes(), info.ContentType, etag, info.LastModified, nil
 }
 
 func (r *FileRepo) GetBucketName() string {

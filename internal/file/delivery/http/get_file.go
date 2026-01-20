@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// Deprecated
 func (h *FileHandler) GetFile(w http.ResponseWriter, r *http.Request) {
 	filename := chi.URLParam(r, "filename")
 	filename, err := url.PathUnescape(filename)
@@ -47,6 +48,59 @@ func (h *FileHandler) GetFile(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", contentType)
 	w.WriteHeader(http.StatusOK)
+	if _, err := w.Write(data); err != nil {
+		h.logger.Warn("failed to write response", zap.Error(err))
+	}
+}
+
+func (h *FileHandler) GetFileWithETag(w http.ResponseWriter, r *http.Request) {
+	filename := chi.URLParam(r, "filename")
+	filename, err := url.PathUnescape(filename)
+	if err != nil {
+		lib.WriteError(w, "invalid file path", http.StatusBadRequest)
+		return
+	}
+
+	bucket := chi.URLParam(r, "bucket")
+	bucket, err = url.PathUnescape(bucket)
+	if err != nil {
+		lib.WriteError(w, "invalid file path", http.StatusBadRequest)
+		return
+	}
+
+	input := usecase.GetFileInput{Filename: filename, Bucket: bucket}
+	if input.Filename == "" || input.Bucket == "" {
+		lib.WriteError(w, "filename required", http.StatusBadRequest)
+		return
+	}
+
+	data, contentType, etag, _, err := h.usecase.GetFileWithMetadata(r.Context(), input)
+	if err != nil {
+		h.logger.Error("failed to get file", zap.Error(err))
+		switch err {
+		case usecase.ErrInvalidInput:
+			lib.WriteError(w, err.Error(), http.StatusBadRequest)
+		case usecase.ErrFileNotFound:
+			lib.WriteError(w, err.Error(), http.StatusNotFound)
+		default:
+			lib.WriteError(w, "internal server error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// If-None-Match
+	if match := r.Header.Get("If-None-Match"); match != "" {
+		if match == etag {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+	}
+
+	w.Header().Set("ETag", etag)
+	w.Header().Set("Cache-Control", "public, max-age=604800") // кешировать неделю с валидацией
+	w.Header().Set("Content-Type", contentType)
+	w.WriteHeader(http.StatusOK)
+
 	if _, err := w.Write(data); err != nil {
 		h.logger.Warn("failed to write response", zap.Error(err))
 	}
