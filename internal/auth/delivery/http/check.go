@@ -36,7 +36,7 @@ func (h *AuthHandler) CheckUsername(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) CheckEmail(w http.ResponseWriter, r *http.Request) {
 	req := validator.GetValidatedBody[dto.CheckEmailRequest](r)
 
-	isExist, err := h.usecase.CheckEmail(r.Context(), req.Email)
+	isExist, isValid, err := h.usecase.CheckEmail(r.Context(), req.Email)
 	if err != nil {
 		code, clientErr := apperrors.GetErrAndCodeToSend(err)
 		h.logger.Error("failed to register user", zap.Error(err))
@@ -44,8 +44,9 @@ func (h *AuthHandler) CheckEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := dto.IsExist{
-		IsExist: isExist,
+	resp := dto.IsExistWithValidFlag{
+		IsExist:      dto.IsExist{IsExist: isExist},
+		IsValidEmail: isValid,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
