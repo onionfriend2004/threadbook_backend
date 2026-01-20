@@ -1,14 +1,19 @@
 package gdomain
 
-import "time"
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
 
 type Message struct {
-	ID        uint      `gorm:"primaryKey;autoIncrement"`
-	ThreadID  uint      `gorm:"not null;index"` // связь с Thread
-	UserID    uint      `gorm:"not null;index"` // автор сообщения
-	Content   string    `gorm:"type:text;not null"`
-	CreatedAt time.Time `gorm:"autoCreateTime"`
-	UpdatedAt time.Time `gorm:"autoUpdateTime"`
+	ID        uint           `gorm:"primaryKey;autoIncrement"`
+	ThreadID  uint           `gorm:"not null;index"` // связь с Thread
+	UserID    uint           `gorm:"not null;index"` // автор сообщения
+	Content   string         `gorm:"type:text;not null"`
+	CreatedAt time.Time      `gorm:"autoCreateTime"`
+	UpdatedAt time.Time      `gorm:"autoUpdateTime"`
+	DeletedAt gorm.DeletedAt `gorm:"index"`
 
 	// связи
 	Thread   Thread           `gorm:"foreignKey:ThreadID;constraint:OnDelete:CASCADE"`

@@ -65,6 +65,8 @@ func (h *ThreadHandler) Routes(r chi.Router, authenticator auth.AuthenticatorInt
 
 				r.Get("/messages", h.GetMessages)
 				r.Post("/messages", h.SendMessage)
+				r.Put("/messages/{message_id}", h.UpdateMessage)
+				r.Delete("/messages/{message_id}", h.DeleteMessage)
 			})
 
 			r.Get("/invite-link/join/{invite_token}", h.JoinToThread)

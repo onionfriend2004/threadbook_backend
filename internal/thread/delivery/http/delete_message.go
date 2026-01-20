@@ -14,7 +14,7 @@ import (
 
 func (h *ThreadHandler) DeleteMessage(w http.ResponseWriter, r *http.Request) {
 	// Получаем thread_id
-	threadIDStr := chi.URLParam(r, "id")
+	threadIDStr := chi.URLParam(r, "thread_id")
 	threadID64, err := strconv.ParseUint(threadIDStr, 10, 64)
 	if err != nil {
 		lib.WriteError(w, "invalid thread id", lib.StatusBadRequest)
