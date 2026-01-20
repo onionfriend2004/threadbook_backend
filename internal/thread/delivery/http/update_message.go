@@ -50,6 +50,10 @@ func (h *ThreadHandler) UpdateMessage(w http.ResponseWriter, r *http.Request) {
 		UserID:    userID,
 		Content:   req.Content,
 	}
+	if input.Content == "" {
+		lib.WriteError(w, "Message content cannot be empty", http.StatusBadRequest)
+		return
+	}
 
 	msg, err := h.messageUsecase.UpdateMessage(r.Context(), input)
 	if err != nil {
