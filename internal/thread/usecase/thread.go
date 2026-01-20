@@ -116,7 +116,7 @@ func (u *ThreadUsecase) CreateThread(ctx context.Context, input CreateThreadInpu
 
 	// Для каждого участника создаём свой токен и рассылаем событие
 	for _, member := range members {
-		subToken, err := u.wsRepo.GenerateSubscribeToken(ctx, member.ID, threadChannel, u.tokenTTL)
+		subToken, err := u.wsRepo.GenerateSubscribeToken(ctx, member.ID, threadChannel)
 		if err != nil {
 			u.logger.Warn("failed to generate subscribe token", zap.Uint("userID", member.ID), zap.Error(err))
 			continue
@@ -254,7 +254,7 @@ func (u *ThreadUsecase) InviteToThread(ctx context.Context, input InviteToThread
 			continue // не блокируем остальных пользователей
 		}
 
-		subToken, err := u.wsRepo.GenerateSubscribeToken(ctx, user.ID, threadChannel, u.tokenTTL)
+		subToken, err := u.wsRepo.GenerateSubscribeToken(ctx, user.ID, threadChannel)
 		if err != nil {
 			u.logger.Warn("failed to generate subscribe token for invited user", zap.String("username", username), zap.Error(err))
 			continue

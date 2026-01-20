@@ -224,7 +224,7 @@ func (uc *MessageUsecase) GetUserOnlyTokens(ctx context.Context, userID uint) (C
 	}
 
 	userChannel := "user#" + fmt.Sprint(userID)
-	subToken, err := uc.wsRepo.GenerateSubscribeToken(ctx, userID, userChannel, uc.tokenTTL)
+	subToken, err := uc.wsRepo.GenerateSubscribeToken(ctx, userID, userChannel)
 	if err != nil {
 		return ConnectAndSubscribeTokens{}, err
 	}
@@ -402,7 +402,7 @@ func (uc *MessageUsecase) GetTokensBySpool(ctx context.Context, userID, spoolID 
 		return ConnectAndSubscribeTokens{}, err
 	}
 
-	userSub, err := uc.wsRepo.GenerateSubscribeToken(ctx, userID, userChannel, uc.tokenTTL)
+	userSub, err := uc.wsRepo.GenerateSubscribeToken(ctx, userID, userChannel)
 	if err != nil {
 		return ConnectAndSubscribeTokens{}, err
 	}
@@ -410,7 +410,7 @@ func (uc *MessageUsecase) GetTokensBySpool(ctx context.Context, userID, spoolID 
 
 	for _, id := range threads {
 		channel := "thread#" + fmt.Sprint(id.ID)
-		token, err := uc.wsRepo.GenerateSubscribeToken(ctx, userID, channel, uc.tokenTTL)
+		token, err := uc.wsRepo.GenerateSubscribeToken(ctx, userID, channel)
 		if err != nil {
 			uc.logger.Warn(ErrFailedToPublish.Error(),
 				zap.Uint("threadID", id.ID),

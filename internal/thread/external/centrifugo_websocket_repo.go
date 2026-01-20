@@ -82,12 +82,11 @@ func (r *websocketRepo) GenerateConnectToken(ctx context.Context, userID uint, t
 	return signed, nil
 }
 
-func (r *websocketRepo) GenerateSubscribeToken(ctx context.Context, userID uint, channel string, ttl time.Duration) (string, error) {
+func (r *websocketRepo) GenerateSubscribeToken(ctx context.Context, userID uint, channel string) (string, error) {
 	now := time.Now()
 	claims := jwt.MapClaims{
 		"sub":     fmt.Sprintf("%d", userID),
 		"channel": channel,
-		"exp":     now.Add(ttl).Unix(),
 		"iat":     now.Unix(),
 	}
 
