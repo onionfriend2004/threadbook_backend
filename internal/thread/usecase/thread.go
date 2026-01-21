@@ -337,6 +337,7 @@ func (u *ThreadUsecase) UpdateThread(ctx context.Context, input UpdateThreadInpu
 		// Подготавливаем payload события
 		payload := event.ThreadUpdatedPayload{
 			ThreadID:  updatedThread.ID,
+			SpoolID:   updatedThread.SpoolID,
 			Title:     updatedThread.Title,
 			UpdatedAt: updatedThread.UpdatedAt.Unix(),
 		}
