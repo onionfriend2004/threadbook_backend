@@ -189,9 +189,9 @@ func (uc *MessageUsecase) GetMessages(ctx context.Context, input GetMessagesInpu
 	if err != nil {
 		return nil, ErrThreadNotFound
 	}
-	if thread.IsClosed {
-		return nil, ErrThreadIsClosed
-	}
+	// if thread.IsClosed {
+	// 	return nil, ErrThreadIsClosed
+	// }
 	if thread.Type == gdomain.ThreadTypePrivate {
 		isMember, err := uc.threadRepo.IsUserThreadMember(ctx, input.UserID, thread.ID)
 		if err != nil {
