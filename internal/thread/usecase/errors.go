@@ -26,6 +26,7 @@ var (
 	ErrFailedToDeleteMsg        = errors.New("failed to delete message")
 	ErrFailedToSaveMessageFiles = errors.New("failed to save message files")
 	ErrFailedToRollbackFiles    = errors.New("failed to rollback uploaded files")
+	ErrMessageCannotBeEmpty     = errors.New("message cannot be empty")
 
 	ErrThreadClosed   = errors.New("thread is closed")
 	ErrSessionExpired = errors.New("session expired")

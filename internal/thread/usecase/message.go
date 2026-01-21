@@ -263,6 +263,7 @@ func (uc *MessageUsecase) UpdateMessage(ctx context.Context, input UpdateMessage
 			return nil, ErrThreadNotFound
 		}
 	}
+
 	// Получаем сообщение
 	msg, err := uc.msgRepo.GetByID(ctx, input.MessageID)
 	if err != nil {
@@ -279,8 +280,15 @@ func (uc *MessageUsecase) UpdateMessage(ctx context.Context, input UpdateMessage
 		return nil, ErrNoAccessToMessage
 	}
 
+	// Нельзя оставить сообщение полностью пустым
+	if input.Content == "" && len(msg.Payloads) == 0 {
+		return nil, ErrMessageCannotBeEmpty
+	}
+
 	// Обновляем контент
 	msg.Content = input.Content
+	msg.UpdatedAt = time.Now() // TODO: Ну тут ХЗ смотря как захотим время отображать
+
 	if err := uc.msgRepo.Update(ctx, msg); err != nil {
 		return nil, err
 	}

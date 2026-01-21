@@ -24,18 +24,19 @@ import (
 
 var errToCode = map[error]int{
 	// --- Общие ошибки запроса ---
-	lib.ErrInvalidRequestData:           http.StatusBadRequest,
-	gdomain.ErrInvalidUser:              http.StatusBadRequest,
-	gdomain.ErrEmptyName:                http.StatusBadRequest,
-	spoolUsecase.ErrInvalidInput:        http.StatusBadRequest,
-	threadUsecase.ErrInvalidInput:       http.StatusBadRequest,
-	spoolExternal.ErrInvalidSpool:       http.StatusBadRequest,
-	threadExternal.ErrInvalidThreadType: http.StatusBadRequest,
-	threadUsecase.ErrWrongTypeThread:    http.StatusBadRequest,
-	authUsecase.ErrInvalidInput:         http.StatusBadRequest,
-	authExternal.ErrInvalidSessionData:  http.StatusBadRequest,
-	authUsecase.ErrInvalidEmail:         http.StatusBadRequest,
-	authUsecase.ErrInvalidCredentials:   http.StatusBadRequest,
+	lib.ErrInvalidRequestData:             http.StatusBadRequest,
+	gdomain.ErrInvalidUser:                http.StatusBadRequest,
+	gdomain.ErrEmptyName:                  http.StatusBadRequest,
+	spoolUsecase.ErrInvalidInput:          http.StatusBadRequest,
+	threadUsecase.ErrInvalidInput:         http.StatusBadRequest,
+	threadUsecase.ErrMessageCannotBeEmpty: http.StatusBadRequest,
+	spoolExternal.ErrInvalidSpool:         http.StatusBadRequest,
+	threadExternal.ErrInvalidThreadType:   http.StatusBadRequest,
+	threadUsecase.ErrWrongTypeThread:      http.StatusBadRequest,
+	authUsecase.ErrInvalidInput:           http.StatusBadRequest,
+	authExternal.ErrInvalidSessionData:    http.StatusBadRequest,
+	authUsecase.ErrInvalidEmail:           http.StatusBadRequest,
+	authUsecase.ErrInvalidCredentials:     http.StatusBadRequest,
 
 	// --- Ошибки 401 Unauthorized ---
 	gdomain.ErrUnauthorized: http.StatusUnauthorized,
