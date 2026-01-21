@@ -60,13 +60,15 @@ type MessageDeletedPayload struct {
 // ---- Thread Events ----
 
 type ThreadCreatedPayload struct {
-	ThreadID  uint               `json:"id"`
-	SpoolID   uint               `json:"spool_id"`
-	Title     string             `json:"title"`
-	Type      gdomain.ThreadType `json:"type"`
-	CreatedAt int64              `json:"created_at"`
-	Channel   string             `json:"channel"`
-	Token     string             `json:"token"`
+	ThreadID    uint               `json:"id"`
+	SpoolID     uint               `json:"spool_id"`
+	Title       string             `json:"title"`
+	Type        gdomain.ThreadType `json:"type"`
+	AccessLevel uint               `json:"access_level"`
+	IsCreator   bool               `json:"is_creator"`
+	CreatedAt   int64              `json:"created_at"`
+	Channel     string             `json:"channel"`
+	Token       string             `json:"token"`
 }
 
 type ThreadUpdatedPayload struct {

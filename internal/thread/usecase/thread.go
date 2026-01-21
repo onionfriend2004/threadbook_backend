@@ -121,16 +121,17 @@ func (u *ThreadUsecase) CreateThread(ctx context.Context, input CreateThreadInpu
 			u.logger.Warn("failed to generate subscribe token", zap.Uint("userID", member.ID), zap.Error(err))
 			continue
 		}
-
 		eventPayload := event.ThreadCreatedPayload{
-			ThreadID: newThread.ID,
-			// SpoolID:   newThread.SpoolID,
-			Title:     newThread.Title,
-			Type:      newThread.Type,
-			CreatedAt: newThread.CreatedAt.Unix(),
-			Channel:   threadChannel,
-			Token:     subToken,
+			ThreadID:    newThread.ID,
+			Title:       newThread.Title,
+			Type:        newThread.Type,
+			AccessLevel: newThread.AccessLevel,
+			IsCreator:   member.ID == newThread.CreatorID,
+			CreatedAt:   newThread.CreatedAt.Unix(),
+			Channel:     threadChannel,
+			Token:       subToken,
 		}
+
 		if newThread.SpoolID != nil {
 			eventPayload.SpoolID = *newThread.SpoolID
 		}
