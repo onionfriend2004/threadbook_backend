@@ -414,34 +414,28 @@ func (u *authUsecase) CheckUsername(ctx context.Context, username string) (bool,
 }
 
 func (u *authUsecase) CheckEmail(ctx context.Context, email string) (bool, bool, error) {
-	// ЩАВЕЛЬ - НА...
-	if email == "" {
-		return false, true, ErrInvalidEmail
-	}
-	// Нормализуем по приколу
-	emailNormalized := gdomain.NormalizeEmail(email)
-	isValidEmail := true
-	// Валидация
-	emailParts := strings.Split(emailNormalized, "@")
-	if len(emailParts) != 2 {
-		return false, true, ErrInvalidEmail
-	}
-	localPart, domain := emailParts[0], emailParts[1]
-	if localPart == "" || domain == "" {
-		return false, true, ErrInvalidEmail
-	}
-	if !strings.Contains(domain, ".") {
-		return false, true, ErrInvalidEmail
+	isValid := false
+	var isExist bool
+
+	if email != "" {
+		emailNormalized := gdomain.NormalizeEmail(email)
+		parts := strings.Split(emailNormalized, "@")
+		if len(parts) == 2 {
+			local, domain := parts[0], parts[1]
+			if local != "" && domain != "" && strings.Contains(domain, ".") {
+				if _, err := net.LookupMX(domain); err == nil {
+					isValid = true
+					var dbErr error
+					isExist, dbErr = u.userRepo.ExistsByEmail(ctx, emailNormalized)
+					if dbErr != nil {
+						return false, false, dbErr
+					}
+				}
+			}
+		}
 	}
 
-	_, err := net.LookupMX(strings.Split(emailNormalized, "@")[1])
-	if err != nil {
-		return false, true, ErrInvalidEmail
-	}
-	// Чек на занятость, ЧПЕЕЕЕК
-	isExistEmail, err := u.userRepo.ExistsByEmail(ctx, emailNormalized)
-
-	return isExistEmail, isValidEmail, err
+	return isExist, isValid, nil
 }
 
 func (u *authUsecase) GetProfileByUserID(ctx context.Context, userID uint) (*gdomain.Profile, error) {
